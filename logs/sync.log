@@ -1,0 +1,969 @@
+2025-06-17 11:51:15,394 - sync_service - INFO - Starting sync service
+2025-06-17 11:51:15,398 - sync_service - INFO - Sync cycle started at 2025-06-17 08:51:15.398709
+2025-06-17 11:51:15,398 - sync_service - INFO - Starting master data sync
+2025-06-17 11:51:15,398 - sync_service - INFO - Starting master data sync
+2025-06-17 11:51:15,402 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 11:51:15,409 - sync_service - INFO - Starting inventory sync
+2025-06-17 11:51:15,410 - sync_service - INFO - Starting orders sync
+2025-06-17 11:51:15,920 - sync_service - ERROR - GraphQL query error: Error while fetching schema: [
+If you don't need the schema, you can try with: "fetch_schema_from_transport=False"
+2025-06-17 11:51:15,920 - sync_service - ERROR - Failed to get products from Shopify: Error while fetching schema: [
+If you don't need the schema, you can try with: "fetch_schema_from_transport=False"
+2025-06-17 11:51:15,920 - sync_service - ERROR - Product sync failed: Error while fetching schema: [
+If you don't need the schema, you can try with: "fetch_schema_from_transport=False"
+2025-06-17 11:51:15,920 - sync_service - INFO - Next sync cycle scheduled for 2025-06-17 09:51:15.398709
+2025-06-17 11:52:42,306 - sync_service - INFO - Starting sync service
+2025-06-17 11:52:42,316 - sync_service - INFO - Sync cycle started at 2025-06-17 08:52:42.316005
+2025-06-17 11:52:42,316 - sync_service - INFO - Starting master data sync
+2025-06-17 11:52:42,316 - sync_service - INFO - Starting master data sync
+2025-06-17 11:52:42,316 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 11:52:42,370 - sync_service - INFO - Starting inventory sync
+2025-06-17 11:52:42,372 - sync_service - INFO - Starting orders sync
+2025-06-17 11:52:42,734 - sync_service - ERROR - GraphQL query error: [
+2025-06-17 11:52:42,739 - sync_service - ERROR - Failed to get products from Shopify: [
+2025-06-17 11:52:42,739 - sync_service - ERROR - Product sync failed: [
+2025-06-17 11:52:42,739 - sync_service - INFO - Next sync cycle scheduled for 2025-06-17 09:52:42.316005
+2025-06-17 11:54:06,195 - sync_service - INFO - Starting sync service
+2025-06-17 11:54:06,196 - sync_service - INFO - Sync cycle started at 2025-06-17 08:54:06.196853
+2025-06-17 11:54:06,196 - sync_service - INFO - Starting master data sync
+2025-06-17 11:54:06,198 - sync_service - INFO - Starting master data sync
+2025-06-17 11:54:06,198 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 11:54:06,207 - sync_service - INFO - Starting inventory sync
+2025-06-17 11:54:06,209 - sync_service - INFO - Starting orders sync
+2025-06-17 11:54:06,581 - sync_service - ERROR - GraphQL query error: [
+GraphQL Errors: "[API] Invalid API key or access token (unrecognized login or wrong password)"
+2025-06-17 11:54:06,581 - sync_service - ERROR - Failed to get products from Shopify: GraphQL query error: [
+GraphQL Errors: "[API] Invalid API key or access token (unrecognized login or wrong password)"
+2025-06-17 11:54:06,581 - sync_service - ERROR - Product sync failed: GraphQL query error: [
+GraphQL Errors: "[API] Invalid API key or access token (unrecognized login or wrong password)"
+2025-06-17 11:54:06,581 - sync_service - INFO - Next sync cycle scheduled for 2025-06-17 09:54:06.196853
+2025-06-17 11:55:44,505 - sync_service - INFO - Starting sync service
+2025-06-17 11:55:44,505 - sync_service - INFO - Sync cycle started at 2025-06-17 08:55:44.505419
+2025-06-17 11:55:44,507 - sync_service - INFO - Starting master data sync
+2025-06-17 11:55:44,508 - sync_service - INFO - Starting master data sync
+2025-06-17 11:55:44,508 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 11:55:44,521 - sync_service - INFO - Starting inventory sync
+2025-06-17 11:55:44,525 - sync_service - INFO - Starting orders sync
+2025-06-17 11:55:45,091 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'products': {'pageInfo': {'hasNextPage': False, 'endCursor': 'eyJsYXN0X2lkIjo4NTIxODQ0MzkyMDkwLCJsYXN0X3ZhbHVlIjoiODUyMTg0NDM5MjA5MCJ9'}, 'edges': [{'node': {'id': 'gid://shopify/Product/8521844392090', 'title': 'NABB', 'handle': 'nabb', 'description': 'Not a Bean Bag', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45841365074074', 'sku': '', 'price': '1750.00', 'inventoryQuantity': 1}}]}}}]}}, 'status': 'success'}
+2025-06-17 11:55:45,093 - sync_service - INFO - Sync Event: {'sync_type': 'master_data_products', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-17 11:55:45,093 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 11:55:45,501 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'products': {'pageInfo': {'hasNextPage': False, 'endCursor': 'eyJsYXN0X2lkIjo4NTIxODQ0MzkyMDkwLCJsYXN0X3ZhbHVlIjoiODUyMTg0NDM5MjA5MCJ9'}, 'edges': [{'node': {'id': 'gid://shopify/Product/8521844392090', 'title': 'NABB', 'handle': 'nabb', 'description': 'Not a Bean Bag', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45841365074074', 'sku': '', 'price': '1750.00', 'inventoryQuantity': 1}}]}}}]}}, 'status': 'success'}
+2025-06-17 11:55:45,502 - sync_service - INFO - Sync Event: {'sync_type': 'master_data_variants', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-17 11:55:45,503 - sync_service - INFO - Master data sync completed
+2025-06-17 11:55:45,503 - sync_service - INFO - Next sync cycle scheduled for 2025-06-17 09:55:44.505419
+2025-06-17 15:17:49,805 - sync_service - INFO - Sync cycle started at 2025-06-17 12:17:49.805080
+2025-06-17 15:17:49,825 - sync_service - INFO - Starting master data sync
+2025-06-17 15:17:49,829 - sync_service - INFO - Starting master data sync
+2025-06-17 15:17:49,831 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 15:17:49,853 - sync_service - INFO - Starting inventory sync
+2025-06-17 15:17:49,855 - sync_service - INFO - Starting orders sync
+2025-06-17 15:17:50,261 - sync_service - ERROR - GraphQL query error: [
+GraphQL Errors: "[API] Invalid API key or access token (unrecognized login or wrong password)"
+2025-06-17 15:17:50,261 - sync_service - ERROR - Failed to get products from Shopify: GraphQL query error: [
+GraphQL Errors: "[API] Invalid API key or access token (unrecognized login or wrong password)"
+2025-06-17 15:17:50,263 - sync_service - ERROR - Product sync failed: GraphQL query error: [
+GraphQL Errors: "[API] Invalid API key or access token (unrecognized login or wrong password)"
+2025-06-17 15:17:50,265 - sync_service - INFO - Next sync cycle scheduled for 2025-06-17 13:17:49.805080
+2025-06-17 15:19:28,736 - sync_service - INFO - Sync cycle started at 2025-06-17 12:19:28.736263
+2025-06-17 15:19:28,751 - sync_service - INFO - Starting master data sync
+2025-06-17 15:19:28,753 - sync_service - INFO - Starting master data sync
+2025-06-17 15:19:28,759 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 15:19:28,784 - sync_service - INFO - Starting inventory sync
+2025-06-17 15:19:28,787 - sync_service - INFO - Starting orders sync
+2025-06-17 15:19:29,263 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'products': {'pageInfo': {'hasNextPage': False, 'endCursor': 'eyJsYXN0X2lkIjo4NTIxODQ0MzkyMDkwLCJsYXN0X3ZhbHVlIjoiODUyMTg0NDM5MjA5MCJ9'}, 'edges': [{'node': {'id': 'gid://shopify/Product/8521844392090', 'title': 'NABB', 'handle': 'nabb', 'description': 'Not a Bean Bag', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45841365074074', 'sku': '', 'price': '1750.00', 'inventoryQuantity': 1}}]}}}]}}, 'status': 'success'}
+2025-06-17 15:19:29,263 - sync_service - INFO - Sync Event: {'sync_type': 'master_data_products', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-17 15:19:29,267 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-06-17 15:19:29,693 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'products': {'pageInfo': {'hasNextPage': False, 'endCursor': 'eyJsYXN0X2lkIjo4NTIxODQ0MzkyMDkwLCJsYXN0X3ZhbHVlIjoiODUyMTg0NDM5MjA5MCJ9'}, 'edges': [{'node': {'id': 'gid://shopify/Product/8521844392090', 'title': 'NABB', 'handle': 'nabb', 'description': 'Not a Bean Bag', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45841365074074', 'sku': '', 'price': '1750.00', 'inventoryQuantity': 1}}]}}}]}}, 'status': 'success'}
+2025-06-17 15:19:29,698 - sync_service - INFO - Sync Event: {'sync_type': 'master_data_variants', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-17 15:19:29,698 - sync_service - INFO - Master data sync completed
+2025-06-17 15:19:29,700 - sync_service - INFO - Next sync cycle scheduled for 2025-06-17 13:19:28.736263
+2025-06-30 15:11:58,071 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 15:11:58,789 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'failed', 'status_code': 404}, 'status': 'failure'}
+2025-06-30 15:11:58,833 - sync_service - ERROR - SAP login failed: 404 - <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL was not found on this server.</p>
+</body></html>
+
+2025-06-30 15:11:58,842 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 15:11:59,312 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'failed', 'status_code': 404}, 'status': 'failure'}
+2025-06-30 15:11:59,312 - sync_service - ERROR - SAP login failed: 404 - <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL was not found on this server.</p>
+</body></html>
+
+2025-06-30 15:11:59,316 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 15:11:59,791 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'failed', 'status_code': 404}, 'status': 'failure'}
+2025-06-30 15:11:59,793 - sync_service - ERROR - SAP login failed: 404 - <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL was not found on this server.</p>
+</body></html>
+
+2025-06-30 15:13:10,057 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 15:13:12,122 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 15:13:12,122 - sync_service - INFO - SAP login successful
+2025-06-30 15:13:12,122 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'Items', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/Items', 'data': None, 'params': {'$top': 5}}, 'response': None, 'status': None}
+2025-06-30 15:13:20,875 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'BusinessPartners', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/BusinessPartners', 'data': None, 'params': {}}, 'response': None, 'status': None}
+2025-06-30 15:13:28,409 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'Orders', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/Orders', 'data': None, 'params': {'$top': 5}}, 'response': None, 'status': None}
+2025-06-30 15:13:30,336 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 15:13:31,078 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'Items', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/Items', 'data': None, 'params': {'$filter': "ItemCode eq 'ITEM001'", '$top': 1}}, 'response': None, 'status': None}
+2025-06-30 15:13:31,588 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'Items', 'request': None, 'response': {'odata.metadata': 'https://sapgc.wisys.com.sa:50000/b1s/v1/$metadata#Items', 'value': []}, 'status': 'success'}
+2025-06-30 15:13:31,591 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'Items', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/Items', 'data': None, 'params': {'$orderby': 'ItemCode desc', '$top': 3}}, 'response': None, 'status': None}
+2025-06-30 15:41:47,682 - sync_service - INFO - Starting new items sync from SAP to Shopify
+2025-06-30 15:41:47,684 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 15:41:49,885 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 15:41:49,885 - sync_service - INFO - SAP login successful
+2025-06-30 15:41:49,893 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 15:41:51,381 - sync_service - INFO - Retrieved 1 new items from SAP
+2025-06-30 15:41:51,381 - sync_service - INFO - Processing SAP item: 10101010101010
+2025-06-30 15:41:51,382 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n            mutation productCreate($input: ProductInput!) {\n                productCreate(input: $input) {\n                    product {\n                        id\n                        title\n                        handle\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    inventoryItem {\n                                        id\n                                    }\n                                }\n                            }\n                        }\n                    }\n                    userErrors {\n                        field\n                        message\n                    }\n                }\n            }\n            ', 'variables': {'input': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'descriptionHtml': '', 'vendor': 'PROFESSIONAL HOT WATER BAG 2779', 'productType': 'Default', 'status': 'DRAFT', 'tags': ['Brand:PROFESSIONAL', 'U_Size:1', 'U_Attribute:BAG'], 'variants': [{'sku': '10101010101010', 'price': '0.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 0, 'locationId': 'gid://shopify/Location/1'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'description': ''}}}}, 'response': None, 'status': None}
+2025-06-30 15:41:52,719 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'productCreate': {'product': None, 'userErrors': [{'field': ['variants', '0', 'inventoryQuantities'], 'message': "The quantity couldn't be set because the location was deleted."}]}}, 'status': 'success'}
+2025-06-30 15:41:52,719 - sync_service - ERROR - Failed to create product in Shopify: The quantity couldn't be set because the location was deleted.
+2025-06-30 15:41:52,719 - sync_service - INFO - Sync Event: {'sync_type': 'new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-06-30 15:41:52,719 - sync_service - INFO - New items sync completed: 0 processed, 0 successful, 1 errors
+2025-06-30 15:42:19,041 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query {\n            locations(first: 10) {\n                edges {\n                    node {\n                        id\n                        name\n                        address {\n                            address1\n                            city\n                            country\n                        }\n                        isActive\n                    }\n                }\n            }\n        }\n        ', 'variables': None}, 'response': None, 'status': None}
+2025-06-30 15:42:19,636 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'locations': {'edges': [{'node': {'id': 'gid://shopify/Location/76913967258', 'name': 'Alexandria Warehouse', 'address': {'address1': 'Hatem Mosque', 'city': 'Sidi Gaber', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76072616090', 'name': 'Mivida Greens 6 (Parcel 22)', 'address': {'address1': 'Mivida Greens 6 (Parcel 22)', 'city': 'New Cairo 1', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76914000026', 'name': 'Mokattam Warehouse', 'address': {'address1': 'Mokattam', 'city': 'El Mokattam', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76914032794', 'name': 'Physical Warehouse', 'address': {'address1': 'bosta', 'city': 'Dar El Salam', 'country': 'Egypt'}, 'isActive': True}}]}}, 'status': 'success'}
+2025-06-30 15:42:56,594 - sync_service - INFO - Starting new items sync from SAP to Shopify
+2025-06-30 15:42:56,594 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 15:42:57,982 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 15:42:57,986 - sync_service - INFO - SAP login successful
+2025-06-30 15:42:57,989 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 15:42:59,790 - sync_service - INFO - Retrieved 1 new items from SAP
+2025-06-30 15:42:59,790 - sync_service - INFO - Processing SAP item: 10101010101010
+2025-06-30 15:42:59,792 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n            mutation productCreate($input: ProductInput!) {\n                productCreate(input: $input) {\n                    product {\n                        id\n                        title\n                        handle\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    inventoryItem {\n                                        id\n                                    }\n                                }\n                            }\n                        }\n                    }\n                    userErrors {\n                        field\n                        message\n                    }\n                }\n            }\n            ', 'variables': {'input': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'descriptionHtml': '', 'vendor': 'PROFESSIONAL HOT WATER BAG 2779', 'productType': 'Default', 'status': 'DRAFT', 'tags': ['Brand:PROFESSIONAL', 'U_Size:1', 'U_Attribute:BAG'], 'variants': [{'sku': '10101010101010', 'price': '0.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 0, 'locationId': 'gid://shopify/Location/76913967258'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'description': ''}}}}, 'response': None, 'status': None}
+2025-06-30 15:43:00,794 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/8542831149210', 'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'handle': 'professional-hot-watr-bag-27791111', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45902873198746', 'sku': '10101010101010', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/47875014099098'}}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-06-30 15:43:00,794 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "Items('10101010101010')", 'request': {'method': 'PATCH', 'url': "https://sapgc.wisys.com.sa:50000/b1s/v1/Items('10101010101010')", 'data': {'U_Main_SID': '8542831149210', 'U_Price_SID': '45902873198746', 'U_Extend_SID': '47875014099098', 'U_SyncDT': 1612643.25, 'U_SyncTime': 'SYNCED'}, 'params': None}, 'response': None, 'status': None}
+2025-06-30 15:43:02,728 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "Items('10101010101010')", 'request': None, 'response': {'status_code': 400, 'text': '{\n   "error" : {\n      "code" : -1,\n      "message" : {\n         "lang" : "en-us",\n         "value" : "16126403 is a bad date in property U_SyncDT"\n      }\n   }\n}\n'}, 'status': 'failure'}
+2025-06-30 15:43:02,728 - sync_service - ERROR - Failed to update SAP item 10101010101010: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "16126403 is a bad date in property U_SyncDT"
+      }
+   }
+}
+
+2025-06-30 15:43:02,731 - sync_service - ERROR - Failed to update SAP with Shopify ID: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "16126403 is a bad date in property U_SyncDT"
+      }
+   }
+}
+
+2025-06-30 15:43:02,732 - sync_service - INFO - Successfully synced item 10101010101010 to Shopify
+2025-06-30 15:43:03,251 - sync_service - INFO - Sync Event: {'sync_type': 'new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-30 15:43:03,253 - sync_service - INFO - New items sync completed: 1 processed, 1 successful, 0 errors
+2025-06-30 16:16:50,650 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-06-30 16:16:50,672 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query {\n            locations(first: 10) {\n                edges {\n                    node {\n                        id\n                        name\n                        address {\n                            address1\n                            city\n                            country\n                        }\n                        isActive\n                    }\n                }\n            }\n        }\n        ', 'variables': None}, 'response': None, 'status': None}
+2025-06-30 16:16:51,291 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'locations': {'edges': [{'node': {'id': 'gid://shopify/Location/76913967258', 'name': 'Alexandria Warehouse', 'address': {'address1': 'Hatem Mosque', 'city': 'Sidi Gaber', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76072616090', 'name': 'Mivida Greens 6 (Parcel 22)', 'address': {'address1': 'Mivida Greens 6 (Parcel 22)', 'city': 'New Cairo 1', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76914000026', 'name': 'Mokattam Warehouse', 'address': {'address1': 'Mokattam', 'city': 'El Mokattam', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76914032794', 'name': 'Physical Warehouse', 'address': {'address1': 'bosta', 'city': 'Dar El Salam', 'country': 'Egypt'}, 'isActive': True}}]}}, 'status': 'success'}
+2025-06-30 16:16:52,122 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 16:16:53,822 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 16:16:53,822 - sync_service - INFO - SAP login successful
+2025-06-30 16:16:53,822 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 16:17:23,806 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-06-30 16:17:23,806 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-06-30 16:17:23,822 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 16:17:25,185 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 16:17:25,186 - sync_service - INFO - SAP login successful
+2025-06-30 16:17:25,190 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 16:17:26,582 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': None, 'response': {'@odata.context': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/$metadata#NEW_ITEMS', 'value': [{'ItemCode': '10101010101010', 'ItemName': 'PROFESSIONAL HOT WATR BAG 27791111', 'FrgnName': 'بروفيشنال قربة ماء حار 2779', 'Price': 29.58, 'ReportCode': '729807766000157645', 'SerialType': 0, 'BatchType': 4, 'InvntItem': 'Y', 'BP_SID': '594556761000118648', 'DCS_SID': '616144142000124886', 'U_Text1': 'PROFESSIONAL HOT WATER BAG 2779', 'U_Text3': 'بروفيشنال قربة ماء حار 2779', 'U_Size': '1', 'U_Attribute': 'BAG', 'U_Color': None, 'U_Flavor': None, 'U_Count': None, 'U_PackSize': None, 'U_Concentration': None, 'U_TargetHairType': 'UPDATE', 'U_TargetSkinType': None, 'U_Scent': None, 'U_Productfunction': None, 'U_ProductIngredient': None, 'U_BRND': 'PROFESSIONAL', 'Barcode': '', 'id__': 1}]}, 'status': 'success'}
+2025-06-30 16:17:26,590 - sync_service - INFO - Retrieved 1 new items from SAP
+2025-06-30 16:17:26,593 - sync_service - INFO - Processing SAP item: 10101010101010
+2025-06-30 16:17:26,593 - sync_service - INFO - Creating product in store: Local Store
+2025-06-30 16:17:26,594 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 1) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'descriptionHtml': '', 'vendor': 'PROFESSIONAL HOT WATER BAG 2779', 'productType': 'Default', 'status': 'DRAFT', 'tags': ['Brand:PROFESSIONAL', 'U_Size:1', 'U_Attribute:BAG'], 'variants': [{'sku': '10101010101010', 'price': '0.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 0, 'locationId': 'gid://shopify/Location/76913967258'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'description': ''}}}}, 'response': None, 'status': None}
+2025-06-30 16:17:27,549 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/8542859952282', 'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'handle': 'professional-hot-watr-bag-27791111', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45902952595610', 'sku': '10101010101010', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/47875093659802'}}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-06-30 16:17:27,549 - sync_service - INFO - Successfully created product in store local
+2025-06-30 16:17:27,549 - sync_service - ERROR - Error updating SAP with Shopify IDs: 'data'
+2025-06-30 16:17:27,551 - sync_service - ERROR - Failed to update SAP with Shopify IDs: 'data'
+2025-06-30 16:17:27,552 - sync_service - INFO - Successfully synced item 10101010101010 to all stores
+2025-06-30 16:17:28,056 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-30 16:17:28,059 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-06-30 16:18:49,965 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-06-30 16:18:49,969 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-06-30 16:18:49,972 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 16:18:51,357 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 16:18:51,360 - sync_service - INFO - SAP login successful
+2025-06-30 16:18:51,362 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 16:18:52,840 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': None, 'response': {'@odata.context': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/$metadata#NEW_ITEMS', 'value': [{'ItemCode': '10101010101010', 'ItemName': 'PROFESSIONAL HOT WATR BAG 27791111', 'FrgnName': 'بروفيشنال قربة ماء حار 2779', 'Price': 29.58, 'ReportCode': '729807766000157645', 'SerialType': 0, 'BatchType': 4, 'InvntItem': 'Y', 'BP_SID': '594556761000118648', 'DCS_SID': '616144142000124886', 'U_Text1': 'PROFESSIONAL HOT WATER BAG 2779', 'U_Text3': 'بروفيشنال قربة ماء حار 2779', 'U_Size': '1', 'U_Attribute': 'BAG', 'U_Color': None, 'U_Flavor': None, 'U_Count': None, 'U_PackSize': None, 'U_Concentration': None, 'U_TargetHairType': 'UPDATE', 'U_TargetSkinType': None, 'U_Scent': None, 'U_Productfunction': None, 'U_ProductIngredient': None, 'U_BRND': 'PROFESSIONAL', 'Barcode': '', 'id__': 1}]}, 'status': 'success'}
+2025-06-30 16:18:52,856 - sync_service - INFO - Retrieved 1 new items from SAP
+2025-06-30 16:18:52,856 - sync_service - INFO - Processing SAP item: 10101010101010
+2025-06-30 16:18:52,856 - sync_service - INFO - Creating product in store: Local Store
+2025-06-30 16:18:52,856 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 1) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'descriptionHtml': '', 'vendor': 'PROFESSIONAL HOT WATER BAG 2779', 'productType': 'Default', 'status': 'DRAFT', 'tags': ['Brand:PROFESSIONAL', 'U_Size:1', 'U_Attribute:BAG'], 'variants': [{'sku': '10101010101010', 'price': '0.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 0, 'locationId': 'gid://shopify/Location/76913967258'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'description': ''}}}}, 'response': None, 'status': None}
+2025-06-30 16:18:53,998 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/8542860804250', 'title': 'PROFESSIONAL HOT WATR BAG 27791111', 'handle': 'professional-hot-watr-bag-27791111', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/45902953906330', 'sku': '10101010101010', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/47875094970522'}}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-06-30 16:18:53,998 - sync_service - INFO - Successfully created product in store local
+2025-06-30 16:18:53,998 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "Items('10101010101010')", 'request': {'method': 'PATCH', 'url': "https://sapgc.wisys.com.sa:50000/b1s/v1/Items('10101010101010')", 'data': {'U_SyncDT': '2025-06-30', 'U_SyncTime': 'SYNCED', 'U_LOCAL_SID': '8542860804250', 'U_LOCAL_VARIANT_SID': '45902953906330', 'U_LOCAL_INVENTORY_SID': '47875094970522'}, 'params': None}, 'response': None, 'status': None}
+2025-06-30 16:18:55,608 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "Items('10101010101010')", 'request': None, 'response': {'status_code': 400, 'text': '{\n   "error" : {\n      "code" : -1000,\n      "message" : {\n         "lang" : "en-us",\n         "value" : "Property \'U_LOCAL_INVENTORY_SID\' of \'Item\' is invalid"\n      }\n   }\n}\n'}, 'status': 'failure'}
+2025-06-30 16:18:55,611 - sync_service - ERROR - Failed to update SAP item 10101010101010: HTTP 400: {
+   "error" : {
+      "code" : -1000,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "Property 'U_LOCAL_INVENTORY_SID' of 'Item' is invalid"
+      }
+   }
+}
+
+2025-06-30 16:18:55,614 - sync_service - ERROR - Failed to update SAP with Shopify IDs: HTTP 400: {
+   "error" : {
+      "code" : -1000,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "Property 'U_LOCAL_INVENTORY_SID' of 'Item' is invalid"
+      }
+   }
+}
+
+2025-06-30 16:18:55,615 - sync_service - INFO - Successfully synced item 10101010101010 to all stores
+2025-06-30 16:18:56,134 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-06-30 16:18:56,134 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-06-30 16:55:11,248 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-06-30 16:55:11,263 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query {\n            locations(first: 10) {\n                edges {\n                    node {\n                        id\n                        name\n                        address {\n                            address1\n                            city\n                            country\n                        }\n                        isActive\n                    }\n                }\n            }\n        }\n        ', 'variables': None}, 'response': None, 'status': None}
+2025-06-30 16:55:11,919 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'locations': {'edges': [{'node': {'id': 'gid://shopify/Location/76913967258', 'name': 'Alexandria Warehouse', 'address': {'address1': 'Hatem Mosque', 'city': 'Sidi Gaber', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76072616090', 'name': 'Mivida Greens 6 (Parcel 22)', 'address': {'address1': 'Mivida Greens 6 (Parcel 22)', 'city': 'New Cairo 1', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76914000026', 'name': 'Mokattam Warehouse', 'address': {'address1': 'Mokattam', 'city': 'El Mokattam', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/76914032794', 'name': 'Physical Warehouse', 'address': {'address1': 'bosta', 'city': 'Dar El Salam', 'country': 'Egypt'}, 'isActive': True}}]}}, 'status': 'success'}
+2025-06-30 16:55:12,598 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'GREENS_TEST', 'user': 'RPRO'}, 'response': None, 'status': None}
+2025-06-30 16:55:14,167 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-06-30 16:55:14,169 - sync_service - INFO - SAP login successful
+2025-06-30 16:55:14,174 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': {'method': 'GET', 'url': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/NEW_ITEMS?$orderby=ItemCode', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-06-30 16:55:15,477 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'sml.svc/NEW_ITEMS?$orderby=ItemCode', 'request': None, 'response': {'@odata.context': 'https://sapgc.wisys.com.sa:50000/b1s/v1/sml.svc/$metadata#NEW_ITEMS', 'value': [{'ItemCode': '10101010101010', 'ItemName': 'PROFESSIONAL HOT WATR BAG 27791111', 'FrgnName': 'بروفيشنال قربة ماء حار 2779', 'Price': 29.58, 'ReportCode': '729807766000157645', 'SerialType': 0, 'BatchType': 4, 'InvntItem': 'Y', 'BP_SID': '594556761000118648', 'DCS_SID': '616144142000124886', 'U_Text1': 'PROFESSIONAL HOT WATER BAG 2779', 'U_Text3': 'بروفيشنال قربة ماء حار 2779', 'U_Size': '1', 'U_Attribute': 'BAG', 'U_Color': None, 'U_Flavor': None, 'U_Count': None, 'U_PackSize': None, 'U_Concentration': None, 'U_TargetHairType': 'UPDATE', 'U_TargetSkinType': None, 'U_Scent': None, 'U_Productfunction': None, 'U_ProductIngredient': None, 'U_BRND': 'PROFESSIONAL', 'Barcode': '', 'id__': 1}]}, 'status': 'success'}
+2025-07-02 14:57:18,178 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-02 14:57:18,180 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query {\n            locations(first: 10) {\n                edges {\n                    node {\n                        id\n                        name\n                        address {\n                            address1\n                            city\n                            country\n                        }\n                        isActive\n                    }\n                }\n            }\n        }\n        ', 'variables': None}, 'response': None, 'status': None}
+2025-07-02 14:57:19,213 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'locations': {'edges': [{'node': {'id': 'gid://shopify/Location/70074892354', 'name': '5A by The Waterway Store', 'address': {'address1': '5A by The Waterway Developments', 'city': 'New Cairo 1', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/70074957890', 'name': 'Arkan Store', 'address': {'address1': 'Arkan', 'city': 'First Al Sheikh Zayed', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/68605345858', 'name': 'Cairo', 'address': {'address1': '00', 'city': 'Cairo', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/70074990658', 'name': 'Zamalek Store', 'address': {'address1': 'Degla Center', 'city': 'Zamalek', 'country': 'Egypt'}, 'isActive': True}}]}}, 'status': 'success'}
+2025-07-02 14:57:19,221 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 10, 'after': None}}, 'response': None, 'status': None}
+2025-07-02 14:57:19,853 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'products': {'pageInfo': {'hasNextPage': True, 'endCursor': 'eyJsYXN0X2lkIjo3NDQyMDIyNjYyMjEwLCJsYXN0X3ZhbHVlIjoiNzQ0MjAyMjY2MjIxMCJ9'}, 'edges': [{'node': {'id': 'gid://shopify/Product/7442022170690', 'title': 'Sulla Luna Earrings', 'handle': 'sulla-luna-earrings', 'description': 'Inspired by ancient Etruscan art, the Sulla Luna earrings feature a fan with cut-out triangular spirals hung from a gold-plated ornamental hook. These lightweight earrings are a go-to everyday accessory.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146211394', 'sku': 'FG-0000075', 'price': '4800.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022203458', 'title': 'Sulla Luna Mix Earrings', 'handle': 'sulla-luna-mix-earrings', 'description': 'Inspired by ancient Etruscan art, the Sulla Luna Mix earrings feature a decorated silver hook and a gold-plated silver fan that suspends from it. The fan is an elegant sheet that presents cut-out triangular spirals. These lightweight earrings are a go-to pair.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146276930', 'sku': 'FG-0000077', 'price': '7300.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022301762', 'title': 'Lima Lima Bracelet', 'handle': 'lima-lima-bracelet', 'description': "The Lima Lima bracelet features silver and gold-plated irregular scales with cutout detailing to mimic the sea coral's irregular textures.", 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146342466', 'sku': 'FG-0000014', 'price': '6800.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022334530', 'title': 'Harmonia Hoop', 'handle': 'harmonia-hoop', 'description': 'The Harmonia Hoop features three hoops bonded at their top with a granulated silver hoop in the middle. On either side rest polished gold hoops that are irregularly shaped. Inspired by the duality of the journey of love, the Harmonia Hoops fuse texture and smoothness with mixed metals to show how opposing forces can come together in blissful harmony.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146408002', 'sku': 'FG-0000225', 'price': '8800.00', 'inventoryQuantity': 4}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022432834', 'title': 'Harmonia Cuff', 'handle': 'harmonia-cuff', 'description': 'Mixed metal cuff is hand-shaped to twist into a curved shape, where the two ends are mirrored, but never meet. The Harmonia Cuff, with a hinged back, features a granulated silver layer which is accentuated with a gold extension that presents fluid linear cut-outs.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146440770', 'sku': 'FG-0000280', 'price': '15000.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022498370', 'title': 'Medusa Bracelet', 'handle': 'medusa-bracelet', 'description': "The Medusa Bracelet decorates the wrist with its ornate spirals. Boasting a dramatic granulated texture that offsets the polished half of the bracelet. Merging tight and fluid curves and textural elements, the Medusa Bracelet is a spell-casting piece that represents the paradox of Medusa's journey.", 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146506306', 'sku': 'FG-0000287', 'price': '4300.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022531138', 'title': 'Hera Earrings', 'handle': 'hera-earrings', 'description': 'Channeling the power of feminine energy, the Hera Earrings form an irregular hoop that hangs into an asymmetrical shape, held proudly by a domed stud.The innermost layer is encrusted with a granulated surface that symbolizes charged energy which accents the polished surfaces, representing the duality of women as both powerful and gentle.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146539074', 'sku': 'FG-0000267', 'price': '4900.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022563906', 'title': 'Thea Necklace', 'handle': 'thea-necklace', 'description': 'Harnessing goddess energy, the Thea Necklace is formed with crescent scales attached together, accentuated with slender hand-crafted spirals that add an airiness to the structured scales. Including an adjustable chain and hook closure, the Thea Necklace can be worn as a statement or a stacked piece.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146571842', 'sku': 'FG-0000224', 'price': '6200.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022629442', 'title': 'Thalia Necklace', 'handle': 'thalia-necklace', 'description': 'A distinct hook brings the two contrasting halves together, forming an adjustable Y-shaped necklace with a dangling, uniquely shaped pearl. The Thalia Necklace, named after the Greek Muse of youth and beauty, rejoices in its own darling silhouette that joins smoothness, roughness, structure, fluidity, strength, and preciosity together.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146637378', 'sku': 'FG-0000223', 'price': '6200.00', 'inventoryQuantity': 0}}]}}}, {'node': {'id': 'gid://shopify/Product/7442022662210', 'title': 'Medusa Earrings', 'handle': 'medusa-earrings', 'description': 'The Medusa Earring is a slender silver spiral that traces the shape of the ear. Hung gracefully from the spiral is a medley of miniature, mismatched gold-plated charms engraved with spirals and irregular lines. Granules accentuate the spiral for a touch of edginess. These earrings are just as music is to the ears: an orchestra of shapes, fine details and playfulness.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146670146', 'sku': 'FG-0000344', 'price': '7500.00', 'inventoryQuantity': 0}}]}}}]}}, 'status': 'success'}
+2025-07-02 14:57:19,880 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 1, 'after': None}}, 'response': None, 'status': None}
+2025-07-02 14:57:20,626 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'products': {'pageInfo': {'hasNextPage': True, 'endCursor': 'eyJsYXN0X2lkIjo3NDQyMDIyMTcwNjkwLCJsYXN0X3ZhbHVlIjoiNzQ0MjAyMjE3MDY5MCJ9'}, 'edges': [{'node': {'id': 'gid://shopify/Product/7442022170690', 'title': 'Sulla Luna Earrings', 'handle': 'sulla-luna-earrings', 'description': 'Inspired by ancient Etruscan art, the Sulla Luna earrings feature a fan with cut-out triangular spirals hung from a gold-plated ornamental hook. These lightweight earrings are a go-to everyday accessory.', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42003146211394', 'sku': 'FG-0000075', 'price': '4800.00', 'inventoryQuantity': 0}}]}}}]}}, 'status': 'success'}
+2025-07-02 14:57:21,518 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n            query GetProductBySku($sku: String!) {\n                products(first: 1, query: $sku) {\n                    edges {\n                        node {\n                            id\n                            title\n                            variants(first: 1) {\n                                edges {\n                                    node {\n                                        sku\n                                    }\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n            ', 'variables': {'sku': 'sku:FG-0000075'}}, 'response': None, 'status': None}
+2025-07-02 14:57:22,058 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'products': {'edges': [{'node': {'id': 'gid://shopify/Product/7442022170690', 'title': 'Sulla Luna Earrings', 'variants': {'edges': [{'node': {'sku': 'FG-0000075'}}]}}}]}}, 'status': 'success'}
+2025-07-08 23:38:48,034 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:38:55,534 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:41:22,046 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:41:22,695 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-08 23:41:23,311 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-08 23:41:23,312 - sync_service - INFO - SAP login successful
+2025-07-08 23:41:23,314 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-08 23:41:23,474 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}, {'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 4}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 5}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 6}]}, 'status': 'success'}
+2025-07-08 23:41:23,478 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-08 23:41:23,618 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-08 23:48:34,772 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:48:34,786 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-08 23:48:34,787 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-08 23:48:35,372 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-08 23:48:35,372 - sync_service - INFO - SAP login successful
+2025-07-08 23:48:35,373 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-08 23:48:35,469 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}, {'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 4}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 5}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 6}]}, 'status': 'success'}
+2025-07-08 23:48:35,470 - sync_service - INFO - Retrieved 6 new items from SAP
+2025-07-08 23:48:35,470 - sync_service - INFO - Grouped 6 items into 1 product groups
+2025-07-08 23:48:35,471 - sync_service - INFO - Processing product group:  with 1 items
+2025-07-08 23:48:35,471 - sync_service - INFO - Creating product in store: Local Store
+2025-07-08 23:48:35,471 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/76913967258'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-08 23:48:36,150 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': None, 'userErrors': [{'field': ['variants', '0', 'inventoryQuantities'], 'message': "The quantity couldn't be set because the location was deleted."}]}}, 'status': 'success'}
+2025-07-08 23:48:36,151 - sync_service - ERROR - Failed to create product in store local: The quantity couldn't be set because the location was deleted.
+2025-07-08 23:48:36,152 - sync_service - ERROR - Failed to sync product group  to all stores
+2025-07-08 23:48:36,659 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-08 23:48:36,660 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-08 23:53:16,829 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:53:16,832 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query {\n            locations(first: 10) {\n                edges {\n                    node {\n                        id\n                        name\n                        address {\n                            address1\n                            city\n                            country\n                        }\n                        isActive\n                    }\n                }\n            }\n        }\n        ', 'variables': None}, 'response': None, 'status': None}
+2025-07-08 23:53:17,217 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'locations': {'edges': [{'node': {'id': 'gid://shopify/Location/70074892354', 'name': '5A by The Waterway Store', 'address': {'address1': '5A by The Waterway Developments', 'city': 'New Cairo 1', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/70074957890', 'name': 'Arkan Store', 'address': {'address1': 'Arkan', 'city': 'First Al Sheikh Zayed', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/68605345858', 'name': 'Cairo', 'address': {'address1': '00', 'city': 'Cairo', 'country': 'Egypt'}, 'isActive': True}}, {'node': {'id': 'gid://shopify/Location/70074990658', 'name': 'Zamalek Store', 'address': {'address1': 'Degla Center', 'city': 'Zamalek', 'country': 'Egypt'}, 'isActive': True}}]}}, 'status': 'success'}
+2025-07-08 23:53:47,569 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:53:47,582 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-08 23:53:47,583 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-08 23:53:48,172 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-08 23:53:48,173 - sync_service - INFO - SAP login successful
+2025-07-08 23:53:48,174 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-08 23:53:48,276 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}, {'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 4}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 5}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 6}]}, 'status': 'success'}
+2025-07-08 23:53:48,279 - sync_service - INFO - Retrieved 6 new items from SAP
+2025-07-08 23:53:48,280 - sync_service - INFO - Grouped 6 items into 1 product groups
+2025-07-08 23:53:48,281 - sync_service - INFO - Processing product group:  with 1 items
+2025-07-08 23:53:48,282 - sync_service - INFO - Creating product in store: Local Store
+2025-07-08 23:53:48,283 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-08 23:53:49,079 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510088319042', 'title': 'Morsi-Black-Gold', 'handle': 'morsi-black-gold', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293279981634', 'sku': None, 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394408247362'}, 'selectedOptions': [{'name': 'Title', 'value': 'Default Title'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-08 23:53:49,080 - sync_service - INFO - Successfully created product in store local
+2025-07-08 23:53:49,080 - sync_service - INFO - Successfully synced product group  to all stores
+2025-07-08 23:53:49,589 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-08 23:53:49,590 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-08 23:58:32,279 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-08 23:58:32,281 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-08 23:58:32,281 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-08 23:58:33,292 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-08 23:58:33,293 - sync_service - INFO - SAP login successful
+2025-07-08 23:58:33,294 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery', 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-08 23:58:33,813 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_New_ItemsB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}, {'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 4}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 5}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 3500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'international', 'id__': 6}]}, 'status': 'success'}
+2025-07-08 23:58:33,814 - sync_service - INFO - Retrieved 6 new items from SAP
+2025-07-08 23:58:33,815 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-08 23:58:33,815 - sync_service - INFO - Product group: ('Morsi Necklace', 'international') has 3 items
+2025-07-08 23:58:33,816 - sync_service - INFO - Grouped 6 items into 2 product groups
+2025-07-08 23:58:33,817 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items
+2025-07-08 23:58:33,817 - sync_service - INFO - Creating product in store: Local Store
+2025-07-08 23:58:33,818 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-08 23:58:43,819 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-08 23:58:43,820 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: 
+2025-07-08 23:58:43,821 - sync_service - ERROR - Failed to sync product group ('Morsi Necklace', 'local') to all stores
+2025-07-08 23:58:44,330 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'international') with 3 items
+2025-07-08 23:58:44,330 - sync_service - INFO - Creating product in store: Local Store
+2025-07-08 23:58:44,331 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-08 23:58:44,754 - sync_service - ERROR - GraphQL query error for store local: {'message': 'Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:"Color"} to String)', 'locations': [{'line': 1, 'column': 24}], 'extensions': {'value': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}, 'problems': [{'path': ['options', 0], 'explanation': 'Could not coerce value {name:"Color"} to String'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:\"Color\"} to String)",
+    "locations": [
+      {
+        "line": 1,
+        "column": 24
+      }
+    ],
+    "extensions": {
+      "value": {
+        "title": "Morsi-Black-Gold",
+        "descriptionHtml": "",
+        "vendor": "",
+        "productType": "Default",
+        "status": "DRAFT",
+        "tags": [],
+        "options": [
+          {
+            "name": "Color"
+          }
+        ],
+        "variants": [
+          {
+            "sku": "",
+            "price": "3500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "3500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "3500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          }
+        ],
+        "seo": {
+          "title": "Morsi-Black-Gold",
+          "description": ""
+        }
+      },
+      "problems": [
+        {
+          "path": [
+            "options",
+            0
+          ],
+          "explanation": "Could not coerce value {name:\"Color\"} to String"
+        }
+      ]
+    }
+  }
+]
+2025-07-08 23:58:44,755 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: {'message': 'Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:"Color"} to String)', 'locations': [{'line': 1, 'column': 24}], 'extensions': {'value': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '3500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}, 'problems': [{'path': ['options', 0], 'explanation': 'Could not coerce value {name:"Color"} to String'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:\"Color\"} to String)",
+    "locations": [
+      {
+        "line": 1,
+        "column": 24
+      }
+    ],
+    "extensions": {
+      "value": {
+        "title": "Morsi-Black-Gold",
+        "descriptionHtml": "",
+        "vendor": "",
+        "productType": "Default",
+        "status": "DRAFT",
+        "tags": [],
+        "options": [
+          {
+            "name": "Color"
+          }
+        ],
+        "variants": [
+          {
+            "sku": "",
+            "price": "3500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "3500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "3500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          }
+        ],
+        "seo": {
+          "title": "Morsi-Black-Gold",
+          "description": ""
+        }
+      },
+      "problems": [
+        {
+          "path": [
+            "options",
+            0
+          ],
+          "explanation": "Could not coerce value {name:\"Color\"} to String"
+        }
+      ]
+    }
+  }
+]
+2025-07-08 23:58:44,757 - sync_service - ERROR - Failed to sync product group ('Morsi Necklace', 'international') to all stores
+2025-07-08 23:58:45,262 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 2, 'success_count': 0, 'error_count': 2, 'details': None}
+2025-07-08 23:58:45,263 - sync_service - INFO - Multi-store new items sync completed: 2 processed, 0 successful, 2 errors
+2025-07-09 00:08:42,635 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:08:42,637 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:08:42,637 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:08:42,637 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:08:43,203 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:08:43,204 - sync_service - INFO - SAP login successful
+2025-07-09 00:08:43,205 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:08:43,309 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:08:43,313 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:08:43,314 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:08:43,314 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:08:43,316 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-09 00:08:43,749 - sync_service - ERROR - GraphQL query error for store local: {'message': 'Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:"Color"} to String)', 'locations': [{'line': 1, 'column': 24}], 'extensions': {'value': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}, 'problems': [{'path': ['options', 0], 'explanation': 'Could not coerce value {name:"Color"} to String'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:\"Color\"} to String)",
+    "locations": [
+      {
+        "line": 1,
+        "column": 24
+      }
+    ],
+    "extensions": {
+      "value": {
+        "title": "Morsi-Black-Gold",
+        "descriptionHtml": "",
+        "vendor": "",
+        "productType": "Default",
+        "status": "DRAFT",
+        "tags": [],
+        "options": [
+          {
+            "name": "Color"
+          }
+        ],
+        "variants": [
+          {
+            "sku": "",
+            "price": "2500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "2500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "2500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          }
+        ],
+        "seo": {
+          "title": "Morsi-Black-Gold",
+          "description": ""
+        }
+      },
+      "problems": [
+        {
+          "path": [
+            "options",
+            0
+          ],
+          "explanation": "Could not coerce value {name:\"Color\"} to String"
+        }
+      ]
+    }
+  }
+]
+2025-07-09 00:08:43,750 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: {'message': 'Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:"Color"} to String)', 'locations': [{'line': 1, 'column': 24}], 'extensions': {'value': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': [{'name': 'Color'}], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}, 'problems': [{'path': ['options', 0], 'explanation': 'Could not coerce value {name:"Color"} to String'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $input of type ProductInput! was provided invalid value for options.0 (Could not coerce value {name:\"Color\"} to String)",
+    "locations": [
+      {
+        "line": 1,
+        "column": 24
+      }
+    ],
+    "extensions": {
+      "value": {
+        "title": "Morsi-Black-Gold",
+        "descriptionHtml": "",
+        "vendor": "",
+        "productType": "Default",
+        "status": "DRAFT",
+        "tags": [],
+        "options": [
+          {
+            "name": "Color"
+          }
+        ],
+        "variants": [
+          {
+            "sku": "",
+            "price": "2500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "2500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          },
+          {
+            "sku": "",
+            "price": "2500.0",
+            "inventoryPolicy": "DENY",
+            "inventoryManagement": "SHOPIFY",
+            "inventoryQuantities": [
+              {
+                "availableQuantity": 10,
+                "locationId": "gid://shopify/Location/68605345858"
+              }
+            ],
+            "weight": 0.0,
+            "weightUnit": "KILOGRAMS"
+          }
+        ],
+        "seo": {
+          "title": "Morsi-Black-Gold",
+          "description": ""
+        }
+      },
+      "problems": [
+        {
+          "path": [
+            "options",
+            0
+          ],
+          "explanation": "Could not coerce value {name:\"Color\"} to String"
+        }
+      ]
+    }
+  }
+]
+2025-07-09 00:08:44,260 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-09 00:08:44,262 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-09 00:10:46,830 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:10:46,833 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:10:46,834 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:10:46,835 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:10:47,427 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:10:47,429 - sync_service - INFO - SAP login successful
+2025-07-09 00:10:47,433 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:10:47,546 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:10:47,550 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:10:47,551 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:10:47,552 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:10:47,553 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': ['Color'], 'variants': [{'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}, {'sku': '', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-09 00:10:48,110 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': None, 'userErrors': [{'field': ['variants', '1'], 'message': "The variant 'Default Title' already exists."}]}}, 'status': 'success'}
+2025-07-09 00:10:48,111 - sync_service - ERROR - Failed to create product in store local: The variant 'Default Title' already exists.
+2025-07-09 00:10:48,625 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-09 00:10:48,626 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-09 00:18:22,153 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:18:22,156 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:18:22,157 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:18:22,157 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:18:22,713 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:18:22,714 - sync_service - INFO - SAP login successful
+2025-07-09 00:18:22,715 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:18:22,821 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:18:22,822 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:18:22,822 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:18:22,823 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:18:22,823 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': ['Color'], 'variants': [{'sku': 'FG-0000701', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'option1': 'Black Gold'}, {'sku': 'FG-0000702', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'option1': 'Rose Gold'}, {'sku': 'FG-0000703', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'option1': 'White Gold'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-09 00:18:32,831 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-09 00:18:32,832 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: 
+2025-07-09 00:18:33,342 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-09 00:18:33,342 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-09 00:22:12,414 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:22:12,424 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:22:12,425 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:22:12,428 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:22:12,989 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:22:12,990 - sync_service - INFO - SAP login successful
+2025-07-09 00:22:12,992 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:22:13,089 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:22:13,090 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:22:13,091 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:22:13,092 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:22:13,092 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'options': ['Color'], 'variants': [{'sku': 'FG-0000701', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'option1': 'Black Gold'}, {'sku': 'FG-0000702', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'option1': 'Rose Gold'}, {'sku': 'FG-0000703', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}], 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'option1': 'White Gold'}], 'seo': {'title': 'Morsi-Black-Gold', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-09 00:22:23,115 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-09 00:22:23,115 - sync_service - ERROR - Shopify full response for store local: {'msg': 'failure', 'error': 'GraphQL query error for store local: '}
+2025-07-09 00:22:23,116 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: 
+2025-07-09 00:22:23,625 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-09 00:22:23,625 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-09 00:24:10,256 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:24:10,259 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:24:10,259 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:24:10,261 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:24:11,050 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:24:11,050 - sync_service - INFO - SAP login successful
+2025-07-09 00:24:11,051 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:24:11,162 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:24:11,163 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:24:11,163 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:24:11,163 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:24:11,164 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'option1': 'Black Gold', 'sku': 'FG-0000701'}, {'option1': 'Rose Gold', 'sku': 'FG-0000702'}, {'option1': 'White Gold', 'sku': 'FG-0000703'}]}}}, 'response': None, 'status': None}
+2025-07-09 00:24:11,530 - sync_service - ERROR - GraphQL query error for store local: {'message': 'Variable $input of type ProductInput! was provided invalid value for variants.0.option1 (Field is not defined on ProductVariantInput), variants.1.option1 (Field is not defined on ProductVariantInput), variants.2.option1 (Field is not defined on ProductVariantInput)', 'locations': [{'line': 1, 'column': 24}], 'extensions': {'value': {'title': 'Morsi-Black-Gold', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'option1': 'Black Gold', 'sku': 'FG-0000701'}, {'option1': 'Rose Gold', 'sku': 'FG-0000702'}, {'option1': 'White Gold', 'sku': 'FG-0000703'}]}, 'problems': [{'path': ['variants', 0, 'option1'], 'explanation': 'Field is not defined on ProductVariantInput'}, {'path': ['variants', 1, 'option1'], 'explanation': 'Field is not defined on ProductVariantInput'}, {'path': ['variants', 2, 'option1'], 'explanation': 'Field is not defined on ProductVariantInput'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $input of type ProductInput! was provided invalid value for variants.0.option1 (Field is not defined on ProductVariantInput), variants.1.option1 (Field is not defined on ProductVariantInput), variants.2.option1 (Field is not defined on ProductVariantInput)",
+    "locations": [
+      {
+        "line": 1,
+        "column": 24
+      }
+    ],
+    "extensions": {
+      "value": {
+        "title": "Morsi-Black-Gold",
+        "status": "DRAFT",
+        "options": [
+          "Color"
+        ],
+        "variants": [
+          {
+            "option1": "Black Gold",
+            "sku": "FG-0000701"
+          },
+          {
+            "option1": "Rose Gold",
+            "sku": "FG-0000702"
+          },
+          {
+            "option1": "White Gold",
+            "sku": "FG-0000703"
+          }
+        ]
+      },
+      "problems": [
+        {
+          "path": [
+            "variants",
+            0,
+            "option1"
+          ],
+          "explanation": "Field is not defined on ProductVariantInput"
+        },
+        {
+          "path": [
+            "variants",
+            1,
+            "option1"
+          ],
+          "explanation": "Field is not defined on ProductVariantInput"
+        },
+        {
+          "path": [
+            "variants",
+            2,
+            "option1"
+          ],
+          "explanation": "Field is not defined on ProductVariantInput"
+        }
+      ]
+    }
+  }
+]
+2025-07-09 00:24:11,530 - sync_service - ERROR - Shopify full response for store local: {'msg': 'failure', 'error': 'GraphQL query error for store local: {\'message\': \'Variable $input of type ProductInput! was provided invalid value for variants.0.option1 (Field is not defined on ProductVariantInput), variants.1.option1 (Field is not defined on ProductVariantInput), variants.2.option1 (Field is not defined on ProductVariantInput)\', \'locations\': [{\'line\': 1, \'column\': 24}], \'extensions\': {\'value\': {\'title\': \'Morsi-Black-Gold\', \'status\': \'DRAFT\', \'options\': [\'Color\'], \'variants\': [{\'option1\': \'Black Gold\', \'sku\': \'FG-0000701\'}, {\'option1\': \'Rose Gold\', \'sku\': \'FG-0000702\'}, {\'option1\': \'White Gold\', \'sku\': \'FG-0000703\'}]}, \'problems\': [{\'path\': [\'variants\', 0, \'option1\'], \'explanation\': \'Field is not defined on ProductVariantInput\'}, {\'path\': [\'variants\', 1, \'option1\'], \'explanation\': \'Field is not defined on ProductVariantInput\'}, {\'path\': [\'variants\', 2, \'option1\'], \'explanation\': \'Field is not defined on ProductVariantInput\'}]}}\nGraphQL Errors: [\n  {\n    "message": "Variable $input of type ProductInput! was provided invalid value for variants.0.option1 (Field is not defined on ProductVariantInput), variants.1.option1 (Field is not defined on ProductVariantInput), variants.2.option1 (Field is not defined on ProductVariantInput)",\n    "locations": [\n      {\n        "line": 1,\n        "column": 24\n      }\n    ],\n    "extensions": {\n      "value": {\n        "title": "Morsi-Black-Gold",\n        "status": "DRAFT",\n        "options": [\n          "Color"\n        ],\n        "variants": [\n          {\n            "option1": "Black Gold",\n            "sku": "FG-0000701"\n          },\n          {\n            "option1": "Rose Gold",\n            "sku": "FG-0000702"\n          },\n          {\n            "option1": "White Gold",\n            "sku": "FG-0000703"\n          }\n        ]\n      },\n      "problems": [\n        {\n          "path": [\n            "variants",\n            0,\n            "option1"\n          ],\n          "explanation": "Field is not defined on ProductVariantInput"\n        },\n        {\n          "path": [\n            "variants",\n            1,\n            "option1"\n          ],\n          "explanation": "Field is not defined on ProductVariantInput"\n        },\n        {\n          "path": [\n            "variants",\n            2,\n            "option1"\n          ],\n          "explanation": "Field is not defined on ProductVariantInput"\n        }\n      ]\n    }\n  }\n]'}
+2025-07-09 00:24:11,531 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: {'message': 'Variable $input of type ProductInput! was provided invalid value for variants.0.option1 (Field is not defined on ProductVariantInput), variants.1.option1 (Field is not defined on ProductVariantInput), variants.2.option1 (Field is not defined on ProductVariantInput)', 'locations': [{'line': 1, 'column': 24}], 'extensions': {'value': {'title': 'Morsi-Black-Gold', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'option1': 'Black Gold', 'sku': 'FG-0000701'}, {'option1': 'Rose Gold', 'sku': 'FG-0000702'}, {'option1': 'White Gold', 'sku': 'FG-0000703'}]}, 'problems': [{'path': ['variants', 0, 'option1'], 'explanation': 'Field is not defined on ProductVariantInput'}, {'path': ['variants', 1, 'option1'], 'explanation': 'Field is not defined on ProductVariantInput'}, {'path': ['variants', 2, 'option1'], 'explanation': 'Field is not defined on ProductVariantInput'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $input of type ProductInput! was provided invalid value for variants.0.option1 (Field is not defined on ProductVariantInput), variants.1.option1 (Field is not defined on ProductVariantInput), variants.2.option1 (Field is not defined on ProductVariantInput)",
+    "locations": [
+      {
+        "line": 1,
+        "column": 24
+      }
+    ],
+    "extensions": {
+      "value": {
+        "title": "Morsi-Black-Gold",
+        "status": "DRAFT",
+        "options": [
+          "Color"
+        ],
+        "variants": [
+          {
+            "option1": "Black Gold",
+            "sku": "FG-0000701"
+          },
+          {
+            "option1": "Rose Gold",
+            "sku": "FG-0000702"
+          },
+          {
+            "option1": "White Gold",
+            "sku": "FG-0000703"
+          }
+        ]
+      },
+      "problems": [
+        {
+          "path": [
+            "variants",
+            0,
+            "option1"
+          ],
+          "explanation": "Field is not defined on ProductVariantInput"
+        },
+        {
+          "path": [
+            "variants",
+            1,
+            "option1"
+          ],
+          "explanation": "Field is not defined on ProductVariantInput"
+        },
+        {
+          "path": [
+            "variants",
+            2,
+            "option1"
+          ],
+          "explanation": "Field is not defined on ProductVariantInput"
+        }
+      ]
+    }
+  }
+]
+2025-07-09 00:24:12,037 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-09 00:24:12,037 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-09 00:25:46,176 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:25:46,177 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:25:46,178 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:25:46,178 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:25:46,755 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:25:46,756 - sync_service - INFO - SAP login successful
+2025-07-09 00:25:46,756 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:25:46,844 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:25:46,845 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:25:46,845 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:25:46,846 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:25:46,846 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Black Gold'], 'sku': 'FG-0000701'}, {'options': ['Rose Gold'], 'sku': 'FG-0000702'}, {'options': ['White Gold'], 'sku': 'FG-0000703'}]}}}, 'response': None, 'status': None}
+2025-07-09 00:25:56,851 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-09 00:25:56,852 - sync_service - ERROR - Shopify full response for store local: {'msg': 'failure', 'error': 'GraphQL query error for store local: '}
+2025-07-09 00:25:56,852 - sync_service - ERROR - Failed to create product in store local: GraphQL query error for store local: 
+2025-07-09 00:25:57,356 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-09 00:25:57,356 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-09 00:28:51,016 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:28:51,022 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:28:51,023 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:28:51,024 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:28:51,596 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:28:51,598 - sync_service - INFO - SAP login successful
+2025-07-09 00:28:51,599 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:28:52,396 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:28:52,397 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:28:52,398 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:28:52,398 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:28:52,398 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Black-Gold', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Black Gold'], 'sku': 'FG-0000701'}]}}}, 'response': None, 'status': None}
+2025-07-09 00:28:53,097 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510099329090', 'title': 'Morsi-Black-Gold', 'handle': 'morsi-black-gold', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293401256002', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394529521730'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-09 00:28:53,098 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510099329090', 'title': 'Morsi-Black-Gold', 'handle': 'morsi-black-gold', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293401256002', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394529521730'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}]}}, 'userErrors': []}}}
+2025-07-09 00:28:53,098 - sync_service - INFO - Successfully created product in store local
+2025-07-09 00:28:53,604 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-09 00:28:53,605 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-09 00:34:44,571 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:34:44,573 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:34:44,574 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:34:44,574 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:34:45,168 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:34:45,168 - sync_service - INFO - SAP login successful
+2025-07-09 00:34:45,169 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:34:45,688 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:34:45,689 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:34:45,690 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:34:45,691 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:34:45,691 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi Necklace', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Black Gold'], 'sku': 'FG-0000701'}, {'options': ['Rose Gold'], 'sku': 'FG-0000702'}, {'options': ['White Gold'], 'sku': 'FG-0000703'}]}}}, 'response': None, 'status': None}
+2025-07-09 00:34:46,445 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510100869186', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293419475010', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394547413058'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293419507778', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394547445826'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293419540546', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394547478594'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-09 00:34:46,447 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510100869186', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293419475010', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394547413058'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293419507778', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394547445826'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293419540546', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394547478594'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}}
+2025-07-09 00:34:46,448 - sync_service - INFO - Successfully created product in store local
+2025-07-09 00:34:46,955 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-09 00:34:46,957 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-09 00:36:57,008 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:36:57,010 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:36:57,010 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:36:57,011 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:36:57,581 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:36:57,583 - sync_service - INFO - SAP login successful
+2025-07-09 00:36:57,584 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:36:58,092 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:36:58,093 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:36:58,094 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:36:58,094 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:36:58,095 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi Necklace', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Black Gold'], 'sku': 'FG-0000701', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['Rose Gold'], 'sku': 'FG-0000702', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 15, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['White Gold'], 'sku': 'FG-0000703', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 20, 'locationId': 'gid://shopify/Location/68605345858'}]}]}}}, 'response': None, 'status': None}
+2025-07-09 00:36:58,794 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510101590082', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293424586818', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394552852546'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293424619586', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394552885314'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293424652354', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394552918082'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-09 00:36:58,795 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510101590082', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293424586818', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394552852546'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293424619586', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394552885314'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293424652354', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394552918082'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}}
+2025-07-09 00:36:58,796 - sync_service - INFO - Successfully created product in store local
+2025-07-09 00:36:59,297 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-09 00:36:59,298 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-09 00:40:41,875 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 00:40:41,877 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 00:40:41,878 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 00:40:41,879 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 00:40:42,452 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 00:40:42,452 - sync_service - INFO - SAP login successful
+2025-07-09 00:40:42,453 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 00:40:42,962 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 00:40:42,963 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 00:40:42,964 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 00:40:42,964 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 00:40:42,965 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi Necklace', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Black Gold'], 'sku': 'FG-0000701', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['Rose Gold'], 'sku': 'FG-0000702', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 15, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['White Gold'], 'sku': 'FG-0000703', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 20, 'locationId': 'gid://shopify/Location/68605345858'}]}]}}}, 'response': None, 'status': None}
+2025-07-09 00:40:43,742 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510103228482', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293446541378', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394574512194'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293446574146', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394574544962'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293446639682', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394574577730'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-09 00:40:43,743 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510103228482', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293446541378', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394574512194'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293446574146', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394574544962'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293446639682', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394574577730'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}}
+2025-07-09 00:40:43,744 - sync_service - INFO - Successfully created product in store local
+2025-07-09 00:40:44,257 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-09 00:40:44,257 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-09 01:01:20,306 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-09 01:01:20,310 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-09 01:01:20,310 - sync_service - INFO - Fetching new items for store: local
+2025-07-09 01:01:20,312 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-09 01:01:21,738 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-09 01:01:21,740 - sync_service - INFO - SAP login successful
+2025-07-09 01:01:21,741 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:22,251 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000701', 'ItemName': 'Morsi-Black-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Black Gold', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000702', 'ItemName': 'Morsi-Rose-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'Rose Gold', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000703', 'ItemName': 'Morsi-White-Gold', 'MainProduct': 'Morsi Necklace', 'Color': 'White Gold', 'OnHand': 20.0, 'IsCommited': 0.0, 'Available': 20.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-09 01:01:22,253 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 3 items
+2025-07-09 01:01:22,255 - sync_service - INFO - Grouped 3 items into 1 product groups for store local
+2025-07-09 01:01:22,255 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 3 items for store local
+2025-07-09 01:01:22,257 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi Necklace', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Black Gold'], 'sku': 'FG-0000701', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 10, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['Rose Gold'], 'sku': 'FG-0000702', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 15, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['White Gold'], 'sku': 'FG-0000703', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 20, 'locationId': 'gid://shopify/Location/68605345858'}]}]}}}, 'response': None, 'status': None}
+2025-07-09 01:01:23,589 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510108733506', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace-1', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293507063874', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637557826'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293507096642', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637590594'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293507129410', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637623362'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-09 01:01:23,590 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7510108733506', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace-1', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293507063874', 'sku': 'FG-0000701', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637557826'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293507096642', 'sku': 'FG-0000702', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637590594'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293507129410', 'sku': 'FG-0000703', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637623362'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}]}}, 'userErrors': []}}}
+2025-07-09 01:01:23,591 - sync_service - INFO - Successfully created product in store local
+2025-07-09 01:01:23,591 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7510108733506', 'Name': '7510108733506', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Necklace', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:23,724 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '7510108733506', 'Name': '7510108733506', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Necklace', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:23,727 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42293507063874', 'Name': '42293507063874', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000701', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:24,633 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42293507063874', 'Name': '42293507063874', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000701', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:24,633 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44394637557826', 'Name': '44394637557826', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000701', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:24,741 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44394637557826', 'Name': '44394637557826', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000701', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:24,744 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42293507096642', 'Name': '42293507096642', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000702', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:24,843 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42293507096642', 'Name': '42293507096642', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000702', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:24,844 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44394637590594', 'Name': '44394637590594', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000702', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:24,953 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44394637590594', 'Name': '44394637590594', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000702', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:24,954 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42293507129410', 'Name': '42293507129410', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000703', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:25,051 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42293507129410', 'Name': '42293507129410', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000703', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:25,053 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44394637623362', 'Name': '44394637623362', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000703', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-09 01:01:25,151 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44394637623362', 'Name': '44394637623362', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000703', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-09 01:01:25,657 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-09 01:01:25,657 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
