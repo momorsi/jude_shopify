@@ -1,0 +1,100 @@
+{
+    "sap": {
+        "server": "https://10.0.0.100:50000/b1s/v1",
+        "company": "JudeBenHalim_Test",
+        "user": "manager",
+        "password": "Azmjude$1",
+        "language": "en_US",
+        "timeout": 30
+    },
+    "shopify": {
+        "stores": {
+            "local": {
+                "name": "Local Store",
+                "shop_url": "eg-judebenhalim.myshopify.com",
+                "access_token": "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",
+                "api_version": "2024-01",
+                "timeout": 30,
+                "location_id": "gid://shopify/Location/68605345858",
+                "currency": "EGP",
+                "price_list": 1,
+                "warehouse_code": "ONL",
+                "enabled": true
+            },
+            "international": {
+                "name": "International Store",
+                "shop_url": "placeholder.myshopify.com",
+                "access_token": "placeholder_token",
+                "api_version": "2024-01",
+                "timeout": 30,
+                "location_id": "gid://shopify/Location/placeholder",
+                "currency": "USD",
+                "price_list": 7,
+                "warehouse_code": "ONL",
+                "enabled": false
+            }
+        },
+        "webhook_secret": "your_webhook_secret"
+    },
+    "sync": {
+        "master_data": {
+            "enabled": true,
+            "interval_minutes": 60,
+            "batch_size": 100,
+            "fields": {
+                "products": [
+                    "id",
+                    "title",
+                    "handle",
+                    "description",
+                    "vendor",
+                    "productType",
+                    "tags",
+                    "status",
+                    "variants"
+                ],
+                "variants": [
+                    "id",
+                    "sku",
+                    "price",
+                    "compareAtPrice",
+                    "inventoryQuantity",
+                    "inventoryPolicy",
+                    "inventoryManagement"
+                ]
+            }
+        },
+        "inventory": {
+            "enabled": true,
+            "interval_minutes": 15,
+            "batch_size": 50,
+            "locations": ["your_location_id"]
+        },
+        "orders": {
+            "enabled": true,
+            "interval_minutes": 5,
+            "batch_size": 20,
+            "statuses": ["open", "pending", "paid", "fulfilled"],
+            "fields": [
+                "id",
+                "name",
+                "createdAt",
+                "totalPriceSet",
+                "lineItems",
+                "shippingAddress",
+                "billingAddress",
+                "customer"
+            ]
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/sync.log",
+        "max_size_mb": 10,
+        "backup_count": 5
+    },
+    "retry": {
+        "max_attempts": 3,
+        "delay_seconds": 5
+    }
+} 
