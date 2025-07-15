@@ -71,5 +71,4 @@ async def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    result = asyncio.run(multi_store_new_items_sync.sync_new_items())
-    print(result) 
+    asyncio.run(main()) 

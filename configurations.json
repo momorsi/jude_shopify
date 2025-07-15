@@ -1,9 +1,9 @@
 {
     "sap": {
-        "server": "server",
-        "company": "db",
-        "user": "user",
-        "password": "pass",
+        "server": "https://10.0.0.100:50000/b1s/v1",
+        "company": "JudeBenHalim_Test",
+        "user": "manager",
+        "password": "Azmjude$1",
         "language": "en_US",
         "timeout": 30
     },
@@ -11,11 +11,11 @@
         "stores": {
             "local": {
                 "name": "Local Store",
-                "shop_url": "store_url",
-                "access_token": "access_token",
+                "shop_url": "eg-judebenhalim.myshopify.com",
+                "access_token": "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",
                 "api_version": "2024-01",
                 "timeout": 30,
-                "location_id": "location_id",
+                "location_id": "gid://shopify/Location/68605345858",
                 "currency": "EGP",
                 "price_list": 1,
                 "warehouse_code": "ONL",

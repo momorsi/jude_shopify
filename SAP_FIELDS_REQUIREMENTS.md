@@ -117,16 +117,55 @@ Shopify Product:
 ## 6. Inventory Sync Requirements
 
 ### Inventory Update Process
-1. **Monitor Changes**: Track inventory changes in SAP warehouses
+1. **Change Tracking**: Use SAP's change tracking table to identify modified items
 2. **Store Mapping**: Map SAP warehouses to Shopify locations
-3. **Real-time Updates**: Update Shopify inventory when SAP changes
+3. **Efficient Updates**: Update only changed inventory quantities
 4. **Status Tracking**: Track sync status and timestamps
 
 ### Warehouse Mapping
 | SAP Warehouse | Shopify Store | Location ID |
 |---------------|---------------|-------------|
-| 01 | Local Store | `gid://shopify/Location/70074892354` |
+| ONL | Local Store | `gid://shopify/Location/68605345858` |
 | 02 | International Store | `gid://shopify/Location/your_location_id` |
+
+### Required SAP Tables/Views
+
+#### 1. Change Tracking Table: `sml.svc/QTY_CHANGE`
+This table tracks inventory changes with timestamps.
+
+**Required Fields:**
+- `ItemCode`: SAP item code
+- `UpdateDate`: Date when inventory was last updated
+- `UpdateTime`: Time when inventory was last updated
+- `WarehouseCode`: Warehouse where change occurred
+- `Quantity`: New quantity after change
+
+#### 2. Shopify Mapping Table: `U_SHOPIFY_MAPPING`
+This table maps SAP items to Shopify inventory item IDs.
+
+**Required Fields:**
+- `Code`: Shopify inventory item ID
+- `U_SAP_Code`: SAP item code
+- `U_Shopify_Store`: Store key (e.g., 'local', 'international')
+- `U_Shopify_Type`: Type of mapping ('variant_inventory')
+- `U_SAP_Type`: SAP entity type ('item')
+
+### Inventory Sync Fields
+
+#### Item Master Data Fields
+| Field Name | Type | Description | Required |
+|------------|------|-------------|----------|
+| `QuantityOnStock` | Number | Current inventory quantity | ✅ |
+| `WarehouseCode` | Text | Warehouse code for inventory | ✅ |
+| `U_SyncDT` | Date | Date when inventory was last synced | ✅ |
+| `U_SyncTime` | Text | Time when inventory was last synced | ✅ |
+
+### Inventory Sync Endpoints
+| Endpoint | Method | Description | Status |
+|----------|--------|-------------|--------|
+| `sml.svc/QTY_CHANGE` | GET | Get inventory changes since last sync | 🔄 To Implement |
+| `Items` | GET | Get current inventory quantities | ✅ Implemented |
+| `U_SHOPIFY_MAPPING` | GET | Get Shopify inventory mappings | ✅ Implemented |
 
 ## 7. Implementation Priority
 

@@ -42,7 +42,13 @@ async def inventory_sync():
     
     try:
         logger.info("Starting inventory sync")
-        #await sync_inventory()
+        from app.sync.inventory import inventory_sync
+        result = await inventory_sync.sync_inventory_changes()
+        
+        if result["msg"] == "success":
+            logger.info(f"Inventory sync completed: {result.get('processed', 0)} processed, {result.get('success', 0)} successful, {result.get('errors', 0)} errors")
+        else:
+            logger.error(f"Inventory sync failed: {result.get('error')}")
     except Exception as e:
         logger.error(f"Error in inventory sync: {str(e)}")
 

@@ -3,6 +3,7 @@ from logging.handlers import RotatingFileHandler
 import os
 from app.core.config import config_settings
 
+
 def setup_logging():
     # Create logs directory if it doesn't exist
     log_dir = os.path.dirname(config_settings.log_file)

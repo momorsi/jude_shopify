@@ -7,9 +7,10 @@ from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from app.core.config import config_settings
 from app.utils.logging import logger, log_api_call
+
 import json
 from gql.transport.exceptions import TransportQueryError
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 class MultiStoreShopifyClient:
     def __init__(self):
@@ -74,10 +75,28 @@ class MultiStoreShopifyClient:
             if hasattr(e, 'errors'):
                 error_msg += f"\nGraphQL Errors: {json.dumps(e.errors, indent=2)}"
             logger.error(error_msg)
+            
+            # Log the detailed error to SAP
+            try:
+                from app.services.sap.api_logger import sl_add_log
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"error": error_msg, "graphql_errors": e.errors if hasattr(e, 'errors') else None},
+                    status="failure",
+                    action="graphql_error",
+                    value=f"GraphQL error for store {store_key}: {str(e)}"
+                )
+            except:
+                pass
+                
             return {"msg": "failure", "error": error_msg}
         except Exception as e:
             error_msg = f"GraphQL query error for store {store_key}: {str(e)}"
             logger.error(error_msg)
+            
+
+                
             return {"msg": "failure", "error": error_msg}
     
     async def create_product(self, store_key: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -120,7 +139,7 @@ class MultiStoreShopifyClient:
     
     async def update_inventory(self, store_key: str, inventory_item_id: str, available: int) -> Dict[str, Any]:
         """
-        Update inventory levels for a specific store
+        Update inventory levels for a specific store using GraphQL
         """
         mutation = """
         mutation inventoryAdjustQuantity($input: InventoryAdjustQuantityInput!) {
@@ -144,6 +163,77 @@ class MultiStoreShopifyClient:
         }
         
         return await self.execute_query(store_key, mutation, variables)
+    
+    async def update_inventory_level(self, store_key: str, update_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update inventory levels for a specific store using REST API
+        More direct and reliable for inventory updates
+        """
+        if store_key not in self.clients:
+            return {"msg": "failure", "error": f"Store {store_key} not found or not enabled"}
+        
+        try:
+            store_config = config_settings.get_store_by_name(store_key)
+            if not store_config:
+                return {"msg": "failure", "error": f"Store configuration not found for {store_key}"}
+            
+            import httpx
+            
+            # Build REST API URL
+            url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/inventory_levels/set.json"
+            
+            # Prepare headers
+            headers = {
+                'X-Shopify-Access-Token': store_config.access_token,
+                'Content-Type': 'application/json',
+            }
+            
+            # Prepare request data
+            request_data = {
+                "location_id": update_data["location_id"],
+                "inventory_item_id": update_data["inventory_item_id"],
+                "available": update_data["available"]
+            }
+            
+            # Log the request
+            log_api_call(
+                service="shopify",
+                endpoint=f"rest_inventory_{store_key}",
+                request_data=request_data
+            )
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, json=request_data, headers=headers)
+                
+                if response.status_code == 200:
+                    response_data = response.json()
+                    
+                    # Log the response
+                    log_api_call(
+                        service="shopify",
+                        endpoint=f"rest_inventory_{store_key}",
+                        response_data=response_data,
+                        status="success"
+                    )
+                    
+                    return {"msg": "success", "data": response_data}
+                else:
+                    error_msg = f"HTTP {response.status_code}: {response.text}"
+                    
+                    # Log the error
+                    log_api_call(
+                        service="shopify",
+                        endpoint=f"rest_inventory_{store_key}",
+                        response_data={"error": error_msg},
+                        status="failure"
+                    )
+                    
+                    return {"msg": "failure", "error": error_msg}
+                    
+        except Exception as e:
+            error_msg = f"Error updating inventory level for store {store_key}: {str(e)}"
+            logger.error(error_msg)
+            return {"msg": "failure", "error": error_msg}
     
     async def get_products(self, store_key: str, first: int = 10, after: str = None) -> Dict[str, Any]:
         """
@@ -209,6 +299,166 @@ class MultiStoreShopifyClient:
         """
         
         return await self.execute_query(store_key, query)
+    
+    async def get_product_by_handle(self, store_key: str, handle: str) -> Dict[str, Any]:
+        """
+        Get product by handle from a specific store
+        """
+        query = """
+        query GetProductByHandle($handle: String!) {
+            productByHandle(handle: $handle) {
+                id
+                title
+                handle
+                description
+                variants(first: 50) {
+                    edges {
+                        node {
+                            id
+                            sku
+                            price
+                            inventoryItem {
+                                id
+                            }
+                            selectedOptions {
+                                name
+                                value
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+        
+        return await self.execute_query(store_key, query, {"handle": handle})
+    
+    async def get_product_by_id(self, store_key: str, product_id: str) -> Dict[str, Any]:
+        """
+        Get product by ID from a specific store
+        """
+        query = """
+        query GetProduct($id: ID!) {
+            product(id: $id) {
+                id
+                title
+                handle
+                description
+                variants(first: 50) {
+                    edges {
+                        node {
+                            id
+                            sku
+                            price
+                            inventoryItem {
+                                id
+                            }
+                            selectedOptions {
+                                name
+                                value
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+        
+        return await self.execute_query(store_key, query, {"id": product_id})
+    
+    async def add_variant_to_product(self, store_key: str, product_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Add a variant to an existing product
+        """
+        mutation = """
+        mutation productVariantCreate($input: ProductVariantInput!) {
+            productVariantCreate(input: $input) {
+                productVariant {
+                    id
+                    sku
+                    price
+                    inventoryItem {
+                        id
+                    }
+                    selectedOptions {
+                        name
+                        value
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        # Add the product ID to the variant data
+        variant_data["productId"] = product_id
+        
+        return await self.execute_query(store_key, mutation, {"input": variant_data})
+    
+    async def update_product_options(self, store_key: str, product_id: str, options: List[str]) -> Dict[str, Any]:
+        """
+        Update product options (like adding Color option)
+        """
+        mutation = """
+        mutation productUpdate($input: ProductInput!) {
+            productUpdate(input: $input) {
+                product {
+                    id
+                    title
+                    options {
+                        id
+                        name
+                        values
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        variables = {
+            "input": {
+                "id": product_id,
+                "options": options
+            }
+        }
+        
+        return await self.execute_query(store_key, mutation, variables)
+    
+    async def update_variant(self, store_key: str, variant_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update a variant (e.g., to set the title/option1)
+        """
+        mutation = """
+        mutation productVariantUpdate($input: ProductVariantInput!) {
+            productVariantUpdate(input: $input) {
+                productVariant {
+                    id
+                    sku
+                    title
+                    selectedOptions {
+                        name
+                        value
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        # Add the variant ID to the data
+        variant_data["id"] = variant_id
+        
+        return await self.execute_query(store_key, mutation, {"input": variant_data})
     
     def get_store_config(self, store_key: str) -> Optional[Any]:
         """

@@ -6,6 +6,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from app.core.config import config_settings
 from app.utils.logging import logger, log_api_call
 
+
 class SAPClient:
     def __init__(self):
         self.session_token: str = ""
@@ -150,6 +151,9 @@ class SAPClient:
         except Exception as e:
             error_msg = f"SAP request error: {str(e)}"
             logger.error(error_msg)
+            
+
+                
             return {"msg": "failure", "error": error_msg}
     
     # Generic CRUD Methods (for flexibility)
@@ -175,6 +179,11 @@ class SAPClient:
         
         endpoint = f"{entity_type}('{entity_id}')" if entity_id else entity_type
         return await self._make_request('GET', endpoint, params=params)
+    
+    async def get_entity(self, entity_type: str, filter_query: str = None, 
+                        orderby: str = None, top: int = 50) -> Dict[str, Any]:
+        """Convenience method to get entities (alias for get_entities without entity_id)"""
+        return await self.get_entities(entity_type, filter_query, orderby, top)
     
     async def create_entity(self, entity_type: str, entity_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generic method to create entities in SAP"""
