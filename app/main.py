@@ -1,262 +1,174 @@
+"""
+Main entry point for Shopify-SAP integration
+Unified sync controller for all sync operations
+"""
+
 import asyncio
-from datetime import datetime
-import pytz
-from app.core.config import config_settings
-from app.utils.logging import logger, log_sync_event
+import sys
+import argparse
+from typing import Dict, Any, List
+from app.sync.new_items_multi_store import MultiStoreNewItemsSync
+from app.sync.inventory import sync_stock_change_view
 from app.sync.master_data import sync_master_data
-from app.sync.new_items import new_items_sync
-from app.services.shopify.client import shopify_client
-from app.services.sap.client import sap_client
-#from app.sync.inventory import sync_inventory
-#from app.sync.orders import sync_orders
+from app.sync.orders import sync_orders
+from app.sync.gift_cards import GiftCardsSync
+from app.utils.logging import logger
+from app.core.config import config_settings
 
-async def master_data_sync():
-    """Handle master data synchronization"""
-    if not config_settings.master_data_enabled:
-        return
+class ShopifySAPSync:
+    """
+    Main sync controller for Shopify-SAP integration
+    """
+    
+    def __init__(self):
+        self.new_items_sync = MultiStoreNewItemsSync()
+        self.gift_cards_sync = GiftCardsSync()
+    
+    async def run_new_items_sync(self) -> Dict[str, Any]:
+        """
+        Run new items sync (SAP → Shopify)
+        """
+        logger.info("Starting new items sync...")
+        return await self.new_items_sync.sync_new_items()
+    
+    async def run_stock_change_sync(self) -> Dict[str, Any]:
+        """
+        Run stock change sync (SAP → Shopify)
+        """
+        logger.info("Starting stock change sync...")
+        return await sync_stock_change_view()
+    
+    async def run_master_data_sync(self) -> Dict[str, Any]:
+        """
+        Run master data sync (Shopify → SAP)
+        """
+        logger.info("Starting master data sync...")
+        return await sync_master_data()
+    
+    async def run_orders_sync(self) -> Dict[str, Any]:
+        """
+        Run orders sync (Shopify → SAP)
+        """
+        logger.info("Starting orders sync...")
+        return await sync_orders()
+    
+    async def run_gift_cards_sync(self) -> Dict[str, Any]:
+        """
+        Run gift cards sync (SAP → Shopify)
+        """
+        logger.info("Starting gift cards sync...")
+        return await self.gift_cards_sync.sync_gift_cards()
+    
+    async def run_all_syncs(self) -> Dict[str, Any]:
+        """
+        Run all enabled syncs in sequence
+        """
+        logger.info("Starting all syncs...")
+        
+        results = {}
+        
+        # SAP → Shopify syncs
+        if config_settings.new_items_enabled:
+            results["new_items"] = await self.run_new_items_sync()
+        
+        if config_settings.stock_sync_enabled:
+            results["stock_change"] = await self.run_stock_change_sync()
+        
+        if config_settings.gift_cards_enabled:
+            results["gift_cards"] = await self.run_gift_cards_sync()
+        
+        # Shopify → SAP syncs
+        if config_settings.master_data_enabled:
+            results["master_data"] = await self.run_master_data_sync()
+        
+        if config_settings.orders_enabled:
+            results["orders"] = await self.run_orders_sync()
+        
+        return {
+            "msg": "success",
+            "results": results,
+            "total_syncs": len(results)
+        }
+    
+    async def run_specific_sync(self, sync_type: str) -> Dict[str, Any]:
+        """
+        Run a specific sync type
+        """
+        sync_functions = {
+            "new_items": self.run_new_items_sync,
+            "stock": self.run_stock_change_sync,
+            "master_data": self.run_master_data_sync,
+            "orders": self.run_orders_sync,
+            "gift_cards": self.run_gift_cards_sync,
+            "all": self.run_all_syncs
+        }
+        
+        if sync_type not in sync_functions:
+            return {
+                "msg": "failure",
+                "error": f"Unknown sync type: {sync_type}. Available: {list(sync_functions.keys())}"
+            }
+        
+        return await sync_functions[sync_type]()
+
+async def main():
+    """
+    Main entry point
+    """
+    parser = argparse.ArgumentParser(description="Shopify-SAP Integration Sync")
+    parser.add_argument(
+        "--sync", 
+        type=str, 
+        default="all",
+        choices=["new_items", "stock", "master_data", "orders", "gift_cards", "all"],
+        help="Type of sync to run (default: all)"
+    )
+    parser.add_argument(
+        "--verbose", 
+        action="store_true",
+        help="Enable verbose logging"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.verbose:
+        logger.setLevel("DEBUG")
+    
+    print("=" * 60)
+    print("Shopify-SAP Integration Sync")
+    print("=" * 60)
+    
+    sync_controller = ShopifySAPSync()
     
     try:
-        logger.info("Starting master data sync")
-        await sync_master_data()
-    except Exception as e:
-        logger.error(f"Error in master data sync: {str(e)}")
-
-async def new_items_sync_task():
-    """Handle new items synchronization from SAP to Shopify"""
-    try:
-        logger.info("Starting new items sync")
-        result = await new_items_sync.sync_new_items()
+        result = await sync_controller.run_specific_sync(args.sync)
         
         if result["msg"] == "success":
-            logger.info(f"New items sync completed: {result.get('processed', 0)} processed, {result.get('success', 0)} successful, {result.get('errors', 0)} errors")
+            if args.sync == "all":
+                print(f"\n✅ All syncs completed successfully!")
+                print(f"   - Total syncs run: {result.get('total_syncs', 0)}")
+                for sync_name, sync_result in result.get("results", {}).items():
+                    if sync_result.get("msg") == "success":
+                        print(f"   - {sync_name}: ✅ Success")
+                    else:
+                        print(f"   - {sync_name}: ❌ Failed - {sync_result.get('error')}")
+            else:
+                print(f"\n✅ {args.sync} sync completed successfully!")
+                if "processed" in result:
+                    print(f"   - Processed: {result.get('processed', 0)}")
+                    print(f"   - Successful: {result.get('success', 0)}")
+                    print(f"   - Errors: {result.get('errors', 0)}")
         else:
-            logger.error(f"New items sync failed: {result.get('error', 'Unknown error')}")
+            print(f"\n❌ {args.sync} sync failed: {result.get('error')}")
             
     except Exception as e:
-        logger.error(f"Error in new items sync: {str(e)}")
-
-async def inventory_sync():
-    """Handle inventory synchronization"""
-    if not config_settings.inventory_enabled:
-        return
+        print(f"\n❌ Exception occurred: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
-    try:
-        logger.info("Starting inventory sync")
-        from app.sync.inventory import inventory_sync
-        result = await inventory_sync.sync_inventory_changes()
-        
-        if result["msg"] == "success":
-            logger.info(f"Inventory sync completed: {result.get('processed', 0)} processed, {result.get('success', 0)} successful, {result.get('errors', 0)} errors")
-        else:
-            logger.error(f"Inventory sync failed: {result.get('error')}")
-    except Exception as e:
-        logger.error(f"Error in inventory sync: {str(e)}")
-
-async def orders_sync():
-    """Handle orders synchronization"""
-    if not config_settings.orders_enabled:
-        return
-    
-    try:
-        logger.info("Starting orders sync")
-        #await sync_orders()
-    except Exception as e:
-        logger.error(f"Error in orders sync: {str(e)}")
-
-async def sync_scheduler():
-    """Main scheduler function"""
-    while True:
-        now = datetime.utcnow()
-        logger.info(f"Sync cycle started at {now}")
-        
-        # Run all sync tasks
-        await asyncio.gather(
-            master_data_sync(),
-            new_items_sync_task(),
-            inventory_sync(),
-            orders_sync()
-        )
-        
-        # Calculate next run time
-        next_run = now.timestamp() + (config_settings.master_data_interval * 60)
-        logger.info(f"Next sync cycle scheduled for {datetime.fromtimestamp(next_run)}")
-        
-        # Wait until next cycle
-        await asyncio.sleep(config_settings.master_data_interval * 60)
-
-async def test_shopify_connection():
-    """Test Shopify connection by fetching products"""
-    try:
-        print("\nTesting Shopify Connection...")
-        print("============================")
-        print(f"Store URL: {config_settings.shopify_shop_url}")
-        print(f"API Version: {config_settings.shopify_api_version}")
-        print(f"Access Token: {config_settings.shopify_access_token[:5]}...{config_settings.shopify_access_token[-5:]}")
-        print("============================\n")
-        
-        logger.info("Testing Shopify connection...")
-        
-        # Get first 5 products
-        result = await shopify_client.get_products(first=5)
-        
-        if result["msg"] == "failure":
-            error_msg = f"Failed to connect to Shopify: {result.get('error')}"
-            print(f"\n❌ {error_msg}")
-            print("\nDetailed Error Information:")
-            print("-------------------------")
-            print(result.get('error', 'No detailed error information available'))
-            logger.error(error_msg)
-            return False
-        
-        # Log success
-        success_msg = "Successfully connected to Shopify!"
-        print(f"\n✅ {success_msg}")
-        logger.info(success_msg)
-        
-        # Print product details
-        products = result["data"]["products"]
-        print("\nFound Products:")
-        print("==============")
-        
-        if not products["edges"]:
-            print("No products found in the store.")
-            return True
-            
-        for edge in products["edges"]:
-            product = edge["node"]
-            print(f"\n📦 Product: {product['title']}")
-            print(f"🔗 Handle: {product['handle']}")
-            if product.get('description'):
-                print(f"📝 Description: {product['description'][:100]}...")
-            
-            # Print variant details
-            variants = product.get("variants", {}).get("edges", [])
-            for variant_edge in variants:
-                variant = variant_edge["node"]
-                print(f"  └─ Variant:")
-                print(f"     ├─ SKU: {variant.get('sku', 'No SKU')}")
-                print(f"     ├─ Price: {variant.get('price', 'No price')}")
-                print(f"     └─ Inventory: {variant.get('inventoryQuantity', 'No inventory')}")
-        
-        print("\n✨ Shopify connection test completed successfully!")
-        return True
-        
-    except Exception as e:
-        error_msg = f"Error testing Shopify connection: {str(e)}"
-        print(f"\n❌ {error_msg}")
-        print("\nDetailed Error Information:")
-        print("-------------------------")
-        print(str(e))
-        logger.error(error_msg)
-        return False
-
-async def test_sap_connection():
-    """Test SAP connection by fetching items"""
-    try:
-        print("\nTesting SAP Connection...")
-        print("========================")
-        print(f"Server: {config_settings.sap_server}")
-        print(f"Company: {config_settings.sap_company}")
-        print(f"User: {config_settings.sap_user}")
-        print("========================\n")
-        
-        logger.info("Testing SAP connection...")
-        
-        # Test login first
-        login_success = await sap_client._login()
-        if not login_success:
-            error_msg = "Failed to login to SAP"
-            print(f"\n❌ {error_msg}")
-            logger.error(error_msg)
-            return False
-        
-        # Get first 5 items
-        result = await sap_client.get_items(top=5)
-        
-        if result["msg"] == "failure":
-            error_msg = f"Failed to connect to SAP: {result.get('error')}"
-            print(f"\n❌ {error_msg}")
-            print("\nDetailed Error Information:")
-            print("-------------------------")
-            print(result.get('error', 'No detailed error information available'))
-            logger.error(error_msg)
-            return False
-        
-        # Log success
-        success_msg = "Successfully connected to SAP!"
-        print(f"\n✅ {success_msg}")
-        logger.info(success_msg)
-        
-        # Print item details
-        items = result["data"].get("value", [])
-        print("\nFound Items:")
-        print("============")
-        
-        if not items:
-            print("No items found in SAP.")
-            return True
-            
-        for item in items[:5]:  # Show first 5 items
-            print(f"\n📦 Item: {item.get('ItemName', 'No name')}")
-            print(f"🔢 Code: {item.get('ItemCode', 'No code')}")
-            print(f"📝 Description: {item.get('ItemsGroupCode', 'No group')}")
-            print(f"💰 Price: {item.get('Price', 'No price')}")
-        
-        print("\n✨ SAP connection test completed successfully!")
-        return True
-        
-    except Exception as e:
-        error_msg = f"Error testing SAP connection: {str(e)}"
-        print(f"\n❌ {error_msg}")
-        print("\nDetailed Error Information:")
-        print("-------------------------")
-        print(str(e))
-        logger.error(error_msg)
-        return False
-
-async def test_connections():
-    """Test both Shopify and SAP connections"""
-    print("\n🚀 Starting Connection Tests")
-    print("===========================")
-    
-    # Test Shopify
-    shopify_success = await test_shopify_connection()
-    
-    print("\n" + "="*50 + "\n")
-    
-    # Test SAP
-    sap_success = await test_sap_connection()
-    
-    # Summary
-    print("\n" + "="*50)
-    print("TEST SUMMARY")
-    print("="*50)
-    print(f"Shopify: {'✅ PASSED' if shopify_success else '❌ FAILED'}")
-    print(f"SAP:     {'✅ PASSED' if sap_success else '❌ FAILED'}")
-    
-    if shopify_success and sap_success:
-        print("\n🎉 All connections successful! Ready to start sync.")
-    else:
-        print("\n⚠️  Some connections failed. Please check your configuration.")
+    print("\n" + "=" * 60)
+    print("Check your SAP U_API_LOG table for detailed logging information.")
+    print("All API calls have been automatically logged!")
 
 if __name__ == "__main__":
-    try:
-        logger.info("Starting sync service")
-        asyncio.run(sync_scheduler())
-    except KeyboardInterrupt:
-        logger.info("Sync service stopped by user")
-    except Exception as e:
-        logger.error(f"Sync service stopped due to error: {str(e)}")
-
-    try:
-        asyncio.run(test_connections())
-    except KeyboardInterrupt:
-        print("\n⚠️  Test stopped by user")
-        logger.info("Test stopped by user")
-    except Exception as e:
-        error_msg = f"Test stopped due to error: {str(e)}"
-        print(f"\n❌ {error_msg}")
-        print("\nDetailed Error Information:")
-        print("-------------------------")
-        print(str(e))
-        logger.error(error_msg) 
+    asyncio.run(main()) 

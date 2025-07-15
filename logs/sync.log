@@ -4111,3 +4111,14 @@ GraphQL Errors: [
 2025-07-15 16:02:43,251 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
 2025-07-15 16:02:44,306 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
 2025-07-15 16:02:44,309 - sync_service - INFO - Multi-store new items sync completed: 0 processed, 0 successful, 0 errors
+2025-07-15 16:46:14,046 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 16:46:14,241 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-15 16:46:14,249 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 16:46:35,320 - sync_service - ERROR - SAP login error: All connection attempts failed
+2025-07-15 16:46:35,322 - sync_service - ERROR - Failed to get stock changes from SAP: Failed to login to SAP
+2025-07-15 16:50:39,690 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 16:50:39,849 - sync_service - INFO - Starting stock change sync...
+2025-07-15 16:50:39,852 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-15 16:50:39,856 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 16:51:00,939 - sync_service - ERROR - SAP login error: All connection attempts failed
+2025-07-15 16:51:00,939 - sync_service - ERROR - Failed to fetch stock changes: Failed to login to SAP
