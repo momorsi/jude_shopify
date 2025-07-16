@@ -4122,3 +4122,845 @@ GraphQL Errors: [
 2025-07-15 16:50:39,856 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
 2025-07-15 16:51:00,939 - sync_service - ERROR - SAP login error: All connection attempts failed
 2025-07-15 16:51:00,939 - sync_service - ERROR - Failed to fetch stock changes: Failed to login to SAP
+2025-07-15 18:48:41,837 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 18:48:41,885 - sync_service - INFO - Starting stock change sync...
+2025-07-15 18:48:41,885 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-15 18:48:41,885 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 18:49:02,957 - sync_service - ERROR - SAP login error: All connection attempts failed
+2025-07-15 18:49:02,965 - sync_service - ERROR - Failed to fetch stock changes: Failed to login to SAP
+2025-07-15 18:49:12,230 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 18:49:12,263 - sync_service - INFO - Starting new items sync...
+2025-07-15 18:49:12,265 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-15 18:49:13,812 - sync_service - INFO - SAP logging client login successful
+2025-07-15 18:49:15,744 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-15 18:49:15,745 - sync_service - INFO - Fetching new items for store: local
+2025-07-15 18:49:15,747 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 18:49:17,453 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-15 18:49:17,455 - sync_service - INFO - SAP login successful
+2025-07-15 18:49:17,458 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:49:19,103 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-15 18:49:19,107 - sync_service - INFO - No new items found in SAP for store local
+2025-07-15 18:49:19,108 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
+2025-07-15 18:49:20,041 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-15 18:49:20,044 - sync_service - INFO - Multi-store new items sync completed: 0 processed, 0 successful, 0 errors
+2025-07-15 18:58:30,615 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 18:58:30,645 - sync_service - INFO - Starting new items sync...
+2025-07-15 18:58:30,646 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-15 18:58:32,446 - sync_service - INFO - SAP logging client login successful
+2025-07-15 18:58:34,678 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-15 18:58:34,679 - sync_service - INFO - Fetching new items for store: local
+2025-07-15 18:58:34,680 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 18:58:37,440 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-15 18:58:37,441 - sync_service - INFO - SAP login successful
+2025-07-15 18:58:37,445 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:58:40,207 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000707', 'ItemName': 'Morsi Glasses', 'MainProduct': None, 'Color': None, 'OnHand': 30.0, 'IsCommited': 0.0, 'Available': 30.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000708', 'ItemName': 'Morsi-Earrings-Blue', 'MainProduct': 'Morsi Earrings', 'Color': 'Blue', 'OnHand': 0.0, 'IsCommited': 0.0, 'Available': 0.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}, {'itemcode': 'FG-0000706', 'ItemName': 'Morsi-Red', 'MainProduct': 'Morsi Necklace', 'Color': 'Red', 'OnHand': 25.0, 'IsCommited': 0.0, 'Available': 25.0, 'Price': 2500.0, 'Status': 'existing', 'Shopify_ProductCode': '7510108733506', 'Shopify_Store': 'local', 'id__': 3}]}, 'status': 'success'}
+2025-07-15 18:58:40,212 - sync_service - INFO - Product group: ('FG-0000707', 'local') has 1 items
+2025-07-15 18:58:40,215 - sync_service - INFO - Product group: ('Morsi Earrings', 'local') has 1 items
+2025-07-15 18:58:40,218 - sync_service - INFO - Product group: ('Morsi Necklace', 'local') has 1 items
+2025-07-15 18:58:40,221 - sync_service - INFO - Grouped 3 items into 3 product groups for store local
+2025-07-15 18:58:40,223 - sync_service - INFO - Processing product group: ('FG-0000707', 'local') with 1 items for store local
+2025-07-15 18:58:42,040 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:58:42,041 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProductByHandle($handle: String!) {\n            productByHandle(handle: $handle) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'handle': 'default'}}, 'response': None, 'status': None}
+2025-07-15 18:58:52,042 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-15 18:58:53,754 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:58:53,756 - sync_service - INFO - Product None doesn't exist in store local, creating new product
+2025-07-15 18:58:55,521 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:58:55,522 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi Glasses', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'variants': [{'sku': 'FG-0000707', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi Glasses', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-15 18:58:56,509 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7513977159746', 'title': 'Morsi Glasses', 'handle': 'morsi-glasses', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313759457346', 'sku': 'FG-0000707', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414036344898'}, 'selectedOptions': [{'name': 'Title', 'value': 'Default Title'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-15 18:58:56,512 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7513977159746', 'title': 'Morsi Glasses', 'handle': 'morsi-glasses', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313759457346', 'sku': 'FG-0000707', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414036344898'}, 'selectedOptions': [{'name': 'Title', 'value': 'Default Title'}]}}]}}, 'userErrors': []}}}
+2025-07-15 18:58:57,846 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:58:57,847 - sync_service - INFO - Successfully created product in store local
+2025-07-15 18:58:59,313 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:58:59,314 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7513977159746', 'Name': '7513977159746', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'FG-0000707', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:00,912 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '7513977159746', 'Name': '7513977159746', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'FG-0000707', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 18:59:03,924 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:05,250 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:05,253 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42313759457346', 'Name': '42313759457346', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000707', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:06,242 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42313759457346', 'Name': '42313759457346', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000707', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 18:59:07,592 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:09,553 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:09,556 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44414036344898', 'Name': '44414036344898', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000707', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:10,727 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44414036344898', 'Name': '44414036344898', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000707', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 18:59:12,212 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:12,726 - sync_service - INFO - Processing product group: ('Morsi Earrings', 'local') with 1 items for store local
+2025-07-15 18:59:13,528 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:59:13,528 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProductByHandle($handle: String!) {\n            productByHandle(handle: $handle) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'handle': 'morsi-earrings'}}, 'response': None, 'status': None}
+2025-07-15 18:59:14,047 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productByHandle': None}, 'status': 'success'}
+2025-07-15 18:59:14,829 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:59:14,831 - sync_service - INFO - Product Morsi Earrings doesn't exist in store local, creating new product
+2025-07-15 18:59:16,657 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:59:16,659 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi-Earrings-Blue', 'descriptionHtml': '', 'vendor': '', 'productType': 'Default', 'status': 'DRAFT', 'tags': [], 'variants': [{'sku': 'FG-0000708', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'weight': 0.0, 'weightUnit': 'KILOGRAMS'}], 'seo': {'title': 'Morsi-Earrings-Blue', 'description': ''}}}}, 'response': None, 'status': None}
+2025-07-15 18:59:17,432 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7513977192514', 'title': 'Morsi-Earrings-Blue', 'handle': 'morsi-earrings-blue', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313759490114', 'sku': 'FG-0000708', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414036377666'}, 'selectedOptions': [{'name': 'Title', 'value': 'Default Title'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-15 18:59:17,435 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7513977192514', 'title': 'Morsi-Earrings-Blue', 'handle': 'morsi-earrings-blue', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313759490114', 'sku': 'FG-0000708', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414036377666'}, 'selectedOptions': [{'name': 'Title', 'value': 'Default Title'}]}}]}}, 'userErrors': []}}}
+2025-07-15 18:59:18,910 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 18:59:18,911 - sync_service - INFO - Successfully created product in store local
+2025-07-15 18:59:21,089 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:21,091 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7513977192514', 'Name': '7513977192514', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Earrings', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:22,508 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '7513977192514', 'Name': '7513977192514', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Earrings', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 18:59:24,309 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:27,078 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:27,079 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42313759490114', 'Name': '42313759490114', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000708', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:29,509 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42313759490114', 'Name': '42313759490114', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000708', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 18:59:32,061 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:33,526 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:33,527 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44414036377666', 'Name': '44414036377666', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000708', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:36,241 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44414036377666', 'Name': '44414036377666', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000708', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 18:59:37,595 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:38,097 - sync_service - INFO - Processing product group: ('Morsi Necklace', 'local') with 1 items for store local
+2025-07-15 18:59:38,121 - sync_service - INFO - Found existing Shopify product ID: 7510108733506 for Morsi Necklace
+2025-07-15 18:59:38,123 - sync_service - INFO - Product Morsi Necklace already exists in store local, adding variants
+2025-07-15 18:59:38,127 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProduct($id: ID!) {\n            product(id: $id) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Product/7510108733506'}}, 'response': None, 'status': None}
+2025-07-15 18:59:38,623 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'product': {'id': 'gid://shopify/Product/7510108733506', 'title': 'Morsi Necklace', 'handle': 'morsi-necklace-1', 'description': '', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42293507063874', 'sku': 'FG-0000701', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637557826'}, 'selectedOptions': [{'name': 'Color', 'value': 'Black Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293507096642', 'sku': 'FG-0000702', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637590594'}, 'selectedOptions': [{'name': 'Color', 'value': 'Rose Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42293507129410', 'sku': 'FG-0000703', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44394637623362'}, 'selectedOptions': [{'name': 'Color', 'value': 'White Gold'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42295166599234', 'sku': 'FG-0000704', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44396297355330'}, 'selectedOptions': [{'name': 'Color', 'value': 'Green'}]}}]}}}, 'status': 'success'}
+2025-07-15 18:59:38,624 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProductByHandle($handle: String!) {\n            productByHandle(handle: $handle) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'handle': None}}, 'response': None, 'status': None}
+2025-07-15 18:59:39,074 - sync_service - ERROR - GraphQL query error for store local: {'message': 'Variable $handle of type String! was provided invalid value', 'locations': [{'line': 1, 'column': 26}], 'extensions': {'value': None, 'problems': [{'path': [], 'explanation': 'Expected value to not be null'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $handle of type String! was provided invalid value",
+    "locations": [
+      {
+        "line": 1,
+        "column": 26
+      }
+    ],
+    "extensions": {
+      "value": null,
+      "problems": [
+        {
+          "path": [],
+          "explanation": "Expected value to not be null"
+        }
+      ]
+    }
+  }
+]
+2025-07-15 18:59:41,378 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Value' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:43,728 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:43,729 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productVariantCreate($input: ProductVariantInput!) {\n            productVariantCreate(input: $input) {\n                productVariant {\n                    id\n                    sku\n                    price\n                    inventoryItem {\n                        id\n                    }\n                    selectedOptions {\n                        name\n                        value\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'sku': 'FG-0000706', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'options': ['Red'], 'productId': 'gid://shopify/Product/7510108733506'}}}, 'response': None, 'status': None}
+2025-07-15 18:59:49,971 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productVariantCreate': {'productVariant': {'id': 'gid://shopify/ProductVariant/42313759719490', 'sku': 'FG-0000706', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414036607042'}, 'selectedOptions': [{'name': 'Color', 'value': 'Red'}]}, 'userErrors': []}}, 'status': 'success'}
+2025-07-15 18:59:49,974 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productVariantUpdate($input: ProductVariantInput!) {\n            productVariantUpdate(input: $input) {\n                productVariant {\n                    id\n                    sku\n                    title\n                    selectedOptions {\n                        name\n                        value\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Red', 'id': 'gid://shopify/ProductVariant/42313759719490'}}}, 'response': None, 'status': None}
+2025-07-15 18:59:50,496 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productVariantUpdate': {'productVariant': {'id': 'gid://shopify/ProductVariant/42313759719490', 'sku': 'FG-0000706', 'title': 'Red', 'selectedOptions': [{'name': 'Color', 'value': 'Red'}]}, 'userErrors': []}}, 'status': 'success'}
+2025-07-15 18:59:50,496 - sync_service - INFO - Updated variant FG-0000706 title to 'Red'
+2025-07-15 18:59:51,875 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:51,877 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation inventoryAdjustQuantity($input: InventoryAdjustQuantityInput!) {\n            inventoryAdjustQuantity(input: $input) {\n                inventoryLevel {\n                    available\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'inventoryItemId': 'gid://shopify/InventoryItem/44414036607042', 'availableDelta': 10}}}, 'response': None, 'status': None}
+2025-07-15 18:59:52,363 - sync_service - ERROR - GraphQL query error for store local: {'message': "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'", 'locations': [{'line': 2, 'column': 3}], 'path': ['mutation inventoryAdjustQuantity', 'inventoryAdjustQuantity'], 'extensions': {'code': 'undefinedField', 'typeName': 'Mutation', 'fieldName': 'inventoryAdjustQuantity'}}
+GraphQL Errors: [
+  {
+    "message": "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'",
+    "locations": [
+      {
+        "line": 2,
+        "column": 3
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity",
+      "inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "undefinedField",
+      "typeName": "Mutation",
+      "fieldName": "inventoryAdjustQuantity"
+    }
+  },
+  {
+    "message": "Variable $input is declared by inventoryAdjustQuantity but not used",
+    "locations": [
+      {
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "variableNotUsed",
+      "variableName": "input"
+    }
+  }
+]
+2025-07-15 18:59:54,845 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Value' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 18:59:54,846 - sync_service - WARNING - Failed to set inventory for variant FG-0000706: GraphQL query error for store local: {'message': "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'", 'locations': [{'line': 2, 'column': 3}], 'path': ['mutation inventoryAdjustQuantity', 'inventoryAdjustQuantity'], 'extensions': {'code': 'undefinedField', 'typeName': 'Mutation', 'fieldName': 'inventoryAdjustQuantity'}}
+GraphQL Errors: [
+  {
+    "message": "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'",
+    "locations": [
+      {
+        "line": 2,
+        "column": 3
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity",
+      "inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "undefinedField",
+      "typeName": "Mutation",
+      "fieldName": "inventoryAdjustQuantity"
+    }
+  },
+  {
+    "message": "Variable $input is declared by inventoryAdjustQuantity but not used",
+    "locations": [
+      {
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "variableNotUsed",
+      "variableName": "input"
+    }
+  }
+]
+2025-07-15 18:59:54,847 - sync_service - INFO - Successfully added variant FG-0000706 to existing product
+2025-07-15 18:59:57,062 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 18:59:57,062 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7510108733506', 'Name': '7510108733506', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Necklace', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 18:59:58,879 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'status_code': 400, 'text': '{\n   "error" : {\n      "code" : -2035,\n      "message" : {\n         "lang" : "en-us",\n         "value" : "This entry already exists in the following tables (ODBC -2035)"\n      }\n   }\n}\n'}, 'status': 'failure'}
+2025-07-15 19:00:01,221 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - failure
+2025-07-15 19:00:03,946 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:00:03,947 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42313759719490', 'Name': '42313759719490', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000706', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:00:05,157 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42313759719490', 'Name': '42313759719490', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000706', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:00:06,957 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:00:08,883 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 19:00:08,886 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44414036607042', 'Name': '44414036607042', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000706', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:00:10,026 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44414036607042', 'Name': '44414036607042', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000706', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:00:11,506 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 19:00:12,020 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 3, 'success_count': 3, 'error_count': 0, 'details': None}
+2025-07-15 19:00:13,302 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-15 19:00:13,304 - sync_service - INFO - Multi-store new items sync completed: 3 processed, 3 successful, 0 errors
+2025-07-15 19:00:21,362 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 19:00:21,396 - sync_service - INFO - Starting stock change sync...
+2025-07-15 19:00:21,396 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-15 19:00:21,397 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 19:00:22,644 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-15 19:00:22,646 - sync_service - INFO - SAP login successful
+2025-07-15 19:00:22,648 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-15 19:00:24,927 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': [{'ItemCode': 'FG-0000703', 'Variant_ID': '44394637623362', 'OnHand': 80.0, 'Available': 80.0, 'Location_ID': '68605345858', 'id__': 1}, {'ItemCode': 'FG-0000705', 'Variant_ID': '44412903227458', 'OnHand': 30.0, 'Available': 30.0, 'Location_ID': '68605345858', 'id__': 2}, {'ItemCode': 'FG-0000707', 'Variant_ID': '44414036344898', 'OnHand': 30.0, 'Available': 30.0, 'Location_ID': '68605345858', 'id__': 3}, {'ItemCode': 'FG-0000706', 'Variant_ID': '44414036607042', 'OnHand': 25.0, 'Available': 25.0, 'Location_ID': '68605345858', 'id__': 4}]}, 'status': 'success'}
+2025-07-15 19:00:24,930 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44394637623362', 'available': 80}, 'response': None, 'status': None}
+2025-07-15 19:00:39,986 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44394637623362, 'location_id': 68605345858, 'available': 80, 'updated_at': '2025-07-15T19:00:39+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44394637623362'}}, 'status': 'success'}
+2025-07-15 19:00:45,738 - sync_service - INFO - SAP logging client login successful
+2025-07-15 19:00:48,029 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-15 19:00:48,143 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44412903227458', 'available': 30}, 'response': None, 'status': None}
+2025-07-15 19:01:00,436 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44412903227458, 'location_id': 68605345858, 'available': 30, 'updated_at': '2025-07-15T19:01:00+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44412903227458'}}, 'status': 'success'}
+2025-07-15 19:01:02,424 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-15 19:01:02,533 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44414036344898', 'available': 30}, 'response': None, 'status': None}
+2025-07-15 19:01:03,229 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44414036344898, 'location_id': 68605345858, 'available': 30, 'updated_at': '2025-07-15T19:01:03+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44414036344898'}}, 'status': 'success'}
+2025-07-15 19:01:05,340 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-15 19:01:05,462 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44414036607042', 'available': 25}, 'response': None, 'status': None}
+2025-07-15 19:01:13,512 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44414036607042, 'location_id': 68605345858, 'available': 25, 'updated_at': '2025-07-15T19:01:13+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44414036607042'}}, 'status': 'success'}
+2025-07-15 19:01:16,714 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-15 19:01:16,831 - sync_service - INFO - Stock change sync completed: 4 processed, 4 successful, 0 errors
+2025-07-15 19:05:53,572 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 19:05:53,599 - sync_service - INFO - Starting new items sync...
+2025-07-15 19:05:53,602 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-15 19:05:56,012 - sync_service - INFO - SAP logging client login successful
+2025-07-15 19:05:58,365 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-15 19:05:58,369 - sync_service - INFO - Fetching new items for store: local
+2025-07-15 19:05:58,371 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 19:05:59,575 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-15 19:05:59,577 - sync_service - INFO - SAP login successful
+2025-07-15 19:05:59,581 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:06:01,738 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000708', 'ItemName': 'Morsi-Earrings-Blue', 'MainProduct': 'Morsi Earrings', 'Color': 'Blue', 'OnHand': 0.0, 'IsCommited': 0.0, 'Available': 0.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 1}, {'itemcode': 'FG-0000709', 'ItemName': 'Morsi-Earrings-Orange', 'MainProduct': 'Morsi Earrings', 'Color': 'Orange', 'OnHand': 15.0, 'IsCommited': 0.0, 'Available': 15.0, 'Price': 2500.0, 'Status': 'new', 'Shopify_ProductCode': '', 'Shopify_Store': 'local', 'id__': 2}]}, 'status': 'success'}
+2025-07-15 19:06:01,742 - sync_service - INFO - Product group: ('Morsi Earrings', 'local') has 2 items
+2025-07-15 19:06:01,743 - sync_service - INFO - Grouped 2 items into 1 product groups for store local
+2025-07-15 19:06:01,743 - sync_service - INFO - Processing product group: ('Morsi Earrings', 'local') with 2 items for store local
+2025-07-15 19:06:03,279 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 19:06:03,280 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProductByHandle($handle: String!) {\n            productByHandle(handle: $handle) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'handle': 'morsi-earrings'}}, 'response': None, 'status': None}
+2025-07-15 19:06:03,725 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productByHandle': None}, 'status': 'success'}
+2025-07-15 19:06:04,968 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 19:06:04,972 - sync_service - INFO - Product Morsi Earrings doesn't exist in store local, creating new product
+2025-07-15 19:06:05,934 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 19:06:05,937 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productCreate($input: ProductInput!) {\n            productCreate(input: $input) {\n                product {\n                    id\n                    title\n                    handle\n                    variants(first: 50) {\n                        edges {\n                            node {\n                                id\n                                sku\n                                inventoryItem {\n                                    id\n                                }\n                                selectedOptions {\n                                    name\n                                    value\n                                }\n                            }\n                        }\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Morsi Earrings', 'status': 'DRAFT', 'options': ['Color'], 'variants': [{'options': ['Blue'], 'sku': 'FG-0000708', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 0, 'locationId': 'gid://shopify/Location/68605345858'}]}, {'options': ['Orange'], 'sku': 'FG-0000709', 'price': '2500.0', 'inventoryManagement': 'SHOPIFY', 'inventoryQuantities': [{'availableQuantity': 15, 'locationId': 'gid://shopify/Location/68605345858'}]}]}}}, 'response': None, 'status': None}
+2025-07-15 19:06:06,820 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productCreate': {'product': {'id': 'gid://shopify/Product/7513978830914', 'title': 'Morsi Earrings', 'handle': 'morsi-earrings', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313772335170', 'sku': 'FG-0000708', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049222722'}, 'selectedOptions': [{'name': 'Color', 'value': 'Blue'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42313772367938', 'sku': 'FG-0000709', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049255490'}, 'selectedOptions': [{'name': 'Color', 'value': 'Orange'}]}}]}}, 'userErrors': []}}, 'status': 'success'}
+2025-07-15 19:06:06,821 - sync_service - ERROR - Shopify full response for store local: {'msg': 'success', 'data': {'productCreate': {'product': {'id': 'gid://shopify/Product/7513978830914', 'title': 'Morsi Earrings', 'handle': 'morsi-earrings', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313772335170', 'sku': 'FG-0000708', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049222722'}, 'selectedOptions': [{'name': 'Color', 'value': 'Blue'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42313772367938', 'sku': 'FG-0000709', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049255490'}, 'selectedOptions': [{'name': 'Color', 'value': 'Orange'}]}}]}}, 'userErrors': []}}}
+2025-07-15 19:06:07,708 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - success
+2025-07-15 19:06:07,709 - sync_service - INFO - Successfully created product in store local
+2025-07-15 19:06:09,459 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:06:09,461 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7513978830914', 'Name': '7513978830914', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Earrings', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:06:11,847 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '7513978830914', 'Name': '7513978830914', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Earrings', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:06:13,106 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:06:14,513 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:06:14,514 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42313772335170', 'Name': '42313772335170', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000708', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:06:16,045 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42313772335170', 'Name': '42313772335170', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000708', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:06:18,360 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:06:19,244 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 19:06:19,245 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44414049222722', 'Name': '44414049222722', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000708', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:06:21,495 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44414049222722', 'Name': '44414049222722', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000708', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:06:24,559 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 19:06:26,612 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:06:26,614 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42313772367938', 'Name': '42313772367938', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000709', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:06:28,457 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42313772367938', 'Name': '42313772367938', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000709', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:06:29,995 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-15 19:06:31,013 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 19:06:31,015 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44414049255490', 'Name': '44414049255490', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000709', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-15 19:06:32,040 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44414049255490', 'Name': '44414049255490', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000709', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-15 19:06:34,509 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-15 19:06:35,013 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-15 19:06:36,485 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-15 19:06:36,488 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-15 19:06:46,911 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-15 19:06:46,931 - sync_service - INFO - Starting stock change sync...
+2025-07-15 19:06:46,932 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-15 19:06:46,933 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-15 19:06:49,331 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-15 19:06:49,334 - sync_service - INFO - SAP login successful
+2025-07-15 19:06:49,337 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-15 19:06:51,275 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': [{'ItemCode': 'FG-0000709', 'Variant_ID': '44414049255490', 'OnHand': 15.0, 'Available': 15.0, 'Location_ID': '68605345858', 'id__': 1}]}, 'status': 'success'}
+2025-07-15 19:06:51,276 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44414049255490', 'available': 15}, 'response': None, 'status': None}
+2025-07-15 19:07:02,808 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44414049255490, 'location_id': 68605345858, 'available': 15, 'updated_at': '2025-07-15T19:06:12+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44414049255490'}}, 'status': 'success'}
+2025-07-15 19:07:04,516 - sync_service - INFO - SAP logging client login successful
+2025-07-15 19:07:06,212 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-15 19:07:06,321 - sync_service - INFO - Stock change sync completed: 1 processed, 1 successful, 0 errors
+2025-07-16 13:32:18,622 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 13:32:40,488 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 13:32:40,508 - sync_service - INFO - Starting all syncs...
+2025-07-16 13:33:07,510 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 13:33:07,570 - sync_service - INFO - Starting all syncs...
+2025-07-16 13:33:07,574 - sync_service - INFO - Starting new items sync...
+2025-07-16 13:33:07,578 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-16 13:33:09,476 - sync_service - INFO - SAP logging client login successful
+2025-07-16 13:33:10,999 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 13:33:11,004 - sync_service - INFO - Fetching new items for store: local
+2025-07-16 13:33:11,010 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-16 13:33:12,323 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-16 13:33:12,326 - sync_service - INFO - SAP login successful
+2025-07-16 13:33:12,330 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-16 13:33:13,355 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 13:33:13,360 - sync_service - INFO - No new items found in SAP for store local
+2025-07-16 13:33:13,362 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
+2025-07-16 13:33:15,672 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 13:33:15,674 - sync_service - INFO - Multi-store new items sync completed: 0 processed, 0 successful, 0 errors
+2025-07-16 13:33:15,675 - sync_service - INFO - Starting stock change sync...
+2025-07-16 13:33:15,676 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 13:33:15,677 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 13:33:16,707 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 13:33:16,712 - sync_service - INFO - No stock changes found in the view.
+2025-07-16 13:33:16,715 - sync_service - INFO - Starting master data sync...
+2025-07-16 13:33:16,717 - sync_service - INFO - Starting master data sync
+2025-07-16 13:33:16,718 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql', 'request': {'query': '\n        query GetProducts($first: Int!, $after: String) {\n            products(first: $first, after: $after) {\n                pageInfo {\n                    hasNextPage\n                    endCursor\n                }\n                edges {\n                    node {\n                        id\n                        title\n                        handle\n                        description\n                        variants(first: 1) {\n                            edges {\n                                node {\n                                    id\n                                    sku\n                                    price\n                                    inventoryQuantity\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'first': 100, 'after': None}}, 'response': None, 'status': None}
+2025-07-16 13:33:26,731 - sync_service - ERROR - GraphQL query error: 
+2025-07-16 13:33:26,733 - sync_service - ERROR - Failed to get products from Shopify: GraphQL query error: 
+2025-07-16 13:33:26,733 - sync_service - ERROR - Product sync failed: GraphQL query error: 
+2025-07-16 13:33:26,734 - sync_service - INFO - Starting orders sync...
+2025-07-16 13:33:26,734 - sync_service - INFO - Starting orders sync
+2025-07-16 13:33:26,735 - sync_service - INFO - Sync Event: {'sync_type': 'orders', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
+2025-07-16 13:33:26,736 - sync_service - INFO - Orders sync completed
+2025-07-16 15:57:20,447 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 15:57:20,504 - sync_service - INFO - Starting continuous sync mode...
+2025-07-16 15:57:20,507 - sync_service - INFO - New items sync scheduled to run every 10 minutes
+2025-07-16 15:57:20,507 - sync_service - INFO - Inventory sync scheduled to run every 2 minutes
+2025-07-16 15:57:20,509 - sync_service - INFO - Running new_items sync...
+2025-07-16 15:57:20,510 - sync_service - INFO - Starting new items sync...
+2025-07-16 15:57:20,511 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-16 15:57:20,534 - sync_service - INFO - Running stock sync...
+2025-07-16 15:57:20,537 - sync_service - INFO - Starting stock change sync...
+2025-07-16 15:57:20,538 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 15:57:20,538 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-16 15:57:21,817 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-16 15:57:21,819 - sync_service - INFO - SAP login successful
+2025-07-16 15:57:21,824 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 15:57:21,831 - sync_service - INFO - SAP logging client login successful
+2025-07-16 15:57:22,545 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 15:57:22,547 - sync_service - INFO - Fetching new items for store: local
+2025-07-16 15:57:22,549 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-16 15:57:23,259 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 15:57:23,262 - sync_service - INFO - No new items found in SAP for store local
+2025-07-16 15:57:23,264 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
+2025-07-16 15:57:23,976 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 15:57:23,979 - sync_service - INFO - Multi-store new items sync completed: 0 processed, 0 successful, 0 errors
+2025-07-16 15:57:23,981 - sync_service - INFO - ✅ new_items sync completed successfully
+2025-07-16 15:57:23,982 - sync_service - INFO -    - Processed: 0
+2025-07-16 15:57:23,983 - sync_service - INFO -    - Successful: 0
+2025-07-16 15:57:23,983 - sync_service - INFO -    - Errors: 0
+2025-07-16 15:57:23,988 - sync_service - INFO - Waiting 10 minutes before next new_items sync...
+2025-07-16 15:57:24,011 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 15:57:24,014 - sync_service - INFO - No stock changes found in the view.
+2025-07-16 15:57:24,015 - sync_service - INFO - ✅ stock sync completed successfully
+2025-07-16 15:57:24,015 - sync_service - INFO -    - Processed: 0
+2025-07-16 15:57:24,016 - sync_service - INFO -    - Successful: 0
+2025-07-16 15:57:24,016 - sync_service - INFO -    - Errors: 0
+2025-07-16 15:57:24,017 - sync_service - INFO - Waiting 2 minutes before next stock sync...
+2025-07-16 15:59:24,019 - sync_service - INFO - Running stock sync...
+2025-07-16 15:59:24,043 - sync_service - INFO - Starting stock change sync...
+2025-07-16 15:59:24,070 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 15:59:24,099 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 15:59:25,748 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 15:59:25,917 - sync_service - INFO - No stock changes found in the view.
+2025-07-16 15:59:26,032 - sync_service - INFO - ✅ stock sync completed successfully
+2025-07-16 15:59:26,064 - sync_service - INFO -    - Processed: 0
+2025-07-16 15:59:26,074 - sync_service - INFO -    - Successful: 0
+2025-07-16 15:59:26,082 - sync_service - INFO -    - Errors: 0
+2025-07-16 15:59:26,089 - sync_service - INFO - Waiting 2 minutes before next stock sync...
+2025-07-16 16:01:26,101 - sync_service - INFO - Running stock sync...
+2025-07-16 16:01:26,103 - sync_service - INFO - Starting stock change sync...
+2025-07-16 16:01:26,105 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 16:01:26,107 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 16:01:27,253 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 16:01:27,254 - sync_service - INFO - No stock changes found in the view.
+2025-07-16 16:01:27,255 - sync_service - INFO - ✅ stock sync completed successfully
+2025-07-16 16:01:27,256 - sync_service - INFO -    - Processed: 0
+2025-07-16 16:01:27,257 - sync_service - INFO -    - Successful: 0
+2025-07-16 16:01:27,257 - sync_service - INFO -    - Errors: 0
+2025-07-16 16:01:27,258 - sync_service - INFO - Waiting 2 minutes before next stock sync...
+2025-07-16 16:03:27,260 - sync_service - INFO - Running stock sync...
+2025-07-16 16:03:27,261 - sync_service - INFO - Starting stock change sync...
+2025-07-16 16:03:27,262 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 16:03:27,263 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 16:03:28,209 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 16:03:28,209 - sync_service - INFO - No stock changes found in the view.
+2025-07-16 16:03:28,210 - sync_service - INFO - ✅ stock sync completed successfully
+2025-07-16 16:03:28,210 - sync_service - INFO -    - Processed: 0
+2025-07-16 16:03:28,211 - sync_service - INFO -    - Successful: 0
+2025-07-16 16:03:28,211 - sync_service - INFO -    - Errors: 0
+2025-07-16 16:03:28,211 - sync_service - INFO - Waiting 2 minutes before next stock sync...
+2025-07-16 16:05:28,216 - sync_service - INFO - Running stock sync...
+2025-07-16 16:05:28,220 - sync_service - INFO - Starting stock change sync...
+2025-07-16 16:05:28,225 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 16:05:28,228 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 16:05:29,232 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': [{'ItemCode': 'FG-0000708', 'Variant_ID': '44414049222722', 'OnHand': 25.0, 'Available': 25.0, 'Location_ID': '68605345858', 'id__': 1}]}, 'status': 'success'}
+2025-07-16 16:05:29,234 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44414049222722', 'available': 25}, 'response': None, 'status': None}
+2025-07-16 16:05:41,196 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44414049222722, 'location_id': 68605345858, 'available': 25, 'updated_at': '2025-07-16T16:05:41+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44414049222722'}}, 'status': 'success'}
+2025-07-16 16:05:42,700 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-16 16:05:42,811 - sync_service - INFO - Stock change sync completed: 1 processed, 1 successful, 0 errors
+2025-07-16 16:05:42,811 - sync_service - INFO - ✅ stock sync completed successfully
+2025-07-16 16:05:42,812 - sync_service - INFO -    - Processed: 1
+2025-07-16 16:05:42,813 - sync_service - INFO -    - Successful: 1
+2025-07-16 16:05:42,814 - sync_service - INFO -    - Errors: 0
+2025-07-16 16:05:42,815 - sync_service - INFO - Waiting 2 minutes before next stock sync...
+2025-07-16 16:07:23,998 - sync_service - INFO - Running new_items sync...
+2025-07-16 16:07:24,001 - sync_service - INFO - Starting new items sync...
+2025-07-16 16:07:24,003 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-16 16:07:24,851 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:07:24,852 - sync_service - INFO - Fetching new items for store: local
+2025-07-16 16:07:24,853 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:07:25,692 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000710', 'ItemName': 'Morsi-Earrings-Purpple', 'MainProduct': 'Morsi Earrings', 'Color': 'Purple', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'existing', 'Shopify_ProductCode': '7513978830914', 'Shopify_Store': 'local', 'id__': 1}]}, 'status': 'success'}
+2025-07-16 16:07:25,697 - sync_service - INFO - Product group: ('Morsi Earrings', 'local') has 1 items
+2025-07-16 16:07:25,699 - sync_service - INFO - Grouped 1 items into 1 product groups for store local
+2025-07-16 16:07:25,699 - sync_service - INFO - Processing product group: ('Morsi Earrings', 'local') with 1 items for store local
+2025-07-16 16:07:25,700 - sync_service - INFO - Found existing Shopify product ID: 7513978830914 for Morsi Earrings
+2025-07-16 16:07:25,706 - sync_service - INFO - Product Morsi Earrings already exists in store local, adding variants
+2025-07-16 16:07:25,708 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProduct($id: ID!) {\n            product(id: $id) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Product/7513978830914'}}, 'response': None, 'status': None}
+2025-07-16 16:07:35,725 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-16 16:07:35,729 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProductByHandle($handle: String!) {\n            productByHandle(handle: $handle) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'handle': None}}, 'response': None, 'status': None}
+2025-07-16 16:07:37,233 - sync_service - ERROR - GraphQL query error for store local: {'message': 'Variable $handle of type String! was provided invalid value', 'locations': [{'line': 1, 'column': 26}], 'extensions': {'value': None, 'problems': [{'path': [], 'explanation': 'Expected value to not be null'}]}}
+GraphQL Errors: [
+  {
+    "message": "Variable $handle of type String! was provided invalid value",
+    "locations": [
+      {
+        "line": 1,
+        "column": 26
+      }
+    ],
+    "extensions": {
+      "value": null,
+      "problems": [
+        {
+          "path": [],
+          "explanation": "Expected value to not be null"
+        }
+      ]
+    }
+  }
+]
+2025-07-16 16:07:38,013 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Value' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:07:38,770 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:07:38,771 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productVariantCreate($input: ProductVariantInput!) {\n            productVariantCreate(input: $input) {\n                productVariant {\n                    id\n                    sku\n                    price\n                    inventoryItem {\n                        id\n                    }\n                    selectedOptions {\n                        name\n                        value\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'sku': 'FG-0000710', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'options': ['Purple'], 'productId': 'gid://shopify/Product/7513978830914'}}}, 'response': None, 'status': None}
+2025-07-16 16:07:42,831 - sync_service - INFO - Running stock sync...
+2025-07-16 16:07:42,832 - sync_service - INFO - Starting stock change sync...
+2025-07-16 16:07:42,832 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 16:07:42,833 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 16:07:43,606 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 16:07:43,610 - sync_service - INFO - No stock changes found in the view.
+2025-07-16 16:07:43,612 - sync_service - INFO - ✅ stock sync completed successfully
+2025-07-16 16:07:43,612 - sync_service - INFO -    - Processed: 0
+2025-07-16 16:07:43,613 - sync_service - INFO -    - Successful: 0
+2025-07-16 16:07:43,614 - sync_service - INFO -    - Errors: 0
+2025-07-16 16:07:43,615 - sync_service - INFO - Waiting 2 minutes before next stock sync...
+2025-07-16 16:07:48,779 - sync_service - ERROR - GraphQL query error for store local: 
+2025-07-16 16:07:48,782 - sync_service - ERROR - Detailed variant creation error for FG-0000710: GraphQL query error for store local: 
+2025-07-16 16:07:49,591 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:07:49,593 - sync_service - ERROR - Failed to add variant FG-0000710: GraphQL query error for store local: 
+2025-07-16 16:07:50,412 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-16 16:07:50,415 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7513978830914', 'Name': '7513978830914', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Earrings', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:07:51,199 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'status_code': 400, 'text': '{\n   "error" : {\n      "code" : -2035,\n      "message" : {\n         "lang" : "en-us",\n         "value" : "This entry already exists in the following tables (ODBC -2035)"\n      }\n   }\n}\n'}, 'status': 'failure'}
+2025-07-16 16:07:51,960 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - failure
+2025-07-16 16:07:52,464 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 0, 'error_count': 1, 'details': None}
+2025-07-16 16:07:53,200 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:07:53,200 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 0 successful, 1 errors
+2025-07-16 16:07:53,201 - sync_service - INFO - ✅ new_items sync completed successfully
+2025-07-16 16:07:53,201 - sync_service - INFO -    - Processed: 1
+2025-07-16 16:07:53,202 - sync_service - INFO -    - Successful: 0
+2025-07-16 16:07:53,202 - sync_service - INFO -    - Errors: 1
+2025-07-16 16:07:53,203 - sync_service - INFO - Waiting 10 minutes before next new_items sync...
+2025-07-16 16:12:23,712 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 16:12:23,748 - sync_service - INFO - Starting new items sync...
+2025-07-16 16:12:23,749 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-16 16:12:25,012 - sync_service - INFO - SAP logging client login successful
+2025-07-16 16:12:26,198 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:12:26,199 - sync_service - INFO - Fetching new items for store: local
+2025-07-16 16:12:26,200 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-16 16:12:27,283 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-16 16:12:27,284 - sync_service - INFO - SAP login successful
+2025-07-16 16:12:27,291 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:12:28,401 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': [{'itemcode': 'FG-0000710', 'ItemName': 'Morsi-Earrings-Purpple', 'MainProduct': 'Morsi Earrings', 'Color': 'Purple', 'OnHand': 10.0, 'IsCommited': 0.0, 'Available': 10.0, 'Price': 2500.0, 'Status': 'existing', 'Shopify_ProductCode': '7513978830914', 'Shopify_Store': 'local', 'id__': 1}]}, 'status': 'success'}
+2025-07-16 16:12:28,407 - sync_service - INFO - Product group: ('Morsi Earrings', 'local') has 1 items
+2025-07-16 16:12:28,409 - sync_service - INFO - Grouped 1 items into 1 product groups for store local
+2025-07-16 16:12:28,410 - sync_service - INFO - Processing product group: ('Morsi Earrings', 'local') with 1 items for store local
+2025-07-16 16:12:28,412 - sync_service - INFO - Found existing Shopify product ID: 7513978830914 for Morsi Earrings
+2025-07-16 16:12:28,415 - sync_service - INFO - Product Morsi Earrings already exists in store local, adding variants
+2025-07-16 16:12:28,416 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProduct($id: ID!) {\n            product(id: $id) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Product/7513978830914'}}, 'response': None, 'status': None}
+2025-07-16 16:12:28,964 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'product': {'id': 'gid://shopify/Product/7513978830914', 'title': 'Morsi Earrings', 'handle': 'morsi-earrings', 'description': '', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313772335170', 'sku': 'FG-0000708', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049222722'}, 'selectedOptions': [{'name': 'Color', 'value': 'Blue'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42313772367938', 'sku': 'FG-0000709', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049255490'}, 'selectedOptions': [{'name': 'Color', 'value': 'Orange'}]}}]}}}, 'status': 'success'}
+2025-07-16 16:12:28,965 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query GetProduct($id: ID!) {\n            product(id: $id) {\n                id\n                title\n                handle\n                description\n                variants(first: 50) {\n                    edges {\n                        node {\n                            id\n                            sku\n                            price\n                            inventoryItem {\n                                id\n                            }\n                            selectedOptions {\n                                name\n                                value\n                            }\n                        }\n                    }\n                }\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Product/7513978830914'}}, 'response': None, 'status': None}
+2025-07-16 16:12:29,450 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'product': {'id': 'gid://shopify/Product/7513978830914', 'title': 'Morsi Earrings', 'handle': 'morsi-earrings', 'description': '', 'variants': {'edges': [{'node': {'id': 'gid://shopify/ProductVariant/42313772335170', 'sku': 'FG-0000708', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049222722'}, 'selectedOptions': [{'name': 'Color', 'value': 'Blue'}]}}, {'node': {'id': 'gid://shopify/ProductVariant/42313772367938', 'sku': 'FG-0000709', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44414049255490'}, 'selectedOptions': [{'name': 'Color', 'value': 'Orange'}]}}]}}}, 'status': 'success'}
+2025-07-16 16:12:30,171 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:12:30,174 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productVariantCreate($input: ProductVariantInput!) {\n            productVariantCreate(input: $input) {\n                productVariant {\n                    id\n                    sku\n                    price\n                    inventoryItem {\n                        id\n                    }\n                    selectedOptions {\n                        name\n                        value\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'sku': 'FG-0000710', 'price': '2500.0', 'inventoryPolicy': 'DENY', 'inventoryManagement': 'SHOPIFY', 'weight': 0.0, 'weightUnit': 'KILOGRAMS', 'options': ['Purple'], 'productId': 'gid://shopify/Product/7513978830914'}}}, 'response': None, 'status': None}
+2025-07-16 16:12:30,890 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productVariantCreate': {'productVariant': {'id': 'gid://shopify/ProductVariant/42316493389890', 'sku': 'FG-0000710', 'price': '2500.00', 'inventoryItem': {'id': 'gid://shopify/InventoryItem/44416857014338'}, 'selectedOptions': [{'name': 'Color', 'value': 'Purple'}]}, 'userErrors': []}}, 'status': 'success'}
+2025-07-16 16:12:30,892 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation productVariantUpdate($input: ProductVariantInput!) {\n            productVariantUpdate(input: $input) {\n                productVariant {\n                    id\n                    sku\n                    title\n                    selectedOptions {\n                        name\n                        value\n                    }\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'title': 'Purple', 'id': 'gid://shopify/ProductVariant/42316493389890'}}}, 'response': None, 'status': None}
+2025-07-16 16:12:40,082 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'productVariantUpdate': {'productVariant': {'id': 'gid://shopify/ProductVariant/42316493389890', 'sku': 'FG-0000710', 'title': 'Purple', 'selectedOptions': [{'name': 'Color', 'value': 'Purple'}]}, 'userErrors': []}}, 'status': 'success'}
+2025-07-16 16:12:40,084 - sync_service - INFO - Updated variant FG-0000710 title to 'Purple'
+2025-07-16 16:12:40,679 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:12:40,681 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation inventoryAdjustQuantity($input: InventoryAdjustQuantityInput!) {\n            inventoryAdjustQuantity(input: $input) {\n                inventoryLevel {\n                    available\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'inventoryItemId': 'gid://shopify/InventoryItem/44416857014338', 'availableDelta': 10}}}, 'response': None, 'status': None}
+2025-07-16 16:12:41,198 - sync_service - ERROR - GraphQL query error for store local: {'message': "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'", 'locations': [{'line': 2, 'column': 3}], 'path': ['mutation inventoryAdjustQuantity', 'inventoryAdjustQuantity'], 'extensions': {'code': 'undefinedField', 'typeName': 'Mutation', 'fieldName': 'inventoryAdjustQuantity'}}
+GraphQL Errors: [
+  {
+    "message": "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'",
+    "locations": [
+      {
+        "line": 2,
+        "column": 3
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity",
+      "inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "undefinedField",
+      "typeName": "Mutation",
+      "fieldName": "inventoryAdjustQuantity"
+    }
+  },
+  {
+    "message": "Variable $input is declared by inventoryAdjustQuantity but not used",
+    "locations": [
+      {
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "variableNotUsed",
+      "variableName": "input"
+    }
+  }
+]
+2025-07-16 16:12:41,827 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Value' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:12:41,830 - sync_service - WARNING - Failed to set inventory for variant FG-0000710: GraphQL query error for store local: {'message': "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'", 'locations': [{'line': 2, 'column': 3}], 'path': ['mutation inventoryAdjustQuantity', 'inventoryAdjustQuantity'], 'extensions': {'code': 'undefinedField', 'typeName': 'Mutation', 'fieldName': 'inventoryAdjustQuantity'}}
+GraphQL Errors: [
+  {
+    "message": "Field 'inventoryAdjustQuantity' doesn't exist on type 'Mutation'",
+    "locations": [
+      {
+        "line": 2,
+        "column": 3
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity",
+      "inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "undefinedField",
+      "typeName": "Mutation",
+      "fieldName": "inventoryAdjustQuantity"
+    }
+  },
+  {
+    "message": "Variable $input is declared by inventoryAdjustQuantity but not used",
+    "locations": [
+      {
+        "line": 1,
+        "column": 1
+      }
+    ],
+    "path": [
+      "mutation inventoryAdjustQuantity"
+    ],
+    "extensions": {
+      "code": "variableNotUsed",
+      "variableName": "input"
+    }
+  }
+]
+2025-07-16 16:12:41,832 - sync_service - INFO - Successfully added variant FG-0000710 to existing product
+2025-07-16 16:12:42,449 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-16 16:12:42,449 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '7513978830914', 'Name': '7513978830914', 'U_Shopify_Type': 'product', 'U_SAP_Code': 'Morsi Earrings', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:12:43,064 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'status_code': 400, 'text': '{\n   "error" : {\n      "code" : -2035,\n      "message" : {\n         "lang" : "en-us",\n         "value" : "This entry already exists in the following tables (ODBC -2035)"\n      }\n   }\n}\n'}, 'status': 'failure'}
+2025-07-16 16:12:43,694 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - failure
+2025-07-16 16:12:44,331 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-16 16:12:44,332 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '42316493389890', 'Name': '42316493389890', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000710', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:12:44,978 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '42316493389890', 'Name': '42316493389890', 'U_Shopify_Type': 'variant', 'U_SAP_Code': 'FG-0000710', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-16 16:12:45,631 - sync_service - INFO - API log added to SAP: sap - /U_SHOPIFY_MAPPING - success
+2025-07-16 16:12:46,267 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:12:46,267 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': {'method': 'POST', 'url': 'https://10.0.0.100:50000/b1s/v1/U_SHOPIFY_MAPPING', 'data': {'Code': '44416857014338', 'Name': '44416857014338', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000710', 'U_Shopify_Store': 'local', 'U_SAP_Type': 'item'}, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:12:46,934 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'U_SHOPIFY_MAPPING', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/$metadata#U_SHOPIFY_MAPPING/@Element', 'Code': '44416857014338', 'Name': '44416857014338', 'U_Shopify_Type': 'variant_inventory', 'U_SAP_Code': 'FG-0000710', 'U_SAP_Type': 'item', 'U_Shopify_Store': 'local'}, 'status': 'success'}
+2025-07-16 16:12:47,607 - sync_service - ERROR - Failed to add API log to SAP: HTTP 400: {
+   "error" : {
+      "code" : -1,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "CServiceData::SetPropertyValueString failed; Value too long in property 'U_Action' of 'U_API_LOG'"
+      }
+   }
+}
+
+2025-07-16 16:12:48,118 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 1, 'success_count': 1, 'error_count': 0, 'details': None}
+2025-07-16 16:12:48,800 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:12:48,801 - sync_service - INFO - Multi-store new items sync completed: 1 processed, 1 successful, 0 errors
+2025-07-16 16:14:35,292 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 16:14:35,331 - sync_service - INFO - Starting new items sync...
+2025-07-16 16:14:35,333 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-16 16:14:36,567 - sync_service - INFO - SAP logging client login successful
+2025-07-16 16:14:37,684 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:14:37,684 - sync_service - INFO - Fetching new items for store: local
+2025-07-16 16:14:37,685 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-16 16:14:38,761 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-16 16:14:38,762 - sync_service - INFO - SAP login successful
+2025-07-16 16:14:38,764 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:14:39,884 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 16:14:39,885 - sync_service - INFO - No new items found in SAP for store local
+2025-07-16 16:14:39,886 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
+2025-07-16 16:14:40,629 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:14:40,630 - sync_service - INFO - Multi-store new items sync completed: 0 processed, 0 successful, 0 errors
+2025-07-16 16:14:46,792 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 16:14:46,815 - sync_service - INFO - Starting stock change sync...
+2025-07-16 16:14:46,816 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 16:14:46,817 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-16 16:14:48,018 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-16 16:14:48,019 - sync_service - INFO - SAP login successful
+2025-07-16 16:14:48,024 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 16:14:49,112 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': [{'ItemCode': 'FG-0000710', 'Variant_ID': '44416857014338', 'OnHand': 10.0, 'Available': 10.0, 'Location_ID': '68605345858', 'id__': 1}]}, 'status': 'success'}
+2025-07-16 16:14:49,116 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': {'location_id': '68605345858', 'inventory_item_id': '44416857014338', 'available': 10}, 'response': None, 'status': None}
+2025-07-16 16:14:49,631 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'rest_inventory_local', 'request': None, 'response': {'inventory_level': {'inventory_item_id': 44416857014338, 'location_id': 68605345858, 'available': 10, 'updated_at': '2025-07-16T16:14:50+03:00', 'admin_graphql_api_id': 'gid://shopify/InventoryLevel/103109591106?inventory_item_id=44416857014338'}}, 'status': 'success'}
+2025-07-16 16:14:51,384 - sync_service - INFO - SAP logging client login successful
+2025-07-16 16:14:52,454 - sync_service - INFO - API log added to SAP: shopify - inventory_levels - success
+2025-07-16 16:14:52,560 - sync_service - INFO - Stock change sync completed: 1 processed, 1 successful, 0 errors
+2025-07-16 16:14:59,737 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-07-16 16:14:59,779 - sync_service - INFO - Starting all syncs...
+2025-07-16 16:14:59,781 - sync_service - INFO - Starting new items sync...
+2025-07-16 16:14:59,782 - sync_service - INFO - Starting multi-store new items sync from SAP to Shopify
+2025-07-16 16:15:00,917 - sync_service - INFO - SAP logging client login successful
+2025-07-16 16:15:02,014 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:15:02,016 - sync_service - INFO - Fetching new items for store: local
+2025-07-16 16:15:02,022 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': {'company': 'JudeBenHalim_Test', 'user': 'manager'}, 'response': None, 'status': None}
+2025-07-16 16:15:03,130 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'login', 'request': None, 'response': {'status': 'success'}, 'status': 'success'}
+2025-07-16 16:15:03,132 - sync_service - INFO - SAP login successful
+2025-07-16 16:15:03,136 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': {'method': 'GET', 'url': "https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'data': None, 'params': None}, 'response': None, 'status': None}
+2025-07-16 16:15:04,221 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': "view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq 'local'&$orderby=MainProduct", 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_New_ItemsB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 16:15:04,228 - sync_service - INFO - No new items found in SAP for store local
+2025-07-16 16:15:04,231 - sync_service - INFO - Sync Event: {'sync_type': 'multi_store_new_items_sap_to_shopify', 'items_processed': 0, 'success_count': 0, 'error_count': 0, 'details': None}
+2025-07-16 16:15:04,899 - sync_service - INFO - API log added to SAP: system - /sync/new_items_multi_store - success
+2025-07-16 16:15:04,901 - sync_service - INFO - Multi-store new items sync completed: 0 processed, 0 successful, 0 errors
+2025-07-16 16:15:04,903 - sync_service - INFO - Starting stock change sync...
+2025-07-16 16:15:04,903 - sync_service - INFO - Starting stock change sync using MASHURA_StockChangeB1SLQuery view
+2025-07-16 16:15:04,905 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
+2025-07-16 16:15:05,551 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
+2025-07-16 16:15:05,552 - sync_service - INFO - No stock changes found in the view.

@@ -235,46 +235,6 @@ class MultiStoreShopifyClient:
             logger.error(error_msg)
             return {"msg": "failure", "error": error_msg}
     
-    async def get_products(self, store_key: str, first: int = 10, after: str = None) -> Dict[str, Any]:
-        """
-        Get products from a specific store
-        """
-        query = """
-        query GetProducts($first: Int!, $after: String) {
-            products(first: $first, after: $after) {
-                pageInfo {
-                    hasNextPage
-                    endCursor
-                }
-                edges {
-                    node {
-                        id
-                        title
-                        handle
-                        description
-                        variants(first: 1) {
-                            edges {
-                                node {
-                                    id
-                                    sku
-                                    price
-                                    inventoryQuantity
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        """
-        
-        variables = {
-            "first": first,
-            "after": after
-        }
-        
-        return await self.execute_query(store_key, query, variables)
-    
     async def get_locations(self, store_key: str) -> Dict[str, Any]:
         """
         Get locations from a specific store
@@ -471,23 +431,6 @@ class MultiStoreShopifyClient:
         Get all enabled stores
         """
         return config_settings.get_enabled_stores()
-    
-    async def execute_for_all_stores(self, operation_name: str, operation_func) -> Dict[str, Any]:
-        """
-        Execute an operation for all enabled stores
-        """
-        results = {}
-        enabled_stores = self.get_enabled_stores()
-        
-        for store_key in enabled_stores.keys():
-            try:
-                result = await operation_func(store_key)
-                results[store_key] = result
-            except Exception as e:
-                logger.error(f"Error executing {operation_name} for store {store_key}: {str(e)}")
-                results[store_key] = {"msg": "failure", "error": str(e)}
-        
-        return results
 
 # Create singleton instance
 multi_store_shopify_client = MultiStoreShopifyClient() 

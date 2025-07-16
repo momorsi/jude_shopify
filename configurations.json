@@ -37,8 +37,19 @@
         "webhook_secret": "your_webhook_secret"
     },
     "sync": {
-        "master_data": {
+        "new_items": {
             "enabled": true,
+            "interval_minutes": 10,
+            "batch_size": 50
+        },
+        "inventory": {
+            "enabled": true,
+            "interval_minutes": 2,
+            "batch_size": 50,
+            "locations": ["your_location_id"]
+        },
+        "master_data": {
+            "enabled": false,
             "interval_minutes": 60,
             "batch_size": 100,
             "fields": {
@@ -64,14 +75,8 @@
                 ]
             }
         },
-        "inventory": {
-            "enabled": true,
-            "interval_minutes": 15,
-            "batch_size": 50,
-            "locations": ["your_location_id"]
-        },
         "orders": {
-            "enabled": true,
+            "enabled": false,
             "interval_minutes": 5,
             "batch_size": 20,
             "statuses": ["open", "pending", "paid", "fulfilled"],

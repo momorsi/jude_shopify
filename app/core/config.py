@@ -1,14 +1,36 @@
 from pydantic_settings import BaseSettings
 import json
 import os
+import sys
 from typing import Dict, Any
+from pathlib import Path
 
 class AdvancedSettings:
     configuration_data: Dict[str, Any] = {}
     
     def load_config(self):
-        json_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "configurations.json")
-        with open(json_file) as json_file:
+        # Try to find config file in multiple locations
+        config_paths = [
+            # 1. Same directory as executable (for external config)
+            Path(sys.executable).parent / "configurations.json" if getattr(sys, 'frozen', False) else None,
+            # 2. Current working directory
+            Path.cwd() / "configurations.json",
+            # 3. Original project directory (fallback)
+            Path(__file__).parent.parent.parent / "configurations.json"
+        ]
+        
+        config_file = None
+        for path in config_paths:
+            if path and path.exists():
+                config_file = path
+                break
+        
+        if not config_file:
+            raise FileNotFoundError("configurations.json not found in any of the expected locations")
+        
+        print(f"📋 Loading configuration from: {config_file}")
+        
+        with open(config_file) as json_file:
             self.configuration_data = json.load(json_file)
 
 configs = AdvancedSettings()
@@ -98,13 +120,17 @@ class ConfigSettings(BaseSettings):
         return ""
     
     # Sync Settings
-    master_data_enabled: bool = config_data['sync']['master_data']['enabled']
-    master_data_interval: int = config_data['sync']['master_data']['interval_minutes']
-    master_data_batch_size: int = config_data['sync']['master_data']['batch_size']
+    new_items_enabled: bool = config_data['sync']['new_items']['enabled']
+    new_items_interval: int = config_data['sync']['new_items']['interval_minutes']
+    new_items_batch_size: int = config_data['sync']['new_items']['batch_size']
     
     inventory_enabled: bool = config_data['sync']['inventory']['enabled']
     inventory_interval: int = config_data['sync']['inventory']['interval_minutes']
     inventory_batch_size: int = config_data['sync']['inventory']['batch_size']
+    
+    master_data_enabled: bool = config_data['sync']['master_data']['enabled']
+    master_data_interval: int = config_data['sync']['master_data']['interval_minutes']
+    master_data_batch_size: int = config_data['sync']['master_data']['batch_size']
     
     orders_enabled: bool = config_data['sync']['orders']['enabled']
     orders_interval: int = config_data['sync']['orders']['interval_minutes']

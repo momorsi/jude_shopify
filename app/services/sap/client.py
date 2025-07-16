@@ -180,25 +180,11 @@ class SAPClient:
         endpoint = f"{entity_type}('{entity_id}')" if entity_id else entity_type
         return await self._make_request('GET', endpoint, params=params)
     
-    async def get_entity(self, entity_type: str, filter_query: str = None, 
-                        orderby: str = None, top: int = 50) -> Dict[str, Any]:
-        """Convenience method to get entities (alias for get_entities without entity_id)"""
-        return await self.get_entities(entity_type, filter_query, orderby, top)
-    
-    async def create_entity(self, entity_type: str, entity_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generic method to create entities in SAP"""
-        return await self._make_request('POST', entity_type, data=entity_data)
-    
     async def update_entity(self, entity_type: str, entity_id: str, 
                           entity_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generic method to update entities in SAP"""
         endpoint = f"{entity_type}('{entity_id}')"
         return await self._make_request('PATCH', endpoint, data=entity_data)
-    
-    async def delete_entity(self, entity_type: str, entity_id: str) -> Dict[str, Any]:
-        """Generic method to delete entities in SAP"""
-        endpoint = f"{entity_type}('{entity_id}')"
-        return await self._make_request('DELETE', endpoint)
 
     # Product/Item Methods
     async def get_items(self, filter_query: str = None, orderby: str = None, 
@@ -214,14 +200,6 @@ class SAPClient:
         
         return await self._make_request('GET', 'Items', params=params)
     
-    async def get_item_by_code(self, item_code: str) -> Dict[str, Any]:
-        """Get specific item by ItemCode"""
-        return await self._make_request('GET', f"Items('{item_code}')")
-    
-    async def create_item(self, item_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create new item in SAP"""
-        return await self._make_request('POST', 'Items', data=item_data)
-    
     async def update_item(self, item_code: str, item_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update existing item in SAP"""
         return await self._make_request('PATCH', f"Items('{item_code}')", data=item_data)
@@ -235,51 +213,6 @@ class SAPClient:
         
         return await self._make_request('GET', 'sml.svc/QTY_CHANGE', params=params)
     
-    async def update_item_quantity(self, item_code: str, warehouse_code: str, 
-                                 quantity: float) -> Dict[str, Any]:
-        """Update item quantity in specific warehouse"""
-        data = {
-            "ItemCode": item_code,
-            "WarehouseCode": warehouse_code,
-            "Quantity": quantity
-        }
-        return await self._make_request('POST', 'InventoryCounts', data=data)
-    
-    # Order Methods
-    async def get_orders(self, filter_query: str = None, orderby: str = None, 
-                        top: int = 50) -> Dict[str, Any]:
-        """Get orders from SAP"""
-        params = {}
-        if filter_query:
-            params['$filter'] = filter_query
-        if orderby:
-            params['$orderby'] = orderby
-        if top:
-            params['$top'] = top
-        
-        return await self._make_request('GET', 'Orders', params=params)
-    
-    async def create_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create new order in SAP"""
-        return await self._make_request('POST', 'Orders', data=order_data)
-    
-    async def update_order(self, order_id: int, order_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Update existing order in SAP"""
-        return await self._make_request('PATCH', f"Orders({order_id})", data=order_data)
-    
-    # Business Partner Methods
-    async def get_business_partners(self, filter_query: str = None) -> Dict[str, Any]:
-        """Get business partners from SAP"""
-        params = {}
-        if filter_query:
-            params['$filter'] = filter_query
-        
-        return await self._make_request('GET', 'BusinessPartners', params=params)
-    
-    async def create_business_partner(self, bp_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create new business partner in SAP"""
-        return await self._make_request('POST', 'BusinessPartners', data=bp_data)
-    
     # Custom Query Methods (for your specific endpoints)
     async def get_new_items(self, store_key: str = None) -> Dict[str, Any]:
         """Get new items from the new SAP view endpoint, with optional store filter"""
@@ -287,14 +220,6 @@ class SAPClient:
         if store_key:
             endpoint += f"?$filter=Shopify_Store eq '{store_key}'&$orderby=MainProduct"
         return await self._make_request('GET', endpoint)
-    
-    async def get_price_changes(self) -> Dict[str, Any]:
-        """Get price changes from custom endpoint"""
-        return await self._make_request('GET', 'sml.svc/PRICE_CHANGE')
-    
-    async def get_barcode_changes(self) -> Dict[str, Any]:
-        """Get barcode changes from custom endpoint"""
-        return await self._make_request('GET', 'sml.svc/BARCODE_CHANGE')
 
     async def add_shopify_mapping(self, mapping_data: dict) -> dict:
         """Add a mapping row to the SAP Shopify mapping table."""

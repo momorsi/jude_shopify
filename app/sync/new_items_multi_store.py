@@ -15,7 +15,7 @@ from datetime import datetime
 
 class MultiStoreNewItemsSync:
     def __init__(self):
-        self.batch_size = config_settings.master_data_batch_size
+        self.batch_size = config_settings.new_items_batch_size
         self.shopify_field_mapping = {
             'ItemCode': 'sku',
             'ItemName': 'title',
@@ -25,63 +25,7 @@ class MultiStoreNewItemsSync:
             'U_BRND': 'brand',
         }
     
-    async def get_new_items_from_sap(self) -> Dict[str, Any]:
-        """
-        Get new items from SAP that haven't been synced to Shopify yet
-        """
-        try:
-            # Log the SAP API call
-            await sl_add_log(
-                server="sap",
-                endpoint="/Items",
-                request_data={"filter": "U_SyncDT eq null"},
-                action="get_new_items",
-                value="Fetching new items from SAP"
-            )
-            
-            result = await sap_client.get_new_items()
-            
-            if result["msg"] == "failure":
-                # Log the failure
-                await sl_add_log(
-                    server="sap",
-                    endpoint="/Items",
-                    response_data={"error": result.get("error")},
-                    status="failure",
-                    action="get_new_items",
-                    value=f"Failed to get new items: {result.get('error')}"
-                )
-                logger.error(f"Failed to get new items from SAP: {result.get('error')}")
-                return {"msg": "failure", "error": result.get("error")}
-            
-            items = result["data"].get("value", [])
-            
-            # Log the success
-            await sl_add_log(
-                server="sap",
-                endpoint="/Items",
-                response_data={"item_count": len(items)},
-                status="success",
-                action="get_new_items",
-                value=f"Retrieved {len(items)} new items from SAP"
-            )
-            
-            logger.info(f"Retrieved {len(items)} new items from SAP")
-            
-            return {"msg": "success", "data": items}
-            
-        except Exception as e:
-            # Log the exception
-            await sl_add_log(
-                server="sap",
-                endpoint="/Items",
-                response_data={"error": str(e)},
-                status="failure",
-                action="get_new_items",
-                value=f"Exception occurred: {str(e)}"
-            )
-            logger.error(f"Error getting new items from SAP: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
+
     
     def group_items_by_parent(self, items: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -346,10 +290,10 @@ class MultiStoreNewItemsSync:
         Add a variant to an existing product
         """
         try:
-            # 1. Get the product's current options
-            product_info = await multi_store_shopify_client.get_product_by_handle(store_key, None)
-            if product_info["msg"] == "success" and product_info["data"].get("productByHandle"):
-                product = product_info["data"]["productByHandle"]
+            # 1. Get the product's current options using product ID
+            product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
+            if product_info["msg"] == "success" and product_info["data"].get("product"):
+                product = product_info["data"]["product"]
                 options = [opt["name"] for opt in product.get("options", [])]
                 # 2. If the only option is 'Title', update to ['Color']
                 if options == ["Title"]:
@@ -368,7 +312,7 @@ class MultiStoreNewItemsSync:
                 server="shopify",
                 endpoint=f"/admin/api/graphql_{store_key}",
                 request_data={"product_id": product_id, "variant_data": variant_data},
-                action="add_variant_to_product",
+                action="add_variant",
                 value=f"Adding variant {variant_data.get('sku')} to product {product_id} in store {store_key}"
             )
             
@@ -397,7 +341,7 @@ class MultiStoreNewItemsSync:
                         endpoint=f"/admin/api/graphql_{store_key}",
                         response_data={"error": result.get("error"), "variant_data": variant_data},
                         status="failure",
-                        action="add_variant_to_product",
+                        action="add_variant",
                         value=f"Failed to add variant to product in store {store_key}: {result.get('error')}"
                     )
                     return result
@@ -423,7 +367,7 @@ class MultiStoreNewItemsSync:
                         endpoint=f"/admin/api/graphql_{store_key}",
                         response_data={"user_errors": errors},
                         status="failure",
-                        action="add_variant_to_product",
+                        action="add_variant",
                         value=f"User errors adding variant in store {store_key}: {error_msg}"
                     )
                     return {"msg": "failure", "error": error_msg}
@@ -454,7 +398,7 @@ class MultiStoreNewItemsSync:
                     "inventory_item_id": variant["inventoryItem"]["id"]
                 },
                 status="success",
-                action="add_variant_to_product",
+                action="add_variant",
                 value=f"Successfully added variant {variant['sku']} to product in store {store_key}"
             )
             
@@ -580,79 +524,7 @@ class MultiStoreNewItemsSync:
             logger.error(f"Error creating product in store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
-    async def update_sap_with_shopify_ids(self, sap_items: List[Dict[str, Any]], store_results: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Update SAP items with Shopify product and variant IDs from all stores
-        Enhanced to properly map variants to their specific SAP items
-        """
-        try:
-            # Get the Shopify response data
-            shopify_data = None
-            for store_key, result in store_results.items():
-                if result["msg"] == "success":
-                    shopify_data = result
-                    break
-            
-            if not shopify_data:
-                logger.error("No successful Shopify results found")
-                return {"msg": "failure", "error": "No successful Shopify results"}
-            
-            # Extract product and variants from Shopify response
-            shopify_product_id = shopify_data["shopify_product_id"]
-            shopify_variants = shopify_data.get("shopify_variants", [])
-            
-            # Update each SAP item with its corresponding Shopify variant ID
-            for sap_item in sap_items:
-                item_code = sap_item.get('ItemCode')
-                if not item_code:
-                    continue
-                
-                # Prepare update data for SAP
-                update_data = {
-                    "U_SyncDT": datetime.now().strftime("%Y-%m-%d"),
-                    "U_SyncTime": "SYNCED"
-                }
-                
-                # Add store-specific product ID
-                for store_key, result in store_results.items():
-                    if result["msg"] == "success":
-                        shopify_data = result
-                        update_data[f"U_{store_key.upper()}_SID"] = shopify_data["shopify_product_id"].split('/')[-1]
-                        
-                        # Find the specific variant ID for this SAP item
-                        sap_sku = sap_item.get('ItemCode')
-                        sap_color = sap_item.get('U_Color', '')
-                        
-                        # Try to find matching variant by SKU or color
-                        variant_id = None
-                        if shopify_data.get("shopify_variants"):
-                            for variant in shopify_data["shopify_variants"]:
-                                if variant.get("sku") == sap_sku:
-                                    variant_id = variant.get("id")
-                                    break
-                        
-                        if variant_id:
-                            update_data[f"U_{store_key.upper()}_VARIANT_SID"] = variant_id.split('/')[-1]
-                        else:
-                            # Fallback to first variant if specific match not found
-                            update_data[f"U_{store_key.upper()}_VARIANT_SID"] = shopify_data["shopify_variant_id"].split('/')[-1]
-                        
-                        update_data[f"U_{store_key.upper()}_INVENTORY_SID"] = shopify_data["shopify_inventory_item_id"].split('/')[-1]
-                
-                # Update the SAP item
-                result = await sap_client.update_item(item_code, update_data)
-                
-                if result["msg"] == "failure":
-                    logger.error(f"Failed to update SAP item {item_code}: {result.get('error')}")
-                    return {"msg": "failure", "error": result.get("error")}
-                
-                logger.info(f"Successfully updated SAP item {item_code} with Shopify IDs")
-            
-            return {"msg": "success"}
-            
-        except Exception as e:
-            logger.error(f"Error updating SAP with Shopify IDs: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
+
     
     async def sync_new_items(self) -> Dict[str, Any]:
         """
@@ -1040,10 +912,7 @@ class MultiStoreNewItemsSync:
                                             action="add_inventory_mapping",
                                             value=f"Successfully added inventory mapping for {itemcode}"
                                         )
-                            # Update SAP with Shopify IDs (legacy/compat)
-                            #sap_update_result = await self.update_sap_with_shopify_ids(group_items, store_results)
-                            #if sap_update_result["msg"] == "failure":
-                            #    logger.error(f"Failed to update SAP with Shopify IDs: {sap_update_result.get('error')}")
+
                             success += 1
                     except Exception as e:
                         logger.error(f"Error processing product group {parent_key} for store {store_key}: {str(e)}")

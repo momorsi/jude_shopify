@@ -1,3 +1,1 @@
-"""
-SAP-Shopify Integration Service
-""" 
+

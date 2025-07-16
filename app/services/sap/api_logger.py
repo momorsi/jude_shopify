@@ -33,18 +33,27 @@ class SAPAPILogger:
             value: Additional value information
         """
         try:
-            # Prepare the log data
+            # Truncate fields according to SAP API_LOG table limits
+            # Server: Alphanumeric (50), EndPoint: Alphanumeric (100), Action: Alphanumeric (20), Value: Alphanumeric (250)
+            truncated_server = str(server)[:50] if server else ""
+            truncated_endpoint = str(endpoint)[:100] if endpoint else ""
+            truncated_action = str(action)[:20] if action else ""
+            truncated_value = str(value)[:250] if value else ""
+            truncated_reference = str(reference)[:60] if reference else ""
+            truncated_status = str(status)[:20] if status else ""
+            
+            # Prepare the log data with truncated fields
             log_data = {
-                'U_Server': server,
-                'U_EndPoint': endpoint,
+                'U_Server': truncated_server,
+                'U_EndPoint': truncated_endpoint,
                 'U_Request': json.dumps(request_data) if request_data else "",
                 'U_Response': json.dumps(response_data) if response_data else "",
-                'U_Status': status,
-                'U_Reference': reference,
+                'U_Status': truncated_status,
+                'U_Reference': truncated_reference,
                 'U_LogDate': datetime.datetime.now().strftime('%Y-%m-%d'),
                 'U_LogTime': datetime.datetime.now().strftime('%H%M'),
-                'U_Action': action,
-                'U_Value': value
+                'U_Action': truncated_action,
+                'U_Value': truncated_value
             }
             
             # Add to SAP table using the service layer approach

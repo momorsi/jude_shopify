@@ -1,13 +1,27 @@
 fastapi>=0.104.0
 uvicorn>=0.24.0
-pydantic>=2.4.2
-pydantic-settings>=2.0.3
-python-dotenv>=1.0.0
-requests>=2.31.0
-aiohttp>=3.8.6
+pydantic==2.3.0
+pydantic-settings==2.0.3
+python-dotenv==1.0.0
+requests==2.31.0
+aiohttp==3.8.5
 pytz>=2023.3
 tenacity>=8.2.3  # For retry logic
 python-json-logger>=2.0.7  # For structured logging
-gql>=3.4.1  # GraphQL client
+gql==3.4.0  # GraphQL client
 sgqlc>=16.0  # Schema-first GraphQL client
 httpx>=0.25.0  # For async HTTP requests 
+asyncio-mqtt==0.11.1
+websockets==11.0.3
+aiofiles==23.1.0
+typing-extensions==4.7.1
+urllib3==2.0.4
+certifi==2023.7.22
+charset-normalizer==3.2.0
+idna==3.4
+multidict==6.0.4
+yarl==1.9.2
+attrs==23.1.0
+frozenlist==1.4.0
+aiosignal==1.3.1
+pyinstaller==5.13.2 
