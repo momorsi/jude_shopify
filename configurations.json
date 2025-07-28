@@ -15,10 +15,8 @@
                 "access_token": "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",
                 "api_version": "2024-01",
                 "timeout": 30,
-                "location_id": "gid://shopify/Location/68605345858",
                 "currency": "EGP",
                 "price_list": 1,
-                "warehouse_code": "ONL",
                 "enabled": true
             },
             "international": {
@@ -27,10 +25,8 @@
                 "access_token": "placeholder_token",
                 "api_version": "2024-01",
                 "timeout": 30,
-                "location_id": "gid://shopify/Location/placeholder",
                 "currency": "USD",
                 "price_list": 7,
-                "warehouse_code": "ONL",
                 "enabled": false
             }
         },

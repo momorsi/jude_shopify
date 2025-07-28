@@ -65,10 +65,6 @@ class GiftCardsSalesSync:
                     "price": str(price),
                     "inventoryPolicy": "CONTINUE",
                     "inventoryManagement": "SHOPIFY",
-                    "inventoryQuantities": [{
-                        "availableQuantity": 999,  # High inventory for gift cards
-                        "locationId": store_config.location_id
-                    }],
                     "weight": 0.0,
                     "weightUnit": "KILOGRAMS"
                 }]

@@ -45,10 +45,8 @@ class ShopifyStoreConfig:
         self.access_token = store_data.get('access_token', '')
         self.api_version = store_data.get('api_version', '2024-01')
         self.timeout = store_data.get('timeout', 30)
-        self.location_id = store_data.get('location_id', '')
         self.currency = store_data.get('currency', 'USD')
         self.price_list = store_data.get('price_list', 1)
-        self.warehouse_code = store_data.get('warehouse_code', '01')
         self.enabled = store_data.get('enabled', True)
 
 class ConfigSettings(BaseSettings):
@@ -111,13 +109,7 @@ class ConfigSettings(BaseSettings):
             return list(enabled_stores.values())[0].timeout
         return 30
     
-    @property
-    def shopify_location_id(self) -> str:
-        """Get the first enabled store's location ID for backward compatibility"""
-        enabled_stores = self.get_enabled_stores()
-        if enabled_stores:
-            return list(enabled_stores.values())[0].location_id
-        return ""
+
     
     # Sync Settings
     new_items_enabled: bool = config_data['sync']['new_items']['enabled']

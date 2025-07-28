@@ -5,6 +5,7 @@ Supports multi-store inventory management
 """
 
 import asyncio
+import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from app.services.sap.client import sap_client
@@ -39,9 +40,7 @@ class InventorySync:
                 }
             }
             # Shopify REST API for variant metafields
-            from app.core.config import config_settings
             store_config = config_settings.get_store_by_name(store_key)
-            import httpx
             url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/variants/{variant_id}/metafields.json"
             headers = {
                 'X-Shopify-Access-Token': store_config.access_token,
@@ -56,17 +55,122 @@ class InventorySync:
         except Exception as e:
             return {"msg": "failure", "error": str(e)}
 
+    def _get_store_for_location(self, location_id: str) -> str:
+        """
+        Determine which store to use based on location_id
+        This is a simple implementation - you may need to enhance this based on your specific logic
+        """
+        # For now, return the first enabled store
+        # You can enhance this to map specific location_ids to specific stores
+        enabled_stores = config_settings.get_enabled_stores()
+        if enabled_stores:
+            return list(enabled_stores.keys())[0]
+        return None
 
-    
+    async def create_inventory_item(self, store_key: str, item_code: str, location_id: str, available: int) -> Dict[str, Any]:
+        """
+        Create inventory item for a variant at a specific location
+        """
+        try:
+            # First, get the variant ID for this item_code
+            variant_id = await self._get_variant_id_by_sku(store_key, item_code)
+            if not variant_id:
+                return {"msg": "failure", "error": f"Variant not found for SKU {item_code}"}
+            
+            # Create inventory item at the location
+            store_config = config_settings.get_enabled_stores()[store_key]
+            url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/inventory_levels/set.json"
+            
+            inventory_data = {
+                "location_id": location_id,
+                "inventory_item_id": variant_id,
+                "available": available
+            }
+            
+            headers = {
+                'X-Shopify-Access-Token': store_config.access_token,
+                'Content-Type': 'application/json',
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, json=inventory_data, headers=headers)
+                if response.status_code == 200:
+                    response_data = response.json()
+                    return {
+                        "msg": "success", 
+                        "inventory_item_id": variant_id,
+                        "data": response_data
+                    }
+                else:
+                    return {"msg": "failure", "error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"msg": "failure", "error": str(e)}
 
+    async def _get_variant_id_by_sku(self, store_key: str, sku: str) -> str:
+        """
+        Get variant ID by SKU using GraphQL
+        """
+        try:
+            query = """
+            query getVariantBySku($sku: String!) {
+                productVariants(first: 1, query: $sku) {
+                    edges {
+                        node {
+                            id
+                            sku
+                            inventoryItem {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+            """
+            
+            variables = {"sku": sku}
+            result = await multi_store_shopify_client.execute_graphql_query(store_key, query, variables)
+            
+            if result["msg"] == "success" and result["data"].get("productVariants", {}).get("edges"):
+                variant = result["data"]["productVariants"]["edges"][0]["node"]
+                return variant["inventoryItem"]["id"]
+            return None
+        except Exception as e:
+            logger.error(f"Error getting variant ID by SKU: {str(e)}")
+            return None
+
+    async def save_inventory_mapping(self, item_code: str, inventory_item_id: str, mapping_type: str) -> Dict[str, Any]:
+        """
+        Save inventory mapping back to SAP
+        """
+        try:
+            mapping_data = {
+                "Code": inventory_item_id,
+                "Name": inventory_item_id,
+                "U_Shopify_Type": mapping_type,
+                "U_SAP_Code": item_code,
+                "U_SAP_Type": "item",
+                "U_CreateDate": datetime.now().strftime('%Y%m%d')
+            }
+            
+            result = await sap_client.add_shopify_mapping(mapping_data)
+            
+            if result["msg"] == "success":
+                logger.info(f"Successfully saved inventory mapping for {item_code}: {inventory_item_id}")
+                return {"msg": "success", "mapping_id": inventory_item_id}
+            else:
+                logger.error(f"Failed to save inventory mapping: {result.get('error')}")
+                return {"msg": "failure", "error": result.get("error")}
+        except Exception as e:
+            logger.error(f"Error saving inventory mapping: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
 
     async def sync_stock_change_view(self) -> Dict[str, Any]:
         """
         Sync inventory using the MASHURA_StockChangeB1SLQuery SAP view.
-        For each row, update Shopify inventory using the REST API (not GraphQL):
-        - Sets the available quantity for the given inventory item and location.
-        - Logs the result in SAP API_LOG with all required fields.
-        This is the production-ready approach for reliable, direct inventory updates.
+        New logic:
+        - If Variant_ID is null: Create inventory item and save mapping to SAP
+        - If Variant_ID is not null: Update existing inventory
+        - Handles multiple locations per product dynamically
         """
         logger.info("Starting stock change sync using MASHURA_StockChangeB1SLQuery view")
         try:
@@ -85,35 +189,50 @@ class InventorySync:
             errors = 0
             for row in rows:
                 item_code = row.get("ItemCode")
-                variant_id = row.get("Variant_ID")
+                variant_id = row.get("Variant_ID")  # This could be null
                 available = row.get("Available")
                 onhand = row.get("OnHand")
-                location_id = row.get("Location_ID")
+                location_id = row.get("Location_ID")  # Actual Shopify location ID
                 reference = f"{item_code}-{location_id}"
                 log_status = "success"
                 log_error = None
+                
                 try:
-                    # Update Shopify inventory (available)
-                    update_data = {
-                        "location_id": location_id,
-                        "inventory_item_id": variant_id,
-                        "available": int(available)
-                    }
-                    store_key = None
-                    for key, store in config_settings.get_enabled_stores().items():
-                        if str(store.location_id).endswith(str(location_id)) or str(store.location_id) == str(location_id):
-                            store_key = key
-                            break
+                    # Determine which store to use based on location_id
+                    store_key = self._get_store_for_location(location_id)
                     if not store_key:
                         raise Exception(f"No store found for location_id {location_id}")
-                    result = await multi_store_shopify_client.update_inventory_level(store_key, update_data)
-                    if result["msg"] != "success":
-                        log_status = "failure"
-                        log_error = result.get("error")
-                        errors += 1
+                    
+                    if variant_id is None or variant_id == "":
+                        # Create inventory item for this variant at this location
+                        logger.info(f"Creating inventory for item {item_code} at location {location_id}")
+                        result = await self.create_inventory_item(store_key, item_code, location_id, available)
+                        if result["msg"] == "success":
+                            # Save the created inventory item ID back to SAP
+                            await self.save_inventory_mapping(item_code, result["inventory_item_id"], "variant_inventory")
+                            await self.update_onhand_metafield(store_key, result["inventory_item_id"], onhand)
+                            success += 1
+                        else:
+                            log_status = "failure"
+                            log_error = result.get("error")
+                            errors += 1
                     else:
-                        await self.update_onhand_metafield(store_key, variant_id, onhand)
-                        success += 1
+                        # Update existing inventory
+                        logger.info(f"Updating inventory for item {item_code} (variant {variant_id}) at location {location_id}")
+                        update_data = {
+                            "location_id": location_id,
+                            "inventory_item_id": variant_id,
+                            "available": int(available)
+                        }
+                        result = await multi_store_shopify_client.update_inventory_level(store_key, update_data)
+                        if result["msg"] != "success":
+                            log_status = "failure"
+                            log_error = result.get("error")
+                            errors += 1
+                        else:
+                            await self.update_onhand_metafield(store_key, variant_id, onhand)
+                            success += 1
+                            
                 except Exception as e:
                     log_status = "failure"
                     log_error = str(e)
@@ -122,7 +241,7 @@ class InventorySync:
                     await sl_add_log(
                         server="shopify",
                         endpoint="inventory_levels",
-                        request_data=update_data,
+                        request_data={"item_code": item_code, "variant_id": variant_id, "location_id": location_id, "available": available},
                         response_data=log_error if log_status == "failure" else None,
                         status=log_status,
                         reference=reference,

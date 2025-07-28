@@ -75,9 +75,9 @@ class MultiStoreNewItemsSync:
         """
         Create a simple product without variant complexity
         SKU is set at the variant level (Shopify standard approach)
+        Inventory will be handled separately by the inventory sync process
         """
         price = self._get_store_price(sap_item, store_config.price_list)
-        inventory_quantity = self._get_store_inventory(sap_item, store_config.warehouse_code)
         
         product_data = {
             "title": sap_item.get('ItemName', ''),
@@ -93,7 +93,7 @@ class MultiStoreNewItemsSync:
                 "inventoryManagement": "SHOPIFY",
                 "weight": sap_item.get('InventoryWeight', 0.0),
                 "weightUnit": "KILOGRAMS"
-                # Inventory quantities will be set separately after product creation
+                # Inventory quantities will be set separately by inventory sync
             }]
         }
         
@@ -112,7 +112,8 @@ class MultiStoreNewItemsSync:
     
     def _create_product_with_variants(self, sap_items: List[Dict[str, Any]], store_config: Any) -> Dict[str, Any]:
         """
-        Create a product with multiple variants based on color, including inventory and price
+        Create a product with multiple variants based on color
+        Inventory will be handled separately by the inventory sync process
         """
         # Use the first item as the base product
         base_item = sap_items[0]
@@ -122,19 +123,16 @@ class MultiStoreNewItemsSync:
             "options": ["Color"],
             "variants": []
         }
-        # Add all variants with correct options, sku, inventory, and price fields
+        # Add all variants with correct options, sku, and price fields
         for item in sap_items:
-            inventory_quantity = int(item.get('Available', 0))
             price = float(item.get('Price', 0))
             variant = {
                 "options": [item.get('Color', '')],
                 "sku": item.get('itemcode', ''),
                 "price": str(price),
                 "inventoryManagement": "SHOPIFY",
-                "inventoryQuantities": [{
-                    "availableQuantity": inventory_quantity,
-                    "locationId": store_config.location_id
-                }]
+                "inventoryPolicy": "DENY"
+                # Inventory quantities will be set separately by inventory sync
             }
             product_data["variants"].append(variant)
         return product_data
@@ -158,22 +156,7 @@ class MultiStoreNewItemsSync:
         
         return price
     
-    def _get_store_inventory(self, sap_item: Dict[str, Any], warehouse_code: str) -> int:
-        """
-        Get inventory quantity for a specific store based on warehouse
-        Currently uses a default value, but can be extended for warehouse-specific inventory
-        """
-        # For now, use a default inventory value
-        # In the future, this can be extended to get warehouse-specific inventory
-        default_inventory = 10  # Default inventory for new items
-        
-        # You can implement warehouse-specific logic here
-        if warehouse_code == "01":  # Local warehouse
-            return default_inventory
-        elif warehouse_code == "02":  # International warehouse
-            return default_inventory // 2  # Half inventory for international store
-        
-        return default_inventory
+
     
     def _create_variant(self, sap_item: Dict[str, Any], store_config: Any, price: float, inventory_quantity: int) -> Dict[str, Any]:
         """
@@ -285,7 +268,7 @@ class MultiStoreNewItemsSync:
             logger.error(f"Error checking existing product in store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
-    async def add_variant_to_existing_product(self, store_key: str, product_id: str, variant_data: Dict[str, Any], inventory_quantity: int, color: str = None) -> Dict[str, Any]:
+    async def add_variant_to_existing_product(self, store_key: str, product_id: str, variant_data: Dict[str, Any], color: str = None) -> Dict[str, Any]:
         """
         Add a variant to an existing product
         """
@@ -631,14 +614,13 @@ class MultiStoreNewItemsSync:
                                 
                                 # Create variant data
                                 price = self._get_store_price(sap_item, store_config.price_list)
-                                inventory_quantity = self._get_store_inventory(sap_item, store_config.warehouse_code)
-                                variant_data = self._create_variant(sap_item, store_config, price, inventory_quantity)
+                                variant_data = self._create_variant(sap_item, store_config, price, 0)  # Inventory will be handled by inventory sync
                                 
                                 # Store color for later use and remove it from variant data
                                 color = variant_data.pop("_color", None)
                                 
                                 # Add variant to existing product
-                                variant_result = await self.add_variant_to_existing_product(store_key, product_id, variant_data, inventory_quantity, color)
+                                variant_result = await self.add_variant_to_existing_product(store_key, product_id, variant_data, color)
                                 variant_results.append(variant_result)
                                 
                                 if variant_result["msg"] == "success":
@@ -689,7 +671,8 @@ class MultiStoreNewItemsSync:
                             "U_Shopify_Type": "product",
                             "U_SAP_Code": sap_code_for_mapping,
                             "U_Shopify_Store": store_key,
-                            "U_SAP_Type": "item"
+                            "U_SAP_Type": "item",
+                            "U_CreateDate": datetime.now().strftime('%Y%m%d')
                         })
                         
                         if mapping_result["msg"] == "failure":
@@ -749,7 +732,8 @@ class MultiStoreNewItemsSync:
                                         "U_Shopify_Type": "variant",
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item"
+                                        "U_SAP_Type": "item",
+                                        "U_CreateDate": datetime.now().strftime('%Y%m%d')
                                     })
                                     
                                     if variant_mapping_result["msg"] == "failure":
@@ -847,7 +831,8 @@ class MultiStoreNewItemsSync:
                                         "U_Shopify_Type": "variant",
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item"
+                                        "U_SAP_Type": "item",
+                                        "U_CreateDate": datetime.now().strftime('%Y%m%d')
                                     })
                                     
                                     if variant_mapping_result["msg"] == "failure":
@@ -891,7 +876,8 @@ class MultiStoreNewItemsSync:
                                         "U_Shopify_Type": "variant_inventory",
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item"
+                                        "U_SAP_Type": "item",
+                                        "U_CreateDate": datetime.now().strftime('%Y%m%d')
                                     })
                                     
                                     if inventory_mapping_result["msg"] == "failure":
