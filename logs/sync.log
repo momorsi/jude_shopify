@@ -4964,3 +4964,4 @@ GraphQL Errors: [
 2025-07-16 16:15:04,905 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': {'method': 'GET', 'url': 'https://10.0.0.100:50000/b1s/v1/view.svc/MASHURA_StockChangeB1SLQuery', 'data': None, 'params': {'$top': 50}}, 'response': None, 'status': None}
 2025-07-16 16:15:05,551 - sync_service - INFO - API Call: {'service': 'sap', 'endpoint': 'view.svc/MASHURA_StockChangeB1SLQuery', 'request': None, 'response': {'odata.metadata': 'https://10.0.0.100:50000/b1s/v1/view.svc/$metadata#MASHURA_StockChangeB1SLQuery', 'value': []}, 'status': 'success'}
 2025-07-16 16:15:05,552 - sync_service - INFO - No stock changes found in the view.
+2025-07-17 08:54:36,914 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)

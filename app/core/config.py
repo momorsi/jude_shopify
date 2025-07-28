@@ -136,6 +136,15 @@ class ConfigSettings(BaseSettings):
     orders_interval: int = config_data['sync']['orders']['interval_minutes']
     orders_batch_size: int = config_data['sync']['orders']['batch_size']
     
+    # Sales Module Settings
+    sales_gift_cards_enabled: bool = config_data['sync']['sales']['gift_cards']['enabled']
+    sales_gift_cards_interval: int = config_data['sync']['sales']['gift_cards']['interval_minutes']
+    sales_gift_cards_batch_size: int = config_data['sync']['sales']['gift_cards']['batch_size']
+    
+    sales_orders_enabled: bool = config_data['sync']['sales']['orders']['enabled']
+    sales_orders_interval: int = config_data['sync']['sales']['orders']['interval_minutes']
+    sales_orders_batch_size: int = config_data['sync']['sales']['orders']['batch_size']
+    
     # Logging Settings
     log_level: str = config_data['logging']['level']
     log_file: str = config_data['logging']['file']

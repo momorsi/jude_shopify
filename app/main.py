@@ -12,6 +12,8 @@ from app.sync.inventory import sync_stock_change_view
 from app.sync.master_data import sync_master_data
 from app.sync.orders import sync_orders
 from app.sync.gift_cards import GiftCardsSync
+from app.sync.sales.gift_cards_sync import GiftCardsSalesSync
+from app.sync.sales.orders_sync import OrdersSalesSync
 from app.utils.logging import logger
 from app.core.config import config_settings
 
@@ -23,6 +25,8 @@ class ShopifySAPSync:
     def __init__(self):
         self.new_items_sync = MultiStoreNewItemsSync()
         self.gift_cards_sync = GiftCardsSync()
+        self.sales_gift_cards_sync = GiftCardsSalesSync()
+        self.sales_orders_sync = OrdersSalesSync()
         self.running = False
     
     async def run_new_items_sync(self) -> Dict[str, Any]:
@@ -60,6 +64,20 @@ class ShopifySAPSync:
         logger.info("Starting gift cards sync...")
         return await self.gift_cards_sync.sync_gift_cards()
     
+    async def run_sales_gift_cards_sync(self) -> Dict[str, Any]:
+        """
+        Run sales gift cards sync (SAP → Shopify)
+        """
+        logger.info("Starting sales gift cards sync...")
+        return await self.sales_gift_cards_sync.sync_gift_cards()
+    
+    async def run_sales_orders_sync(self) -> Dict[str, Any]:
+        """
+        Run sales orders sync (Shopify → SAP)
+        """
+        logger.info("Starting sales orders sync...")
+        return await self.sales_orders_sync.sync_orders()
+    
     async def run_all_syncs(self) -> Dict[str, Any]:
         """
         Run all enabled syncs in sequence
@@ -81,6 +99,13 @@ class ShopifySAPSync:
         
         if config_settings.orders_enabled:
             results["orders"] = await self.run_orders_sync()
+        
+        # Sales Module syncs
+        if config_settings.sales_gift_cards_enabled:
+            results["sales_gift_cards"] = await self.run_sales_gift_cards_sync()
+        
+        if config_settings.sales_orders_enabled:
+            results["sales_orders"] = await self.run_sales_orders_sync()
         
         return {
             "msg": "success",
@@ -113,6 +138,16 @@ class ShopifySAPSync:
                 "msg": "failure",
                 "error": "Orders sync is disabled in configuration"
             }
+        elif sync_type == "sales_gift_cards" and not config_settings.sales_gift_cards_enabled:
+            return {
+                "msg": "failure",
+                "error": "Sales gift cards sync is disabled in configuration"
+            }
+        elif sync_type == "sales_orders" and not config_settings.sales_orders_enabled:
+            return {
+                "msg": "failure",
+                "error": "Sales orders sync is disabled in configuration"
+            }
         
         sync_functions = {
             "new_items": self.run_new_items_sync,
@@ -120,6 +155,8 @@ class ShopifySAPSync:
             "master_data": self.run_master_data_sync,
             "orders": self.run_orders_sync,
             "gift_cards": self.run_gift_cards_sync,
+            "sales_gift_cards": self.run_sales_gift_cards_sync,
+            "sales_orders": self.run_sales_orders_sync,
             "all": self.run_all_syncs
         }
         
@@ -168,6 +205,21 @@ class ShopifySAPSync:
             )
             tasks.append(orders_task)
             logger.info(f"Orders sync scheduled to run every {config_settings.orders_interval} minutes")
+        
+        # Sales Module continuous syncs
+        if config_settings.sales_gift_cards_enabled:
+            sales_gift_cards_task = asyncio.create_task(
+                self._run_sync_with_interval("sales_gift_cards", config_settings.sales_gift_cards_interval)
+            )
+            tasks.append(sales_gift_cards_task)
+            logger.info(f"Sales gift cards sync scheduled to run every {config_settings.sales_gift_cards_interval} minutes")
+        
+        if config_settings.sales_orders_enabled:
+            sales_orders_task = asyncio.create_task(
+                self._run_sync_with_interval("sales_orders", config_settings.sales_orders_interval)
+            )
+            tasks.append(sales_orders_task)
+            logger.info(f"Sales orders sync scheduled to run every {config_settings.sales_orders_interval} minutes")
         
         if not tasks:
             logger.warning("No syncs are enabled in configuration")

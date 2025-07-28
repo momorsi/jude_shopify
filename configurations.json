@@ -90,6 +90,18 @@
                 "billingAddress",
                 "customer"
             ]
+        },
+        "sales": {
+            "gift_cards": {
+                "enabled": false,
+                "interval_minutes": 30,
+                "batch_size": 50
+            },
+            "orders": {
+                "enabled": false,
+                "interval_minutes": 5,
+                "batch_size": 20
+            }
         }
     },
     "logging": {
