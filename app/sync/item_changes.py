@@ -1,0 +1,467 @@
+"""
+Item Changes Sync Module
+Syncs item changes from SAP to Shopify including product updates, variant updates, and active status
+"""
+
+import asyncio
+from typing import Dict, Any, List, Optional
+from app.services.sap.client import sap_client
+from app.services.shopify.multi_store_client import multi_store_shopify_client
+from app.core.config import config_settings
+from app.utils.logging import logger, log_sync_event
+from app.services.sap.api_logger import sl_add_log
+from datetime import datetime
+
+class ItemChangesSync:
+    def __init__(self):
+        self.batch_size = config_settings.new_items_batch_size
+
+    async def get_item_changes(self, store_key: str) -> Dict[str, Any]:
+        """
+        Get item changes from SAP for a specific store
+        """
+        try:
+            # Query the MASHURA_ItemChangeB1SLQuery view
+            query = f"view.svc/MASHURA_ItemChangeB1SLQuery?$filter=Shopify_Store eq '{store_key}'"
+            
+            result = await sap_client._make_request("GET", query)
+            
+            if result["msg"] == "failure":
+                logger.error(f"Failed to get item changes from SAP for store {store_key}: {result.get('error')}")
+                return {"msg": "failure", "error": result.get('error')}
+            
+            items = result["data"].get("value", [])
+            logger.info(f"Found {len(items)} item changes for store {store_key}")
+            
+            return {"msg": "success", "data": {"items": items}}
+            
+        except Exception as e:
+            logger.error(f"Error getting item changes for store {store_key}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def update_product_status(self, store_key: str, product_id: str, is_active: bool) -> Dict[str, Any]:
+        """
+        Update product status (active/inactive) in Shopify
+        """
+        try:
+            status = "ACTIVE" if is_active else "DRAFT"
+            
+            # Log the update
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                request_data={"product_id": product_id, "status": status},
+                action="update_product_status",
+                value=f"Updating product {product_id} status to {status} in store {store_key}"
+            )
+            
+            result = await multi_store_shopify_client.update_product(
+                store_key, 
+                product_id, 
+                {"status": status}
+            )
+            
+            if result["msg"] == "success":
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"product_id": product_id, "status": status},
+                    status="success",
+                    action="update_product_status",
+                    value=f"Successfully updated product {product_id} status to {status} in store {store_key}"
+                )
+                logger.info(f"Successfully updated product {product_id} status to {status} in store {store_key}")
+            else:
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"error": result.get("error")},
+                    status="failure",
+                    action="update_product_status",
+                    value=f"Failed to update product {product_id} status in store {store_key}: {result.get('error')}"
+                )
+                logger.error(f"Failed to update product {product_id} status in store {store_key}: {result.get('error')}")
+            
+            return result
+            
+        except Exception as e:
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                response_data={"error": str(e)},
+                status="failure",
+                action="update_product_status",
+                value=f"Exception updating product {product_id} status in store {store_key}: {str(e)}"
+            )
+            logger.error(f"Error updating product {product_id} status in store {store_key}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def update_variant_status(self, store_key: str, variant_id: str, is_active: bool) -> Dict[str, Any]:
+        """
+        Update variant status (active/inactive) in Shopify
+        Note: Shopify doesn't have direct variant status, so we update the product status
+        """
+        try:
+            # Get the product ID from the variant ID
+            variant_info = await multi_store_shopify_client.get_variant_by_id(store_key, variant_id)
+            
+            if variant_info["msg"] == "failure":
+                logger.error(f"Failed to get variant info for {variant_id}: {variant_info.get('error')}")
+                return variant_info
+            
+            # Extract product ID from variant
+            product_id = variant_info["data"]["productVariant"]["product"]["id"]
+            
+            # Update the product status (which affects the variant)
+            return await self.update_product_status(store_key, product_id, is_active)
+            
+        except Exception as e:
+            logger.error(f"Error updating variant {variant_id} status in store {store_key}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def update_product_details(self, store_key: str, product_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update product details in Shopify
+        """
+        try:
+            update_data = {}
+            
+            # Update title if changed
+            if sap_item.get('ItemName'):
+                update_data["title"] = sap_item['ItemName']
+            
+            # Update description if available
+            if sap_item.get('FrgnName'):
+                update_data["descriptionHtml"] = sap_item['FrgnName']
+            
+            # Update vendor if available
+            if sap_item.get('U_Text1'):
+                update_data["vendor"] = sap_item['U_Text1']
+            
+            if not update_data:
+                logger.info(f"No product details to update for product {product_id}")
+                return {"msg": "success", "note": "No changes needed"}
+            
+            # Log the update
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                request_data={"product_id": product_id, "update_data": update_data},
+                action="update_product_details",
+                value=f"Updating product {product_id} details in store {store_key}"
+            )
+            
+            result = await multi_store_shopify_client.update_product(store_key, product_id, update_data)
+            
+            if result["msg"] == "success":
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"product_id": product_id, "updated_fields": list(update_data.keys())},
+                    status="success",
+                    action="update_product_details",
+                    value=f"Successfully updated product {product_id} details in store {store_key}"
+                )
+                logger.info(f"Successfully updated product {product_id} details in store {store_key}")
+            else:
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"error": result.get("error")},
+                    status="failure",
+                    action="update_product_details",
+                    value=f"Failed to update product {product_id} details in store {store_key}: {result.get('error')}"
+                )
+                logger.error(f"Failed to update product {product_id} details in store {store_key}: {result.get('error')}")
+            
+            return result
+            
+        except Exception as e:
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                response_data={"error": str(e)},
+                status="failure",
+                action="update_product_details",
+                value=f"Exception updating product {product_id} details in store {store_key}: {str(e)}"
+            )
+            logger.error(f"Error updating product {product_id} details in store {store_key}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def update_variant_details(self, store_key: str, variant_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update variant details in Shopify
+        """
+        try:
+            update_data = {}
+            
+            # Update price if changed
+            if sap_item.get('Price'):
+                update_data["price"] = str(sap_item['Price'])
+            
+            # Update SKU if changed
+            if sap_item.get('ItemCode'):
+                update_data["sku"] = sap_item['ItemCode']
+            
+            # Update barcode if available
+            if sap_item.get('Barcode'):
+                update_data["barcode"] = sap_item['Barcode']
+            
+            # Update weight if available
+            if sap_item.get('InventoryWeight'):
+                update_data["weight"] = sap_item['InventoryWeight']
+            
+            if not update_data:
+                logger.info(f"No variant details to update for variant {variant_id}")
+                return {"msg": "success", "note": "No changes needed"}
+            
+            # Log the update
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                request_data={"variant_id": variant_id, "update_data": update_data},
+                action="update_variant_details",
+                value=f"Updating variant {variant_id} details in store {store_key}"
+            )
+            
+            result = await multi_store_shopify_client.update_variant(store_key, variant_id, update_data)
+            
+            if result["msg"] == "success":
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"variant_id": variant_id, "updated_fields": list(update_data.keys())},
+                    status="success",
+                    action="update_variant_details",
+                    value=f"Successfully updated variant {variant_id} details in store {store_key}"
+                )
+                logger.info(f"Successfully updated variant {variant_id} details in store {store_key}")
+            else:
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"error": result.get("error")},
+                    status="failure",
+                    action="update_variant_details",
+                    value=f"Failed to update variant {variant_id} details in store {store_key}: {result.get('error')}"
+                )
+                logger.error(f"Failed to update variant {variant_id} details in store {store_key}: {result.get('error')}")
+            
+            return result
+            
+        except Exception as e:
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                response_data={"error": str(e)},
+                status="failure",
+                action="update_variant_details",
+                value=f"Exception updating variant {variant_id} details in store {store_key}: {str(e)}"
+            )
+            logger.error(f"Error updating variant {variant_id} details in store {store_key}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def update_item_change_record(self, item_code: str, update_date: str, update_time: str) -> Dict[str, Any]:
+        """
+        Update or create record in U_ITEM_CHANGE table
+        """
+        try:
+            # Convert date format from YYYYMMDD to YYYY-MM-DD
+            formatted_date = f"{update_date[:4]}-{update_date[4:6]}-{update_date[6:8]}"
+            
+            # Convert time format from HHMMSS to HH:MM:SS
+            # Handle both string and integer formats
+            if isinstance(update_time, int):
+                time_str = str(update_time).zfill(6)  # Ensure 6 digits
+            else:
+                time_str = str(update_time)
+            
+            formatted_time = f"{time_str[:2]}:{time_str[2:4]}:{time_str[4:6]}"
+            
+            # Try to update existing record first
+            update_data = {
+                "U_LastChangeDate": formatted_date,
+                "U_LastChangeTime": formatted_time
+            }
+            
+            # Use PATCH to update existing record
+            result = await sap_client._make_request(
+                "PATCH", 
+                f"U_ITEM_CHANGE('{item_code}')",
+                update_data
+            )
+            
+            if result["msg"] == "success":
+                logger.info(f"Successfully updated item change record for {item_code}")
+                return result
+            else:
+                # If update fails, try to create new record
+                create_data = {
+                    "Code": item_code,
+                    "Name": item_code,
+                    "U_LastChangeDate": formatted_date,
+                    "U_LastChangeTime": formatted_time
+                }
+                
+                result = await sap_client._make_request("POST", "U_ITEM_CHANGE", create_data)
+                
+                if result["msg"] == "success":
+                    logger.info(f"Successfully created item change record for {item_code}")
+                else:
+                    logger.error(f"Failed to create item change record for {item_code}: {result.get('error')}")
+                
+                return result
+                
+        except Exception as e:
+            logger.error(f"Error updating item change record for {item_code}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def process_item_changes(self, store_key: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process a single item change
+        """
+        try:
+            item_code = sap_item.get('ItemCode', '')
+            is_active = sap_item.get('IsActive', 'Y') == 'Y'
+            
+            # Check if this is a product with no variants
+            if sap_item.get('Shopify_ProductCode'):
+                # Product with no variants
+                product_id = f"gid://shopify/Product/{sap_item['Shopify_ProductCode']}"
+                logger.info(f"Processing product change for {item_code} (product ID: {product_id})")
+                
+                # Update product details
+                details_result = await self.update_product_details(store_key, product_id, sap_item)
+                
+                # Update product status
+                status_result = await self.update_product_status(store_key, product_id, is_active)
+                
+                # Update item change record
+                change_result = await self.update_item_change_record(
+                    item_code,
+                    sap_item.get('UpdateDate', ''),
+                    sap_item.get('UpdateTS', '')
+                )
+                
+                return {
+                    "msg": "success",
+                    "item_code": item_code,
+                    "type": "product",
+                    "product_id": product_id,
+                    "details_updated": details_result["msg"] == "success",
+                    "status_updated": status_result["msg"] == "success",
+                    "change_record_updated": change_result["msg"] == "success"
+                }
+                
+            elif sap_item.get('Shopify_VariantId'):
+                # Variant of a product
+                variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
+                logger.info(f"Processing variant change for {item_code} (variant ID: {variant_id})")
+                
+                # Update variant details
+                details_result = await self.update_variant_details(store_key, variant_id, sap_item)
+                
+                # Update variant status (affects product status)
+                status_result = await self.update_variant_status(store_key, variant_id, is_active)
+                
+                # Update item change record
+                change_result = await self.update_item_change_record(
+                    item_code,
+                    sap_item.get('UpdateDate', ''),
+                    sap_item.get('UpdateTS', '')
+                )
+                
+                return {
+                    "msg": "success",
+                    "item_code": item_code,
+                    "type": "variant",
+                    "variant_id": variant_id,
+                    "details_updated": details_result["msg"] == "success",
+                    "status_updated": status_result["msg"] == "success",
+                    "change_record_updated": change_result["msg"] == "success"
+                }
+            else:
+                logger.warning(f"No Shopify ID found for item {item_code}")
+                return {
+                    "msg": "failure",
+                    "error": f"No Shopify ID found for item {item_code}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error processing item change for {sap_item.get('ItemCode', 'unknown')}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def sync_item_changes(self) -> Dict[str, Any]:
+        """
+        Main sync function for item changes
+        """
+        logger.info("Starting item changes sync from SAP to Shopify")
+        
+        try:
+            # Get enabled stores
+            enabled_stores = multi_store_shopify_client.get_enabled_stores()
+            if not enabled_stores:
+                logger.error("No enabled Shopify stores found")
+                return {"msg": "failure", "error": "No enabled Shopify stores found"}
+
+            processed = 0
+            success = 0
+            errors = 0
+
+            for store_key, store_config in enabled_stores.items():
+                logger.info(f"Processing item changes for store: {store_key}")
+                
+                # Get item changes for this store
+                changes_result = await self.get_item_changes(store_key)
+                if changes_result["msg"] == "failure":
+                    logger.error(f"Failed to get item changes for store {store_key}: {changes_result.get('error')}")
+                    continue
+                
+                items = changes_result["data"]["items"]
+                if not items:
+                    logger.info(f"No item changes found for store {store_key}")
+                    continue
+                
+                logger.info(f"Processing {len(items)} item changes for store {store_key}")
+                
+                for sap_item in items:
+                    try:
+                        result = await self.process_item_changes(store_key, sap_item)
+                        
+                        if result["msg"] == "success":
+                            success += 1
+                            logger.info(f"Successfully processed item change for {result['item_code']}")
+                        else:
+                            errors += 1
+                            logger.error(f"Failed to process item change for {sap_item.get('ItemCode', 'unknown')}: {result.get('error')}")
+                        
+                        processed += 1
+                        await asyncio.sleep(0.5)  # Rate limiting
+                        
+                    except Exception as e:
+                        errors += 1
+                        logger.error(f"Error processing item change for {sap_item.get('ItemCode', 'unknown')}: {str(e)}")
+                        await asyncio.sleep(0.5)
+
+            # Log sync event
+            log_sync_event(
+                sync_type="item_changes_sap_to_shopify",
+                items_processed=processed,
+                success_count=success,
+                error_count=errors
+            )
+            
+            logger.info(f"Item changes sync completed: {processed} processed, {success} successful, {errors} errors")
+            return {
+                "msg": "success",
+                "processed": processed,
+                "success": success,
+                "errors": errors
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in item changes sync: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+# Create singleton instance
+item_changes_sync = ItemChangesSync() 

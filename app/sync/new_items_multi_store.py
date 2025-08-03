@@ -92,7 +92,8 @@ class MultiStoreNewItemsSync:
                 "inventoryPolicy": "DENY",
                 "inventoryManagement": "SHOPIFY",
                 "weight": sap_item.get('InventoryWeight', 0.0),
-                "weightUnit": "KILOGRAMS"
+                "weightUnit": "KILOGRAMS",
+                "taxable": False  # Disable tax on this variant
                 # Inventory quantities will be set separately by inventory sync
             }]
         }
@@ -117,6 +118,9 @@ class MultiStoreNewItemsSync:
         """
         # Use the first item as the base product
         base_item = sap_items[0]
+        
+
+        
         product_data = {
             "title": base_item.get('MainProduct', ''),
             "status": "DRAFT",
@@ -126,14 +130,22 @@ class MultiStoreNewItemsSync:
         # Add all variants with correct options, sku, and price fields
         for item in sap_items:
             price = float(item.get('Price', 0))
+            color_name = item.get('Color', '')
+            mapped_color = self._map_color_to_shopify_color(color_name)
+            
             variant = {
-                "options": [item.get('Color', '')],
+                "options": [mapped_color],
                 "sku": item.get('itemcode', ''),
                 "price": str(price),
                 "inventoryManagement": "SHOPIFY",
-                "inventoryPolicy": "DENY"
+                "inventoryPolicy": "DENY",
+                "taxable": False  # Disable tax on this variant
                 # Inventory quantities will be set separately by inventory sync
             }
+            
+            # Add barcode if available
+            if item.get('Barcode'):
+                variant["barcode"] = item.get('Barcode')
             product_data["variants"].append(variant)
         return product_data
     
@@ -169,7 +181,8 @@ class MultiStoreNewItemsSync:
             "inventoryPolicy": "DENY",
             "inventoryManagement": "SHOPIFY",
             "weight": sap_item.get('InventoryWeight', 0.0),
-            "weightUnit": "KILOGRAMS"
+            "weightUnit": "KILOGRAMS",
+            "taxable": False  # Disable tax on this variant
         }
         
         # Store color for potential later use (not sent to GraphQL)
@@ -181,6 +194,213 @@ class MultiStoreNewItemsSync:
         if sap_item.get('Barcode'):
             variant_data["barcode"] = sap_item.get('Barcode')
         return variant_data
+    
+    def _map_color_to_shopify_color(self, color_name: str) -> str:
+        """
+        Map SAP color names to Shopify-recognized color values
+        This ensures color swatches appear in the Shopify admin
+        Note: Shopify requires exact color option values for swatches to appear
+        """
+        color_mapping = {
+            # Standard colors - using Shopify's exact color option values
+            'red': 'Red',
+            'blue': 'Blue', 
+            'green': 'Green',
+            'yellow': 'Yellow',
+            'black': 'Black',
+            'white': 'White',
+            'gray': 'Gray',
+            'grey': 'Gray',
+            'purple': 'Purple',
+            'orange': 'Orange',
+            'pink': 'Pink',
+            'brown': 'Brown',
+            'navy': 'Navy',
+            'beige': 'Beige',
+            'cream': 'Cream',
+            'silver': 'Silver',
+            'gold': 'Gold',
+            'bronze': 'Bronze',
+            'copper': 'Copper',
+            'rose gold': 'Rose Gold',
+            'rose-gold': 'Rose Gold',
+            'rosegold': 'Rose Gold',
+            
+            # Specific color variations
+            'lime green': 'Lime Green',
+            'lime-green': 'Lime Green',
+            'limegreen': 'Lime Green',
+            'light blue': 'Light Blue',
+            'light-blue': 'Light Blue',
+            'lightblue': 'Light Blue',
+            'dark blue': 'Dark Blue',
+            'dark-blue': 'Dark Blue',
+            'darkblue': 'Dark Blue',
+            'light green': 'Light Green',
+            'light-green': 'Light Green',
+            'lightgreen': 'Light Green',
+            'dark green': 'Dark Green',
+            'dark-green': 'Dark Green',
+            'darkgreen': 'Dark Green',
+            'light pink': 'Light Pink',
+            'light-pink': 'Light Pink',
+            'lightpink': 'Light Pink',
+            'hot pink': 'Hot Pink',
+            'hot-pink': 'Hot Pink',
+            'hotpink': 'Hot Pink',
+            'baby pink': 'Baby Pink',
+            'baby-pink': 'Baby Pink',
+            'babypink': 'Baby Pink',
+            'coral': 'Coral',
+            'teal': 'Teal',
+            'turquoise': 'Turquoise',
+            'lavender': 'Lavender',
+            'lilac': 'Lilac',
+            'mint': 'Mint',
+            'olive': 'Olive',
+            'maroon': 'Maroon',
+            'burgundy': 'Burgundy',
+            'wine': 'Wine',
+            'champagne': 'Champagne',
+            'ivory': 'Ivory',
+            'off-white': 'Off White',
+            'offwhite': 'Off White',
+            'charcoal': 'Charcoal',
+            'slate': 'Slate',
+            'taupe': 'Taupe',
+            'tan': 'Tan',
+            'khaki': 'Khaki',
+            'camel': 'Camel',
+            'nude': 'Nude',
+            'transparent': 'Transparent',
+            'clear': 'Clear',
+            'multicolor': 'Multicolor',
+            'multi-color': 'Multicolor',
+            'multicoloured': 'Multicolor',
+            'multi-colour': 'Multicolor',
+            'rainbow': 'Rainbow',
+            'metallic': 'Metallic',
+            'glitter': 'Glitter',
+            'matte': 'Matte',
+            'glossy': 'Glossy',
+            'shimmer': 'Shimmer',
+            'iridescent': 'Iridescent',
+            'holographic': 'Holographic',
+            'neon': 'Neon',
+            'pastel': 'Pastel',
+            'vintage': 'Vintage',
+            'distressed': 'Distressed',
+            'faded': 'Faded',
+            'bleached': 'Bleached',
+            'tie-dye': 'Tie Dye',
+            'tiedye': 'Tie Dye',
+            'tie dye': 'Tie Dye',
+            'ombre': 'Ombre',
+            'gradient': 'Gradient',
+            'floral': 'Floral',
+            'geometric': 'Geometric',
+            'striped': 'Striped',
+            'polka dot': 'Polka Dot',
+            'polkadot': 'Polka Dot',
+            'polka-dot': 'Polka Dot',
+            'checkered': 'Checkered',
+            'plaid': 'Plaid',
+            'argyle': 'Argyle',
+            'herringbone': 'Herringbone',
+            'houndstooth': 'Houndstooth',
+            'paisley': 'Paisley',
+            'tartan': 'Tartan',
+            'gingham': 'Gingham',
+            'denim': 'Denim',
+            'leather': 'Leather',
+            'suede': 'Suede',
+            'velvet': 'Velvet',
+            'satin': 'Satin',
+            'silk': 'Silk',
+            'cotton': 'Cotton',
+            'linen': 'Linen',
+            'wool': 'Wool',
+            'cashmere': 'Cashmere',
+            'acrylic': 'Acrylic',
+            'polyester': 'Polyester',
+            'nylon': 'Nylon',
+            'spandex': 'Spandex',
+            'lycra': 'Lycra',
+            'elastane': 'Elastane',
+            'mesh': 'Mesh',
+            'lace': 'Lace',
+            'crochet': 'Crochet',
+            'knit': 'Knit',
+            'woven': 'Woven',
+            'jersey': 'Jersey',
+            'fleece': 'Fleece',
+            'faux fur': 'Faux Fur',
+            'faux-fur': 'Faux Fur',
+            'fauxfur': 'Faux Fur',
+            'faux leather': 'Faux Leather',
+            'faux-leather': 'Faux Leather',
+            'fauxleather': 'Faux Leather',
+            'faux suede': 'Faux Suede',
+            'faux-suede': 'Faux Suede',
+            'fauxsuede': 'Faux Suede',
+            'faux silk': 'Faux Silk',
+            'faux-silk': 'Faux Silk',
+            'fauxsilk': 'Faux Silk',
+            'faux velvet': 'Faux Velvet',
+            'faux-velvet': 'Faux Velvet',
+            'fauxvelvet': 'Faux Velvet',
+            'faux satin': 'Faux Satin',
+            'faux-satin': 'Faux Satin',
+            'fauxsatin': 'Faux Satin',
+            'faux lace': 'Faux Lace',
+            'faux-lace': 'Faux Lace',
+            'fauxlace': 'Faux Lace',
+            'faux crochet': 'Faux Crochet',
+            'faux-crochet': 'Faux Crochet',
+            'fauxcrochet': 'Faux Crochet',
+            'faux knit': 'Faux Knit',
+            'faux-knit': 'Faux Knit',
+            'fauxknit': 'Faux Knit',
+            'faux woven': 'Faux Woven',
+            'faux-woven': 'Faux Woven',
+            'fauxwoven': 'Faux Woven',
+            'faux jersey': 'Faux Jersey',
+            'faux-jersey': 'Faux Jersey',
+            'fauxjersey': 'Faux Jersey',
+            'faux fleece': 'Faux Fleece',
+            'faux-fleece': 'Faux Fleece',
+            'fauxfleece': 'Faux Fleece',
+            'faux mesh': 'Faux Mesh',
+            'faux-mesh': 'Faux Mesh',
+            'fauxmesh': 'Faux Mesh',
+            'faux lace': 'Faux Lace',
+            'faux-lace': 'Faux Lace',
+            'fauxlace': 'Faux Lace',
+            'faux crochet': 'Faux Crochet',
+            'faux-crochet': 'Faux Crochet',
+            'fauxcrochet': 'Faux Crochet',
+            'faux knit': 'Faux Knit',
+            'faux-knit': 'Faux Knit',
+            'fauxknit': 'Faux Knit',
+            'faux woven': 'Faux Woven',
+            'faux-woven': 'Faux Woven',
+            'fauxwoven': 'Faux Woven',
+            'faux jersey': 'Faux Jersey',
+            'faux-jersey': 'Faux Jersey',
+            'fauxjersey': 'Faux Jersey',
+            'faux fleece': 'Faux Fleece',
+            'faux-fleece': 'Faux Fleece',
+            'fauxfleece': 'Faux Fleece',
+            'faux mesh': 'Faux Mesh',
+            'faux-mesh': 'Faux Mesh',
+            'fauxmesh': 'Faux Mesh',
+        }
+        
+        # Normalize the color name (lowercase, remove extra spaces)
+        normalized_color = color_name.lower().strip()
+        
+        # Return mapped color if found, otherwise return original (capitalized)
+        return color_mapping.get(normalized_color, color_name.title())
     
     def _extract_tags(self, sap_item: Dict[str, Any]) -> List[str]:
         """
@@ -214,33 +434,14 @@ class MultiStoreNewItemsSync:
             # Create a handle from the main product name
             handle = main_product_name.lower().replace(' ', '-').replace('_', '-')
             
-            # Log the check (shortened action name for SAP compatibility)
-            await sl_add_log(
-                server="shopify",
-                endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"handle": handle, "main_product": main_product_name},
-                action="check_product",
-                value=f"Checking for existing product with handle {handle} in store {store_key}"
-            )
+
             
             result = await multi_store_shopify_client.get_product_by_handle(store_key, handle)
             
             if result["msg"] == "success" and result["data"].get("productByHandle"):
                 product = result["data"]["productByHandle"]
                 
-                # Log the found product
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={
-                        "product_id": product["id"],
-                        "handle": product["handle"],
-                        "variant_count": len(product["variants"]["edges"])
-                    },
-                    status="success",
-                    action="check_product",
-                    value=f"Found existing product {product['title']} in store {store_key}"
-                )
+
                 
                 return {
                     "msg": "success",
@@ -248,15 +449,7 @@ class MultiStoreNewItemsSync:
                     "product": product
                 }
             else:
-                # Log that no product was found
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"found": False},
-                    status="success",
-                    action="check_product",
-                    value=f"No existing product found with handle {handle} in store {store_key}"
-                )
+
                 
                 return {
                     "msg": "success",
@@ -281,10 +474,23 @@ class MultiStoreNewItemsSync:
                 # 2. If the only option is 'Title', update to ['Color']
                 if options == ["Title"]:
                     await multi_store_shopify_client.update_product_options(store_key, product_id, ["Color"])
+                # 3. Ensure Color option has proper values for swatches to appear
+                elif "Color" in options and color:
+                    # Get current color values and add the new color if needed
+                    color_option = next((opt for opt in product.get("options", []) if opt["name"] == "Color"), None)
+                    if color_option:
+                        mapped_color = self._map_color_to_shopify_color(color)
+                        current_values = color_option.get("values", [])
+                        if mapped_color not in current_values:
+                            # Note: We can't update option values via GraphQL in this version
+                            # The color swatches will appear when variants are created with proper color values
+                            logger.info(f"Color {mapped_color} will be added to product options when variant is created")
+
             
             # 3. Add the variant with options if color is available
             if color:
-                variant_data["options"] = [color]  # Try to set the option value during creation
+                mapped_color = self._map_color_to_shopify_color(color)
+                variant_data["options"] = [mapped_color]  # Use mapped color for proper swatch display
             
             # Remove any option-related fields that might cause issues
             variant_data.pop("selectedOptions", None)
@@ -359,11 +565,12 @@ class MultiStoreNewItemsSync:
             
             # 4. Update the variant to set the color option if needed
             if color:
+                mapped_color = self._map_color_to_shopify_color(color)
                 update_result = await multi_store_shopify_client.update_variant(
                     store_key, 
                     variant["id"], 
                     {
-                        "title": color  # Set the title to the color value
+                        "title": mapped_color  # Set the title to the mapped color value
                     }
                 )
                 
@@ -516,14 +723,7 @@ class MultiStoreNewItemsSync:
         """
         logger.info("Starting multi-store new items sync from SAP to Shopify")
         
-        # Log the start of the sync process
-        await sl_add_log(
-            server="system",
-            endpoint="/sync/new_items_multi_store",
-            request_data={"sync_type": "multi_store_new_items"},
-            action="start_sync",
-            value="Starting multi-store new items sync process"
-        )
+
         
         try:
             # Get enabled stores
@@ -648,22 +848,7 @@ class MultiStoreNewItemsSync:
                         main_product_name = group_items[0].get("MainProduct", "")
                         
                         # For single products (no variants), use itemcode as U_SAP_Code since MainProduct is NULL
-                        sap_code_for_mapping = main_product_name if main_product_name else group_items[0].get("itemcode", "")
-                        
-                        # Log the SAP mapping creation
-                        await sl_add_log(
-                            server="sap",
-                            endpoint="/U_SHOPIFY_MAPPING",
-                            request_data={
-                                "Code": shopify_product_id,
-                                "U_Shopify_Type": "product",
-                                "U_SAP_Code": sap_code_for_mapping,
-                                "U_Shopify_Store": store_key,
-                                "U_SAP_Type": "item"
-                            },
-                            action="add_shopify_mapping",
-                            value=f"Adding product mapping for {sap_code_for_mapping} in store {store_key}"
-                        )
+                        sap_code_for_mapping = main_product_name if main_product_name else group_items[0].get("itemcode", "")                    
                         
                         mapping_result = await sap_client.add_shopify_mapping({
                             "Code": shopify_product_id,
@@ -672,27 +857,8 @@ class MultiStoreNewItemsSync:
                             "U_SAP_Code": sap_code_for_mapping,
                             "U_Shopify_Store": store_key,
                             "U_SAP_Type": "item",
-                            "U_CreateDate": datetime.now().strftime('%Y%m%d')
-                        })
-                        
-                        if mapping_result["msg"] == "failure":
-                            await sl_add_log(
-                                server="sap",
-                                endpoint="/U_SHOPIFY_MAPPING",
-                                response_data={"error": mapping_result.get("error")},
-                                status="failure",
-                                action="add_shopify_mapping",
-                                value=f"Failed to add product mapping: {mapping_result.get('error')}"
-                            )
-                        else:
-                            await sl_add_log(
-                                server="sap",
-                                endpoint="/U_SHOPIFY_MAPPING",
-                                response_data={"mapping_id": shopify_product_id},
-                                status="success",
-                                action="add_shopify_mapping",
-                                value=f"Successfully added product mapping for {main_product_name}"
-                            )
+                            "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
+                        })                        
                         
                         # Handle variant mappings based on whether we created a new product or added to existing
                         if existing_product_result["exists"]:
@@ -711,21 +877,6 @@ class MultiStoreNewItemsSync:
                                     variant_id = variant_result["shopify_variant_id"].split("/")[-1]
                                     inventory_id = variant_result["shopify_inventory_item_id"].split("/")[-1]
                                     
-                                    # Log variant mapping
-                                    await sl_add_log(
-                                        server="sap",
-                                        endpoint="/U_SHOPIFY_MAPPING",
-                                        request_data={
-                                            "Code": variant_id,
-                                            "U_Shopify_Type": "variant",
-                                            "U_SAP_Code": itemcode,
-                                            "U_Shopify_Store": store_key,
-                                            "U_SAP_Type": "item"
-                                        },
-                                        action="add_variant_mapping",
-                                        value=f"Adding variant mapping for {itemcode} in store {store_key}"
-                                    )
-                                    
                                     variant_mapping_result = await sap_client.add_shopify_mapping({
                                         "Code": variant_id,
                                         "Name": variant_id,
@@ -733,42 +884,8 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y%m%d')
+                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
                                     })
-                                    
-                                    if variant_mapping_result["msg"] == "failure":
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"error": variant_mapping_result.get("error")},
-                                            status="failure",
-                                            action="add_variant_mapping",
-                                            value=f"Failed to add variant mapping: {variant_mapping_result.get('error')}"
-                                        )
-                                    else:
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"mapping_id": variant_id},
-                                            status="success",
-                                            action="add_variant_mapping",
-                                            value=f"Successfully added variant mapping for {itemcode}"
-                                        )
-                                    
-                                    # Log inventory mapping
-                                    await sl_add_log(
-                                        server="sap",
-                                        endpoint="/U_SHOPIFY_MAPPING",
-                                        request_data={
-                                            "Code": inventory_id,
-                                            "U_Shopify_Type": "variant_inventory",
-                                            "U_SAP_Code": itemcode,
-                                            "U_Shopify_Store": store_key,
-                                            "U_SAP_Type": "item"
-                                        },
-                                        action="add_inventory_mapping",
-                                        value=f"Adding inventory mapping for {itemcode} in store {store_key}"
-                                    )
                                     
                                     inventory_mapping_result = await sap_client.add_shopify_mapping({
                                         "Code": inventory_id,
@@ -776,27 +893,9 @@ class MultiStoreNewItemsSync:
                                         "U_Shopify_Type": "variant_inventory",
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item"
+                                        "U_SAP_Type": "item",
+                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
                                     })
-                                    
-                                    if inventory_mapping_result["msg"] == "failure":
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"error": inventory_mapping_result.get("error")},
-                                            status="failure",
-                                            action="add_inventory_mapping",
-                                            value=f"Failed to add inventory mapping: {inventory_mapping_result.get('error')}"
-                                        )
-                                    else:
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"mapping_id": inventory_id},
-                                            status="success",
-                                            action="add_inventory_mapping",
-                                            value=f"Successfully added inventory mapping for {itemcode}"
-                                        )
                         else:
                             # For new products, use the store_result from create_product_in_store
                             for sap_item in group_items:
@@ -810,21 +909,6 @@ class MultiStoreNewItemsSync:
                                         inventory_id = variant["inventory_item_id"].split("/")[-1]
                                         break
                                 if variant_id:
-                                    # Log variant mapping
-                                    await sl_add_log(
-                                        server="sap",
-                                        endpoint="/U_SHOPIFY_MAPPING",
-                                        request_data={
-                                            "Code": variant_id,
-                                            "U_Shopify_Type": "variant",
-                                            "U_SAP_Code": itemcode,
-                                            "U_Shopify_Store": store_key,
-                                            "U_SAP_Type": "item"
-                                        },
-                                        action="add_variant_mapping",
-                                        value=f"Adding variant mapping for {itemcode} in store {store_key}"
-                                    )
-                                    
                                     variant_mapping_result = await sap_client.add_shopify_mapping({
                                         "Code": variant_id,
                                         "Name": variant_id,
@@ -832,44 +916,10 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y%m%d')
+                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
                                     })
                                     
-                                    if variant_mapping_result["msg"] == "failure":
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"error": variant_mapping_result.get("error")},
-                                            status="failure",
-                                            action="add_variant_mapping",
-                                            value=f"Failed to add variant mapping: {variant_mapping_result.get('error')}"
-                                        )
-                                    else:
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"mapping_id": variant_id},
-                                            status="success",
-                                            action="add_variant_mapping",
-                                            value=f"Successfully added variant mapping for {itemcode}"
-                                        )
-                                        
                                 if inventory_id:
-                                    # Log inventory mapping
-                                    await sl_add_log(
-                                        server="sap",
-                                        endpoint="/U_SHOPIFY_MAPPING",
-                                        request_data={
-                                            "Code": inventory_id,
-                                            "U_Shopify_Type": "variant_inventory",
-                                            "U_SAP_Code": itemcode,
-                                            "U_Shopify_Store": store_key,
-                                            "U_SAP_Type": "item"
-                                        },
-                                        action="add_inventory_mapping",
-                                        value=f"Adding inventory mapping for {itemcode} in store {store_key}"
-                                    )
-                                    
                                     inventory_mapping_result = await sap_client.add_shopify_mapping({
                                         "Code": inventory_id,
                                         "Name": inventory_id,
@@ -877,27 +927,8 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y%m%d')
+                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
                                     })
-                                    
-                                    if inventory_mapping_result["msg"] == "failure":
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"error": inventory_mapping_result.get("error")},
-                                            status="failure",
-                                            action="add_inventory_mapping",
-                                            value=f"Failed to add inventory mapping: {inventory_mapping_result.get('error')}"
-                                        )
-                                    else:
-                                        await sl_add_log(
-                                            server="sap",
-                                            endpoint="/U_SHOPIFY_MAPPING",
-                                            response_data={"mapping_id": inventory_id},
-                                            status="success",
-                                            action="add_inventory_mapping",
-                                            value=f"Successfully added inventory mapping for {itemcode}"
-                                        )
 
                             success += 1
                     except Exception as e:
@@ -913,19 +944,7 @@ class MultiStoreNewItemsSync:
                 error_count=errors
             )
             
-            # Log the completion of the sync process
-            await sl_add_log(
-                server="system",
-                endpoint="/sync/new_items_multi_store",
-                response_data={
-                    "processed": processed,
-                    "success": success,
-                    "errors": errors
-                },
-                status="success",
-                action="complete_sync",
-                value=f"Multi-store new items sync completed: {processed} processed, {success} successful, {errors} errors"
-            )
+
             
             logger.info(f"Multi-store new items sync completed: {processed} processed, {success} successful, {errors} errors")
             return {

@@ -74,6 +74,10 @@ class MultiStoreShopifyClient:
             error_msg = f"GraphQL query error for store {store_key}: {str(e)}"
             if hasattr(e, 'errors'):
                 error_msg += f"\nGraphQL Errors: {json.dumps(e.errors, indent=2)}"
+            if hasattr(e, 'data'):
+                error_msg += f"\nGraphQL Data: {json.dumps(e.data, indent=2)}"
+            if hasattr(e, 'extensions'):
+                error_msg += f"\nGraphQL Extensions: {json.dumps(e.extensions, indent=2)}"
             logger.error(error_msg)
             
             # Log the detailed error to SAP
@@ -82,7 +86,13 @@ class MultiStoreShopifyClient:
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"error": error_msg, "graphql_errors": e.errors if hasattr(e, 'errors') else None},
+                    response_data={
+                        "error": error_msg, 
+                        "graphql_errors": e.errors if hasattr(e, 'errors') else None,
+                        "graphql_data": e.data if hasattr(e, 'data') else None,
+                        "graphql_extensions": e.extensions if hasattr(e, 'extensions') else None,
+                        "full_exception": str(e)
+                    },
                     status="failure",
                     action="graphql_error",
                     value=f"GraphQL error for store {store_key}: {str(e)}"
@@ -95,7 +105,23 @@ class MultiStoreShopifyClient:
             error_msg = f"GraphQL query error for store {store_key}: {str(e)}"
             logger.error(error_msg)
             
-
+            # Log the detailed error to SAP
+            try:
+                from app.services.sap.api_logger import sl_add_log
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={
+                        "error": error_msg,
+                        "exception_type": type(e).__name__,
+                        "full_exception": str(e)
+                    },
+                    status="failure",
+                    action="graphql_error",
+                    value=f"GraphQL error for store {store_key}: {str(e)}"
+                )
+            except:
+                pass
                 
             return {"msg": "failure", "error": error_msg}
     
@@ -419,6 +445,58 @@ class MultiStoreShopifyClient:
         variant_data["id"] = variant_id
         
         return await self.execute_query(store_key, mutation, {"input": variant_data})
+    
+    async def update_product(self, store_key: str, product_id: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update a product in Shopify
+        """
+        mutation = """
+        mutation productUpdate($input: ProductInput!) {
+            productUpdate(input: $input) {
+                product {
+                    id
+                    title
+                    status
+                    vendor
+                    descriptionHtml
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        # Add the product ID to the data
+        product_data["id"] = product_id
+        
+        return await self.execute_query(store_key, mutation, {"input": product_data})
+    
+    async def get_variant_by_id(self, store_key: str, variant_id: str) -> Dict[str, Any]:
+        """
+        Get variant by ID from a specific store
+        """
+        query = """
+        query GetVariant($id: ID!) {
+            productVariant(id: $id) {
+                id
+                sku
+                price
+                product {
+                    id
+                    title
+                    status
+                }
+                selectedOptions {
+                    name
+                    value
+                }
+            }
+        }
+        """
+        
+        return await self.execute_query(store_key, query, {"id": variant_id})
     
     def get_store_config(self, store_key: str) -> Optional[Any]:
         """

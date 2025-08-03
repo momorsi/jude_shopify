@@ -14,6 +14,8 @@ from app.sync.orders import sync_orders
 from app.sync.gift_cards import GiftCardsSync
 from app.sync.sales.gift_cards_sync import GiftCardsSalesSync
 from app.sync.sales.orders_sync import OrdersSalesSync
+from app.sync.item_changes import item_changes_sync
+from app.sync.price_changes import price_changes_sync
 from app.utils.logging import logger
 from app.core.config import config_settings
 
@@ -78,6 +80,20 @@ class ShopifySAPSync:
         logger.info("Starting sales orders sync...")
         return await self.sales_orders_sync.sync_orders()
     
+    async def run_item_changes_sync(self) -> Dict[str, Any]:
+        """
+        Run item changes sync (SAP → Shopify)
+        """
+        logger.info("Starting item changes sync...")
+        return await item_changes_sync.sync_item_changes()
+    
+    async def run_price_changes_sync(self) -> Dict[str, Any]:
+        """
+        Run price changes sync (SAP → Shopify)
+        """
+        logger.info("Starting price changes sync...")
+        return await price_changes_sync.sync_price_changes()
+    
     async def run_all_syncs(self) -> Dict[str, Any]:
         """
         Run all enabled syncs in sequence
@@ -92,6 +108,14 @@ class ShopifySAPSync:
         
         if config_settings.inventory_enabled:
             results["stock_change"] = await self.run_stock_change_sync()
+        
+        # Item changes sync (check config)
+        if config_settings.item_changes_enabled:
+            results["item_changes"] = await self.run_item_changes_sync()
+        
+        # Price changes sync (check config)
+        if config_settings.price_changes_enabled:
+            results["price_changes"] = await self.run_price_changes_sync()
         
         # Shopify → SAP syncs (check config)
         if config_settings.master_data_enabled:
@@ -152,6 +176,8 @@ class ShopifySAPSync:
         sync_functions = {
             "new_items": self.run_new_items_sync,
             "stock": self.run_stock_change_sync,
+            "item_changes": self.run_item_changes_sync,
+            "price_changes": self.run_price_changes_sync,
             "master_data": self.run_master_data_sync,
             "orders": self.run_orders_sync,
             "gift_cards": self.run_gift_cards_sync,
@@ -191,6 +217,20 @@ class ShopifySAPSync:
             )
             tasks.append(inventory_task)
             logger.info(f"Inventory sync scheduled to run every {config_settings.inventory_interval} minutes")
+        
+        if config_settings.item_changes_enabled:
+            item_changes_task = asyncio.create_task(
+                self._run_sync_with_interval("item_changes", config_settings.item_changes_interval)
+            )
+            tasks.append(item_changes_task)
+            logger.info(f"Item changes sync scheduled to run every {config_settings.item_changes_interval} minutes")
+        
+        if config_settings.price_changes_enabled:
+            price_changes_task = asyncio.create_task(
+                self._run_sync_with_interval("price_changes", config_settings.price_changes_interval)
+            )
+            tasks.append(price_changes_task)
+            logger.info(f"Price changes sync scheduled to run every {config_settings.price_changes_interval} minutes")
         
         if config_settings.master_data_enabled:
             master_data_task = asyncio.create_task(
@@ -274,7 +314,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "master_data", "orders", "gift_cards", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "master_data", "orders", "gift_cards", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(
@@ -310,6 +350,10 @@ async def main():
                 print(f"📦 New Items: Every {config_settings.new_items_interval} minutes")
             if config_settings.inventory_enabled:
                 print(f"📊 Inventory: Every {config_settings.inventory_interval} minutes")
+            if config_settings.item_changes_enabled:
+                print(f"🔄 Item Changes: Every {config_settings.item_changes_interval} minutes")
+            if config_settings.price_changes_enabled:
+                print(f"💰 Price Changes: Every {config_settings.price_changes_interval} minutes")
             if config_settings.master_data_enabled:
                 print(f"📋 Master Data: Every {config_settings.master_data_interval} minutes")
             if config_settings.orders_enabled:

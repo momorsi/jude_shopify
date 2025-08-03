@@ -44,6 +44,16 @@
             "batch_size": 50,
             "locations": ["your_location_id"]
         },
+        "item_changes": {
+            "enabled": true,
+            "interval_minutes": 5,
+            "batch_size": 50
+        },
+        "price_changes": {
+            "enabled": true,
+            "interval_minutes": 3,
+            "batch_size": 50
+        },
         "master_data": {
             "enabled": false,
             "interval_minutes": 60,

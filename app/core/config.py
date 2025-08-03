@@ -120,6 +120,14 @@ class ConfigSettings(BaseSettings):
     inventory_interval: int = config_data['sync']['inventory']['interval_minutes']
     inventory_batch_size: int = config_data['sync']['inventory']['batch_size']
     
+    item_changes_enabled: bool = config_data['sync']['item_changes']['enabled']
+    item_changes_interval: int = config_data['sync']['item_changes']['interval_minutes']
+    item_changes_batch_size: int = config_data['sync']['item_changes']['batch_size']
+    
+    price_changes_enabled: bool = config_data['sync']['price_changes']['enabled']
+    price_changes_interval: int = config_data['sync']['price_changes']['interval_minutes']
+    price_changes_batch_size: int = config_data['sync']['price_changes']['batch_size']
+    
     master_data_enabled: bool = config_data['sync']['master_data']['enabled']
     master_data_interval: int = config_data['sync']['master_data']['interval_minutes']
     master_data_batch_size: int = config_data['sync']['master_data']['batch_size']
