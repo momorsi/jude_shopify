@@ -28,15 +28,172 @@ class OrdersSalesSync:
         Get orders from Shopify store that need to be synced
         """
         try:
-            # Query to get orders that haven't been synced yet
+            # Query to get orders with payment and fulfillment status
             query = """
             query getOrders($first: Int!, $after: String) {
-                orders(first: $first, after: $after, query: "status:any -tag:synced") {
+                orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
                     edges {
                         node {
                             id
                             name
                             createdAt
+                            tags
+                            financialStatus
+                            fulfillmentStatus
+                            location {
+                                id
+                                name
+                            }
+                            totalPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            subtotalPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            totalTaxSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            totalShippingPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            customer {
+                                id
+                                firstName
+                                lastName
+                                email
+                                phone
+                                addresses {
+                                    address1
+                                    address2
+                                    city
+                                    province
+                                    zip
+                                    country
+                                    phone
+                                }
+                            }
+                            shippingAddress {
+                                address1
+                                address2
+                                city
+                                province
+                                zip
+                                country
+                                phone
+                            }
+                            billingAddress {
+                                address1
+                                address2
+                                city
+                                province
+                                zip
+                                country
+                                phone
+                            }
+                            lineItems(first: 50) {
+                                edges {
+                                    node {
+                                        id
+                                        quantity
+                                        sku
+                                        title
+                                        variant {
+                                            id
+                                            sku
+                                            price
+                                            product {
+                                                id
+                                                title
+                                            }
+                                        }
+                                        discountedTotalSet {
+                                            shopMoney {
+                                                amount
+                                                currencyCode
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            note
+                        }
+                    }
+                    pageInfo {
+                        hasNextPage
+                        endCursor
+                    }
+                }
+            }
+            """
+            
+            result = await multi_store_shopify_client.execute_query(
+                store_key,
+                query,
+                {"first": self.batch_size, "after": None}
+            )
+            
+            if result["msg"] == "failure":
+                return result
+            
+            orders = result["data"]["orders"]["edges"]
+            
+            # Filter orders that don't have the synced tag
+            unsynced_orders = []
+            for order in orders:
+                order_node = order["node"]
+                tags = order_node.get("tags", [])
+                
+                # Check if order has synced tag
+                has_synced_tag = "synced" in tags
+                
+                if not has_synced_tag:
+                    unsynced_orders.append(order)
+            
+            logger.info(f"Retrieved {len(orders)} total orders, {len(unsynced_orders)} unsynced orders from Shopify store {store_key}")
+            
+            return {"msg": "success", "data": unsynced_orders}
+            
+        except Exception as e:
+            logger.error(f"Error getting orders from Shopify: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def get_orders_with_metafields(self, store_key: str) -> Dict[str, Any]:
+        """
+        Get orders from Shopify store that need to be synced using metafields
+        """
+        try:
+            # Query to get orders with metafields, ordered by creation date desc
+            query = """
+            query getOrdersWithMetafields($first: Int!, $after: String) {
+                orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
+                    edges {
+                        node {
+                            id
+                            name
+                            createdAt
+                            metafields(first: 10, namespace: "sap_sync") {
+                                edges {
+                                    node {
+                                        id
+                                        namespace
+                                        key
+                                        value
+                                        type
+                                    }
+                                }
+                            }
                             totalPriceSet {
                                 shopMoney {
                                     amount
@@ -163,15 +320,150 @@ class OrdersSalesSync:
                 return result
             
             orders = result["data"]["orders"]["edges"]
-            logger.info(f"Retrieved {len(orders)} orders from Shopify store {store_key}")
             
-            return {"msg": "success", "data": orders}
+            # Filter orders that don't have the synced metafield
+            unsynced_orders = []
+            for order in orders:
+                order_node = order["node"]
+                metafields = order_node.get("metafields", {}).get("edges", [])
+                
+                # Check if order has synced metafield
+                has_synced_metafield = False
+                for metafield_edge in metafields:
+                    metafield = metafield_edge["node"]
+                    if metafield["namespace"] == "sap_sync" and metafield["key"] == "synced":
+                        has_synced_metafield = True
+                        break
+                
+                if not has_synced_metafield:
+                    unsynced_orders.append(order)
+            
+            logger.info(f"Retrieved {len(orders)} total orders, {len(unsynced_orders)} unsynced orders from Shopify store {store_key}")
+            
+            return {"msg": "success", "data": unsynced_orders}
             
         except Exception as e:
             logger.error(f"Error getting orders from Shopify: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
-    def map_shopify_order_to_sap(self, shopify_order: Dict[str, Any], customer_card_code: str) -> Dict[str, Any]:
+    async def get_single_order_for_testing(self, store_key: str) -> Dict[str, Any]:
+        """
+        Get a single order to test and understand the metafield structure
+        """
+        try:
+            # Query to get a single order with all metafields
+            query = """
+            query getSingleOrder($first: Int!) {
+                orders(first: $first, sortKey: CREATED_AT, reverse: true) {
+                    edges {
+                        node {
+                            id
+                            name
+                            createdAt
+                            metafields(first: 50) {
+                                edges {
+                                    node {
+                                        id
+                                        namespace
+                                        key
+                                        value
+                                        type
+                                    }
+                                }
+                            }
+                            totalPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            customer {
+                                id
+                                firstName
+                                lastName
+                                email
+                            }
+                            lineItems(first: 5) {
+                                edges {
+                                    node {
+                                        id
+                                        quantity
+                                        sku
+                                        title
+                                        variant {
+                                            id
+                                            sku
+                                            price
+                                        }
+                                        discountedTotalSet {
+                                            shopMoney {
+                                                amount
+                                                currencyCode
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            tags
+                        }
+                    }
+                }
+            }
+            """
+            
+            result = await multi_store_shopify_client.execute_query(
+                store_key,
+                query,
+                {"first": 1}
+            )
+            
+            if result["msg"] == "failure":
+                return result
+            
+            if not result["data"]["orders"]["edges"]:
+                return {"msg": "failure", "error": "No orders found"}
+            
+            order = result["data"]["orders"]["edges"][0]
+            order_node = order["node"]
+            
+            # Print important details
+            logger.info("=== SINGLE ORDER TEST ===")
+            logger.info(f"Order ID: {order_node['id']}")
+            logger.info(f"Order Name: {order_node['name']}")
+            logger.info(f"Created At: {order_node['createdAt']}")
+            logger.info(f"Total Price: {order_node['totalPriceSet']['shopMoney']['amount']} {order_node['totalPriceSet']['shopMoney']['currencyCode']}")
+            
+            # Print metafields
+            metafields = order_node.get("metafields", {}).get("edges", [])
+            logger.info(f"Number of metafields: {len(metafields)}")
+            
+            for metafield_edge in metafields:
+                metafield = metafield_edge["node"]
+                logger.info(f"Metafield: namespace='{metafield['namespace']}', key='{metafield['key']}', value='{metafield['value']}', type='{metafield['type']}'")
+            
+            # Print customer info
+            customer = order_node.get("customer")
+            if customer:
+                logger.info(f"Customer: {customer['firstName']} {customer['lastName']} ({customer['email']})")
+            
+            # Print line items
+            line_items = order_node.get("lineItems", {}).get("edges", [])
+            logger.info(f"Number of line items: {len(line_items)}")
+            
+            for item_edge in line_items:
+                item = item_edge["node"]
+                variant = item.get("variant", {})
+                logger.info(f"Line Item: {item['title']} (SKU: {item['sku'] or variant.get('sku', 'N/A')}, Qty: {item['quantity']}, Price: {item['discountedTotalSet']['shopMoney']['amount']})")
+            
+            logger.info("=== END SINGLE ORDER TEST ===")
+            
+            return {"msg": "success", "data": order}
+            
+        except Exception as e:
+            logger.error(f"Error getting single order for testing: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+    
+    def map_shopify_order_to_sap(self, shopify_order: Dict[str, Any], customer_card_code: str, ship_to_code: str, store_key: str) -> Dict[str, Any]:
         """
         Map Shopify order data to SAP invoice format
         """
@@ -183,50 +475,59 @@ class OrdersSalesSync:
             total_price = Decimal(order_node["totalPriceSet"]["shopMoney"]["amount"])
             currency = order_node["totalPriceSet"]["shopMoney"]["currencyCode"]
             
+            # Get payment and fulfillment status
+            financial_status = order_node.get("financialStatus", "PENDING")
+            fulfillment_status = order_node.get("fulfillmentStatus", "UNFULFILLED")
+            
             # Map line items
             line_items = []
             for item_edge in order_node["lineItems"]["edges"]:
                 item = item_edge["node"]
-                variant = item["variant"]
+                sku = item.get("sku")
+                quantity = item["quantity"]
+                price = Decimal(item["discountedTotalSet"]["shopMoney"]["amount"])
+                
+                # Use a default item if SKU doesn't exist in SAP
+                item_code = "ACC-0000001"  # Default item
+                if sku:
+                    # In a real implementation, you might want to map SKUs to SAP ItemCodes
+                    # For now, we'll use the default item
+                    item_code = "ACC-0000001"
+                
+                # Get warehouse code based on order location
+                warehouse_code = config_settings.get_warehouse_code_for_order(store_key, order_node)
                 
                 line_item = {
-                    "ItemCode": item["sku"] or variant["sku"],
-                    "Quantity": item["quantity"],
-                    "UnitPrice": float(item["discountedTotalSet"]["shopMoney"]["amount"]) / item["quantity"],
-                    "LineTotal": float(item["discountedTotalSet"]["shopMoney"]["amount"]),
-                    "U_ShopifyLineItemID": item["id"]
+                    "ItemCode": item_code,
+                    "Quantity": quantity,
+                    "UnitPrice": float(price),
+                    "WarehouseCode": warehouse_code
                 }
                 line_items.append(line_item)
             
-            # Handle gift card redemptions
-            gift_card_lines = self._extract_gift_card_lines(order_node)
-            line_items.extend(gift_card_lines)
+            # Parse date
+            doc_date = created_at.split("T")[0] if "T" in created_at else created_at
             
-            # Calculate freight
-            freight_amount = self._calculate_freight(order_node)
-            
-            # Prepare SAP invoice data
-            sap_invoice = {
+            # Create invoice data
+            invoice_data = {
+                "DocDate": doc_date,
                 "CardCode": customer_card_code,
-                "DocDate": created_at[:10],  # YYYY-MM-DD format
-                "DocDueDate": created_at[:10],
-                "DocumentLines": line_items,
-                "U_ShopifyOrderID": order_name,
-                "U_ShopifyOrderNumber": order_name,
-                "U_ShopifyCreatedAt": created_at,
-                "U_ShopifyCurrency": currency,
-                "U_ShopifyTotal": float(total_price),
-                "U_ShopifySubtotal": float(order_node["subtotalPriceSet"]["shopMoney"]["amount"]),
-                "U_ShopifyTax": float(order_node["totalTaxSet"]["shopMoney"]["amount"]),
-                "U_ShopifyShipping": float(order_node["totalShippingPriceSet"]["shopMoney"]["amount"]),
-                "U_FreightAmount": freight_amount,
-                "Comments": order_node.get("note", "")
+                "NumAtCard": order_name,
+                "Series": 82,
+                "Comments": f"Shopify Order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}",
+                #"ShipToCode": ship_to_code,
+                #"U_Shopify_Order_ID": order_name,
+                #"U_Shopify_Financial_Status": financial_status,
+                #"U_Shopify_Fulfillment_Status": fulfillment_status,
+                "SalesPersonCode": 28,
+                "DocumentLines": line_items
+                # Removed DocumentAdditionalExpenses to avoid ExpenseCode issues
             }
             
-            return sap_invoice
+            return invoice_data
             
         except Exception as e:
-            logger.error(f"Error mapping Shopify order to SAP: {str(e)}")
+            logger.error(f"Error mapping order to SAP format: {str(e)}")
             raise
     
     def _extract_gift_card_lines(self, order_node: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -371,7 +672,19 @@ class OrdersSalesSync:
             order_id = order_node["id"]
             order_name = order_node["name"]
             
-            logger.info(f"Processing order: {order_name}")
+            # Check payment and fulfillment status
+            financial_status = order_node.get("financialStatus", "PENDING")
+            fulfillment_status = order_node.get("fulfillmentStatus", "UNFULFILLED")
+            
+            logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
+            
+            # For now, we'll process all orders regardless of status
+            # Later you can add logic to handle different statuses differently
+            if financial_status == "PENDING":
+                logger.info(f"Order {order_name} is pending payment - will process anyway")
+            
+            if fulfillment_status == "UNFULFILLED":
+                logger.info(f"Order {order_name} is unfulfilled - will process anyway")
             
             # Get or create customer in SAP
             customer = order_node.get("customer")
@@ -379,13 +692,36 @@ class OrdersSalesSync:
                 logger.warning(f"No customer found for order {order_name}")
                 return {"msg": "failure", "error": "No customer found"}
             
-            sap_customer = await self.customer_manager.get_or_create_customer(customer)
+            # Extract phone number from customer
+            phone = self.customer_manager._extract_phone_from_customer(customer)
+            if not phone:
+                logger.warning(f"No phone number found for customer in order {order_name}")
+                return {"msg": "failure", "error": "No phone number found for customer"}
+            
+            # Check if customer exists in SAP by phone
+            existing_customer = await self.customer_manager.find_customer_by_phone(phone)
+            
+            if existing_customer:
+                logger.info(f"Found existing customer: {existing_customer.get('CardCode', 'Unknown')}")
+                sap_customer = existing_customer
+                # Use the ShipToDefault from the existing customer
+                ship_to_code = existing_customer.get('ShipToDefault', '')
+            else:
+                # Create new customer in SAP
+                logger.info("Creating new customer in SAP")
+                sap_customer = await self.customer_manager.create_customer_in_sap(customer)
             if not sap_customer:
-                logger.error(f"Failed to get or create customer for order {order_name}")
-                return {"msg": "failure", "error": "Failed to get or create customer"}
+                    logger.error(f"Failed to create customer for order {order_name}")
+                    return {"msg": "failure", "error": "Failed to create customer"}
+                
+                # Use the ShipToDefault from the newly created customer
+                #ship_to_code = sap_customer.get('ShipToDefault', '')
             
             # Map order to SAP format
-            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"])
+            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], ship_to_code, store_key)
+            if not sap_invoice_data:
+                logger.error(f"Failed to map order {order_name} to SAP format")
+                return {"msg": "failure", "error": "Failed to map order to SAP format"}
             
             # Create invoice in SAP
             invoice_result = await self.create_invoice_in_sap(sap_invoice_data)
@@ -410,7 +746,10 @@ class OrdersSalesSync:
                 "msg": "success",
                 "order_name": order_name,
                 "sap_invoice_number": invoice_result["sap_invoice_number"],
-                "customer_card_code": sap_customer["CardCode"]
+                "customer_card_code": sap_customer["CardCode"],
+                "ship_to_code": ship_to_code,
+                "financial_status": financial_status,
+                "fulfillment_status": fulfillment_status
             }
             
         except Exception as e:

@@ -100,7 +100,7 @@ result = await inventory_sync.sync_all_inventory()
    - Tracks inventory changes with timestamps
    - Contains ItemCode, UpdateDate, UpdateTime fields
 
-2. **Shopify Mapping Table**: `U_SHOPIFY_MAPPING`
+2. **Shopify Mapping Table**: `U_SHOPIFY_MAPPING_2`
    - Maps SAP items to Shopify inventory item IDs
    - Contains U_SAP_Code, Code, U_Shopify_Store, U_Shopify_Type fields
 

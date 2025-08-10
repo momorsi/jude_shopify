@@ -140,7 +140,7 @@ This table tracks inventory changes with timestamps.
 - `WarehouseCode`: Warehouse where change occurred
 - `Quantity`: New quantity after change
 
-#### 2. Shopify Mapping Table: `U_SHOPIFY_MAPPING`
+#### 2. Shopify Mapping Table: `U_SHOPIFY_MAPPING_2`
 This table maps SAP items to Shopify inventory item IDs.
 
 **Required Fields:**
@@ -165,7 +165,7 @@ This table maps SAP items to Shopify inventory item IDs.
 |----------|--------|-------------|--------|
 | `sml.svc/QTY_CHANGE` | GET | Get inventory changes since last sync | 🔄 To Implement |
 | `Items` | GET | Get current inventory quantities | ✅ Implemented |
-| `U_SHOPIFY_MAPPING` | GET | Get Shopify inventory mappings | ✅ Implemented |
+| `U_SHOPIFY_MAPPING_2` | GET | Get Shopify inventory mappings | ✅ Implemented |
 
 ## 7. Implementation Priority
 

@@ -44,7 +44,12 @@ class ItemChangesSync:
         Update product status (active/inactive) in Shopify
         """
         try:
-            status = "ACTIVE" if is_active else "DRAFT"
+            # In test mode, always keep products as DRAFT regardless of SAP status
+            if config_settings.test_mode:
+                status = "DRAFT"
+                logger.info(f"Test mode enabled: Keeping product {product_id} as DRAFT regardless of SAP status")
+            else:
+                status = "ACTIVE" if is_active else "DRAFT"
             
             # Log the update
             await sl_add_log(
@@ -121,7 +126,7 @@ class ItemChangesSync:
 
     async def update_product_details(self, store_key: str, product_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update product details in Shopify
+        Update product details in Shopify - Only title and barcode
         """
         try:
             update_data = {}
@@ -130,13 +135,9 @@ class ItemChangesSync:
             if sap_item.get('ItemName'):
                 update_data["title"] = sap_item['ItemName']
             
-            # Update description if available
-            if sap_item.get('FrgnName'):
-                update_data["descriptionHtml"] = sap_item['FrgnName']
-            
-            # Update vendor if available
-            if sap_item.get('U_Text1'):
-                update_data["vendor"] = sap_item['U_Text1']
+            # Update barcode if available (at product level if it's a single product)
+            if sap_item.get('Barcode'):
+                update_data["barcode"] = sap_item['Barcode']
             
             if not update_data:
                 logger.info(f"No product details to update for product {product_id}")
@@ -190,26 +191,21 @@ class ItemChangesSync:
 
     async def update_variant_details(self, store_key: str, variant_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update variant details in Shopify
+        Update variant details in Shopify - Only color and barcode
         """
         try:
             update_data = {}
-            
-            # Update price if changed
-            if sap_item.get('Price'):
-                update_data["price"] = str(sap_item['Price'])
-            
-            # Update SKU if changed
-            if sap_item.get('ItemCode'):
-                update_data["sku"] = sap_item['ItemCode']
             
             # Update barcode if available
             if sap_item.get('Barcode'):
                 update_data["barcode"] = sap_item['Barcode']
             
-            # Update weight if available
-            if sap_item.get('InventoryWeight'):
-                update_data["weight"] = sap_item['InventoryWeight']
+            # Update color if available (this will update the variant's option value)
+            if sap_item.get('Color'):
+                # Map the color to Shopify-recognized format for proper swatches
+                from app.sync.new_items_multi_store import multi_store_new_items_sync
+                mapped_color = multi_store_new_items_sync._map_color_to_shopify_color(sap_item['Color'])
+                update_data["title"] = mapped_color  # Set the variant title to the color
             
             if not update_data:
                 logger.info(f"No variant details to update for variant {variant_id}")
@@ -330,7 +326,7 @@ class ItemChangesSync:
                 product_id = f"gid://shopify/Product/{sap_item['Shopify_ProductCode']}"
                 logger.info(f"Processing product change for {item_code} (product ID: {product_id})")
                 
-                # Update product details
+                # Update product details (title and barcode only)
                 details_result = await self.update_product_details(store_key, product_id, sap_item)
                 
                 # Update product status
@@ -358,7 +354,7 @@ class ItemChangesSync:
                 variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
                 logger.info(f"Processing variant change for {item_code} (variant ID: {variant_id})")
                 
-                # Update variant details
+                # Update variant details (color and barcode only)
                 details_result = await self.update_variant_details(store_key, variant_id, sap_item)
                 
                 # Update variant status (affects product status)

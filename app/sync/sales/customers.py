@@ -69,9 +69,14 @@ class CustomerManager:
                 return None
             
             created_customer = result["data"]
-            logger.info(f"Created customer in SAP: {created_customer.get('CardCode', 'Unknown')}")
+            card_code = created_customer.get('CardCode')
             
-            return created_customer
+            if card_code:
+                logger.info(f"Created customer in SAP: {card_code}")
+                return created_customer
+            else:
+                logger.error("No CardCode returned from SAP customer creation")
+                return None
             
         except Exception as e:
             logger.error(f"Error creating customer in SAP: {str(e)}")
@@ -156,33 +161,38 @@ class CustomerManager:
         # Generate SAP CardCode (you might want to implement a specific logic)
         card_code = self._generate_card_code(first_name, last_name)
         
-        sap_customer = {
-            "CardCode": card_code,
+        # Create customer data with only main header fields (no addresses)
+        customer_data = {
             "CardName": f"{first_name} {last_name}".strip(),
-            "CardType": "cCustomer",  # Customer type
-            "EmailAddress": email,
+            "CardType": "C",
+            "Series": 121,
             "Phone1": phone,
-            "Cellular": phone,  # Also store in cellular field
-            "Active": "Y",
-            "U_ShopifyCustomerID": str(shopify_customer.get('id', '')),
-            "U_ShopifyEmail": email
+            "Currency": "EGP"
         }
         
-        # Add address information if available
-        addresses = shopify_customer.get('addresses', [])
-        if addresses:
-            default_address = addresses[0]  # Use first address as default
-            sap_customer.update({
-                "Address": default_address.get('address1', ''),
-                "Address2": default_address.get('address2', ''),
-                "City": default_address.get('city', ''),
-                "State": default_address.get('province', ''),
-                "ZipCode": default_address.get('zip', ''),
-                "Country": default_address.get('country', '')
-            })
-        
-        return sap_customer
+        return customer_data
     
+    def _map_country_to_code(self, country_name: str) -> str:
+        """
+        Map country name to country code for SAP
+        """
+        country_mapping = {
+            'Egypt': 'EG',
+            'egypt': 'EG',
+            'EG': 'EG',
+            'eg': 'EG',
+            'United States': 'US',
+            'USA': 'US',
+            'us': 'US',
+            'US': 'US',
+            'United Kingdom': 'GB',
+            'UK': 'GB',
+            'gb': 'GB',
+            'GB': 'GB'
+        }
+        
+        return country_mapping.get(country_name, 'EG')  # Default to Egypt
+
     def _generate_card_code(self, first_name: str, last_name: str) -> str:
         """
         Generate a unique CardCode for SAP customer

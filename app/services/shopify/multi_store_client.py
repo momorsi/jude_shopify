@@ -28,7 +28,8 @@ class MultiStoreShopifyClient:
                     headers={
                         'X-Shopify-Access-Token': store_config.access_token,
                         'Content-Type': 'application/json',
-                    }
+                    },
+                    timeout=store_config.timeout
                 )
                 
                 client = Client(transport=transport, fetch_schema_from_transport=False)
@@ -71,13 +72,21 @@ class MultiStoreShopifyClient:
             return {"msg": "success", "data": result}
 
         except TransportQueryError as e:
-            error_msg = f"GraphQL query error for store {store_key}: {str(e)}"
-            if hasattr(e, 'errors'):
+            # Build a more descriptive error message
+            error_msg = f"GraphQL query error for store {store_key}"
+            
+            # Add the main error message if available
+            if str(e) and str(e).strip():
+                error_msg += f": {str(e)}"
+            
+            # Add GraphQL-specific error details
+            if hasattr(e, 'errors') and e.errors:
                 error_msg += f"\nGraphQL Errors: {json.dumps(e.errors, indent=2)}"
-            if hasattr(e, 'data'):
+            if hasattr(e, 'data') and e.data:
                 error_msg += f"\nGraphQL Data: {json.dumps(e.data, indent=2)}"
-            if hasattr(e, 'extensions'):
+            if hasattr(e, 'extensions') and e.extensions:
                 error_msg += f"\nGraphQL Extensions: {json.dumps(e.extensions, indent=2)}"
+            
             logger.error(error_msg)
             
             # Log the detailed error to SAP
@@ -228,7 +237,7 @@ class MultiStoreShopifyClient:
                 request_data=request_data
             )
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=store_config.timeout) as client:
                 response = await client.post(url, json=request_data, headers=headers)
                 
                 if response.status_code == 200:
@@ -290,6 +299,12 @@ class MultiStoreShopifyClient:
         """
         Get product by handle from a specific store
         """
+        # Validate handle parameter
+        if not handle or not isinstance(handle, str) or handle.strip() == "":
+            error_msg = f"Invalid handle provided for store {store_key}: '{handle}'"
+            logger.error(error_msg)
+            return {"msg": "failure", "error": error_msg}
+        
         query = """
         query GetProductByHandle($handle: String!) {
             productByHandle(handle: $handle) {

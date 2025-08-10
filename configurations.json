@@ -1,4 +1,5 @@
 {
+    "test_mode": true,
     "sap": {
         "server": "https://10.0.0.100:50000/b1s/v1",
         "company": "JudeBenHalim_Test",
@@ -12,7 +13,7 @@
             "local": {
                 "name": "Local Store",
                 "shop_url": "eg-judebenhalim.myshopify.com",
-                "access_token": "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",
+                "access_token": "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",
                 "api_version": "2024-01",
                 "timeout": 30,
                 "currency": "EGP",
@@ -30,7 +31,25 @@
                 "enabled": false
             }
         },
-        "webhook_secret": "your_webhook_secret"
+        "webhook_secret": "your_webhook_secret",
+        "location_warehouse_mapping": {
+            "local": {
+                "default": "SW",
+                "locations": {
+                    "68605345858": "SW",
+                    "70074892354": "5A",
+                    "70074957890": "Arkan",
+                    "70074990658": "ZW"
+                }
+            },
+            "international": {
+                "default": "SW",
+                "locations": {
+                    "gid://shopify/Location/111222333": "ONL",
+                    "gid://shopify/Location/444555666": "PHO"
+                }
+            }
+        }
     },
     "sync": {
         "new_items": {

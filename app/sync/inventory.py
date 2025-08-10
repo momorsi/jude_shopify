@@ -149,7 +149,7 @@ class InventorySync:
                 "U_Shopify_Type": mapping_type,
                 "U_SAP_Code": item_code,
                 "U_SAP_Type": "item",
-                "U_CreateDate": datetime.now().strftime('%Y%m%d')
+                "U_CreateDT": datetime.now().strftime('%Y%m%d')
             }
             
             result = await sap_client.add_shopify_mapping(mapping_data)

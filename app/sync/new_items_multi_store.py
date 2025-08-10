@@ -76,15 +76,18 @@ class MultiStoreNewItemsSync:
         Create a simple product without variant complexity
         SKU is set at the variant level (Shopify standard approach)
         Inventory will be handled separately by the inventory sync process
+        NOTE: Products are always created as DRAFT during testing
         """
         price = self._get_store_price(sap_item, store_config.price_list)
+                
+        product_status = "DRAFT"
         
         product_data = {
             "title": sap_item.get('ItemName', ''),
             "descriptionHtml": sap_item.get('FrgnName', ''),
             "vendor": sap_item.get('U_Text1', ''),
             "productType": "Default",
-            "status": "DRAFT",  # Always create as draft for testing
+            "status": product_status,  # DRAFT in test mode, ACTIVE in production
             "tags": self._extract_tags(sap_item),
             "variants": [{
                 "sku": sap_item.get('itemcode', ''),  # SKU at variant level (Shopify standard)
@@ -115,15 +118,25 @@ class MultiStoreNewItemsSync:
         """
         Create a product with multiple variants based on color
         Inventory will be handled separately by the inventory sync process
+        NOTE: Products are always created as DRAFT during testing
         """
         # Use the first item as the base product
         base_item = sap_items[0]
         
 
         
+        # For products with variants, if MainProduct is null, use ItemName as the title
+        product_title = base_item.get('MainProduct', '')
+        if not product_title:
+            product_title = base_item.get('ItemName', '')
+        
+        # Determine product status based on test mode
+        from app.core.config import config_settings
+        product_status = "DRAFT" if config_settings.test_mode else "ACTIVE"
+        
         product_data = {
-            "title": base_item.get('MainProduct', ''),
-            "status": "DRAFT",
+            "title": product_title,
+            "status": product_status,  # DRAFT in test mode, ACTIVE in production
             "options": ["Color"],
             "variants": []
         }
@@ -131,10 +144,10 @@ class MultiStoreNewItemsSync:
         for item in sap_items:
             price = float(item.get('Price', 0))
             color_name = item.get('Color', '')
-            mapped_color = self._map_color_to_shopify_color(color_name)
+            sap_color = self._get_color_from_sap(color_name)
             
             variant = {
-                "options": [mapped_color],
+                "options": [sap_color],
                 "sku": item.get('itemcode', ''),
                 "price": str(price),
                 "inventoryManagement": "SHOPIFY",
@@ -195,212 +208,12 @@ class MultiStoreNewItemsSync:
             variant_data["barcode"] = sap_item.get('Barcode')
         return variant_data
     
-    def _map_color_to_shopify_color(self, color_name: str) -> str:
+    def _get_color_from_sap(self, color_name: str) -> str:
         """
-        Map SAP color names to Shopify-recognized color values
-        This ensures color swatches appear in the Shopify admin
-        Note: Shopify requires exact color option values for swatches to appear
+        Get color directly from SAP without any mapping
+        Simply return the color name as received from SAP
         """
-        color_mapping = {
-            # Standard colors - using Shopify's exact color option values
-            'red': 'Red',
-            'blue': 'Blue', 
-            'green': 'Green',
-            'yellow': 'Yellow',
-            'black': 'Black',
-            'white': 'White',
-            'gray': 'Gray',
-            'grey': 'Gray',
-            'purple': 'Purple',
-            'orange': 'Orange',
-            'pink': 'Pink',
-            'brown': 'Brown',
-            'navy': 'Navy',
-            'beige': 'Beige',
-            'cream': 'Cream',
-            'silver': 'Silver',
-            'gold': 'Gold',
-            'bronze': 'Bronze',
-            'copper': 'Copper',
-            'rose gold': 'Rose Gold',
-            'rose-gold': 'Rose Gold',
-            'rosegold': 'Rose Gold',
-            
-            # Specific color variations
-            'lime green': 'Lime Green',
-            'lime-green': 'Lime Green',
-            'limegreen': 'Lime Green',
-            'light blue': 'Light Blue',
-            'light-blue': 'Light Blue',
-            'lightblue': 'Light Blue',
-            'dark blue': 'Dark Blue',
-            'dark-blue': 'Dark Blue',
-            'darkblue': 'Dark Blue',
-            'light green': 'Light Green',
-            'light-green': 'Light Green',
-            'lightgreen': 'Light Green',
-            'dark green': 'Dark Green',
-            'dark-green': 'Dark Green',
-            'darkgreen': 'Dark Green',
-            'light pink': 'Light Pink',
-            'light-pink': 'Light Pink',
-            'lightpink': 'Light Pink',
-            'hot pink': 'Hot Pink',
-            'hot-pink': 'Hot Pink',
-            'hotpink': 'Hot Pink',
-            'baby pink': 'Baby Pink',
-            'baby-pink': 'Baby Pink',
-            'babypink': 'Baby Pink',
-            'coral': 'Coral',
-            'teal': 'Teal',
-            'turquoise': 'Turquoise',
-            'lavender': 'Lavender',
-            'lilac': 'Lilac',
-            'mint': 'Mint',
-            'olive': 'Olive',
-            'maroon': 'Maroon',
-            'burgundy': 'Burgundy',
-            'wine': 'Wine',
-            'champagne': 'Champagne',
-            'ivory': 'Ivory',
-            'off-white': 'Off White',
-            'offwhite': 'Off White',
-            'charcoal': 'Charcoal',
-            'slate': 'Slate',
-            'taupe': 'Taupe',
-            'tan': 'Tan',
-            'khaki': 'Khaki',
-            'camel': 'Camel',
-            'nude': 'Nude',
-            'transparent': 'Transparent',
-            'clear': 'Clear',
-            'multicolor': 'Multicolor',
-            'multi-color': 'Multicolor',
-            'multicoloured': 'Multicolor',
-            'multi-colour': 'Multicolor',
-            'rainbow': 'Rainbow',
-            'metallic': 'Metallic',
-            'glitter': 'Glitter',
-            'matte': 'Matte',
-            'glossy': 'Glossy',
-            'shimmer': 'Shimmer',
-            'iridescent': 'Iridescent',
-            'holographic': 'Holographic',
-            'neon': 'Neon',
-            'pastel': 'Pastel',
-            'vintage': 'Vintage',
-            'distressed': 'Distressed',
-            'faded': 'Faded',
-            'bleached': 'Bleached',
-            'tie-dye': 'Tie Dye',
-            'tiedye': 'Tie Dye',
-            'tie dye': 'Tie Dye',
-            'ombre': 'Ombre',
-            'gradient': 'Gradient',
-            'floral': 'Floral',
-            'geometric': 'Geometric',
-            'striped': 'Striped',
-            'polka dot': 'Polka Dot',
-            'polkadot': 'Polka Dot',
-            'polka-dot': 'Polka Dot',
-            'checkered': 'Checkered',
-            'plaid': 'Plaid',
-            'argyle': 'Argyle',
-            'herringbone': 'Herringbone',
-            'houndstooth': 'Houndstooth',
-            'paisley': 'Paisley',
-            'tartan': 'Tartan',
-            'gingham': 'Gingham',
-            'denim': 'Denim',
-            'leather': 'Leather',
-            'suede': 'Suede',
-            'velvet': 'Velvet',
-            'satin': 'Satin',
-            'silk': 'Silk',
-            'cotton': 'Cotton',
-            'linen': 'Linen',
-            'wool': 'Wool',
-            'cashmere': 'Cashmere',
-            'acrylic': 'Acrylic',
-            'polyester': 'Polyester',
-            'nylon': 'Nylon',
-            'spandex': 'Spandex',
-            'lycra': 'Lycra',
-            'elastane': 'Elastane',
-            'mesh': 'Mesh',
-            'lace': 'Lace',
-            'crochet': 'Crochet',
-            'knit': 'Knit',
-            'woven': 'Woven',
-            'jersey': 'Jersey',
-            'fleece': 'Fleece',
-            'faux fur': 'Faux Fur',
-            'faux-fur': 'Faux Fur',
-            'fauxfur': 'Faux Fur',
-            'faux leather': 'Faux Leather',
-            'faux-leather': 'Faux Leather',
-            'fauxleather': 'Faux Leather',
-            'faux suede': 'Faux Suede',
-            'faux-suede': 'Faux Suede',
-            'fauxsuede': 'Faux Suede',
-            'faux silk': 'Faux Silk',
-            'faux-silk': 'Faux Silk',
-            'fauxsilk': 'Faux Silk',
-            'faux velvet': 'Faux Velvet',
-            'faux-velvet': 'Faux Velvet',
-            'fauxvelvet': 'Faux Velvet',
-            'faux satin': 'Faux Satin',
-            'faux-satin': 'Faux Satin',
-            'fauxsatin': 'Faux Satin',
-            'faux lace': 'Faux Lace',
-            'faux-lace': 'Faux Lace',
-            'fauxlace': 'Faux Lace',
-            'faux crochet': 'Faux Crochet',
-            'faux-crochet': 'Faux Crochet',
-            'fauxcrochet': 'Faux Crochet',
-            'faux knit': 'Faux Knit',
-            'faux-knit': 'Faux Knit',
-            'fauxknit': 'Faux Knit',
-            'faux woven': 'Faux Woven',
-            'faux-woven': 'Faux Woven',
-            'fauxwoven': 'Faux Woven',
-            'faux jersey': 'Faux Jersey',
-            'faux-jersey': 'Faux Jersey',
-            'fauxjersey': 'Faux Jersey',
-            'faux fleece': 'Faux Fleece',
-            'faux-fleece': 'Faux Fleece',
-            'fauxfleece': 'Faux Fleece',
-            'faux mesh': 'Faux Mesh',
-            'faux-mesh': 'Faux Mesh',
-            'fauxmesh': 'Faux Mesh',
-            'faux lace': 'Faux Lace',
-            'faux-lace': 'Faux Lace',
-            'fauxlace': 'Faux Lace',
-            'faux crochet': 'Faux Crochet',
-            'faux-crochet': 'Faux Crochet',
-            'fauxcrochet': 'Faux Crochet',
-            'faux knit': 'Faux Knit',
-            'faux-knit': 'Faux Knit',
-            'fauxknit': 'Faux Knit',
-            'faux woven': 'Faux Woven',
-            'faux-woven': 'Faux Woven',
-            'fauxwoven': 'Faux Woven',
-            'faux jersey': 'Faux Jersey',
-            'faux-jersey': 'Faux Jersey',
-            'fauxjersey': 'Faux Jersey',
-            'faux fleece': 'Faux Fleece',
-            'faux-fleece': 'Faux Fleece',
-            'fauxfleece': 'Faux Fleece',
-            'faux mesh': 'Faux Mesh',
-            'faux-mesh': 'Faux Mesh',
-            'fauxmesh': 'Faux Mesh',
-        }
-        
-        # Normalize the color name (lowercase, remove extra spaces)
-        normalized_color = color_name.lower().strip()
-        
-        # Return mapped color if found, otherwise return original (capitalized)
-        return color_mapping.get(normalized_color, color_name.title())
+        return color_name.strip() if color_name else ""
     
     def _extract_tags(self, sap_item: Dict[str, Any]) -> List[str]:
         """
@@ -427,14 +240,26 @@ class MultiStoreNewItemsSync:
         Check if a product already exists in the store by creating a handle from the main product name
         """
         try:
-            # Handle NULL/None main_product_name
-            if not main_product_name:
-                main_product_name = "default"
+            # Handle NULL/None/empty main_product_name
+            if not main_product_name or main_product_name.strip() == "":
+                logger.warning(f"Empty main_product_name provided for store {store_key}, skipping handle check")
+                return {
+                    "msg": "success",
+                    "exists": False,
+                    "product": None
+                }
             
             # Create a handle from the main product name
             handle = main_product_name.lower().replace(' ', '-').replace('_', '-')
             
-
+            # Ensure handle is not empty after processing
+            if not handle or handle.strip() == "":
+                logger.warning(f"Empty handle generated from main_product_name '{main_product_name}' for store {store_key}")
+                return {
+                    "msg": "success",
+                    "exists": False,
+                    "product": None
+                }
             
             result = await multi_store_shopify_client.get_product_by_handle(store_key, handle)
             
@@ -479,18 +304,18 @@ class MultiStoreNewItemsSync:
                     # Get current color values and add the new color if needed
                     color_option = next((opt for opt in product.get("options", []) if opt["name"] == "Color"), None)
                     if color_option:
-                        mapped_color = self._map_color_to_shopify_color(color)
+                        sap_color = self._get_color_from_sap(color)
                         current_values = color_option.get("values", [])
-                        if mapped_color not in current_values:
+                        if sap_color not in current_values:
                             # Note: We can't update option values via GraphQL in this version
                             # The color swatches will appear when variants are created with proper color values
-                            logger.info(f"Color {mapped_color} will be added to product options when variant is created")
+                            logger.info(f"Color {sap_color} will be added to product options when variant is created")
 
             
             # 3. Add the variant with options if color is available
             if color:
-                mapped_color = self._map_color_to_shopify_color(color)
-                variant_data["options"] = [mapped_color]  # Use mapped color for proper swatch display
+                sap_color = self._get_color_from_sap(color)
+                variant_data["options"] = [sap_color]  # Use SAP color directly
             
             # Remove any option-related fields that might cause issues
             variant_data.pop("selectedOptions", None)
@@ -511,17 +336,34 @@ class MultiStoreNewItemsSync:
                 # Check if the error is about variant already existing
                 error_msg = result.get("error", "")
                 if "already exists" in error_msg:
-                    logger.info(f"Variant {variant_data.get('sku')} already exists, attempting to update it")
+                    logger.info(f"Variant {variant_data.get('sku')} already exists, attempting to find it")
                     
-                    # Try to find the existing variant and update it
-                    # For now, we'll return a success message since the variant exists
-                    # In a more complete implementation, we would find and update the existing variant
+                    # Try to find the existing variant by getting the product and searching for the SKU
+                    product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
+                    if product_info["msg"] == "success" and product_info["data"].get("product"):
+                        product = product_info["data"]["product"]
+                        existing_variant = None
+                        for variant_edge in product["variants"]["edges"]:
+                            variant = variant_edge["node"]
+                            if variant.get("sku") == variant_data.get('sku'):
+                                existing_variant = variant
+                                break
+                        
+                        if existing_variant:
+                            logger.info(f"Found existing variant {variant_data.get('sku')} with ID {existing_variant['id']}")
+                            return {
+                                "msg": "success",
+                                "shopify_variant_id": existing_variant["id"],
+                                "shopify_inventory_item_id": existing_variant["inventoryItem"]["id"],
+                                "sku": variant_data.get('sku'),
+                                "note": "Variant already exists"
+                            }
+                    
+                    # If we can't find the variant, return failure
+                    logger.error(f"Variant {variant_data.get('sku')} already exists but couldn't be found")
                     return {
-                        "msg": "success",
-                        "shopify_variant_id": "existing",  # Placeholder
-                        "shopify_inventory_item_id": "existing",  # Placeholder
-                        "sku": variant_data.get('sku'),
-                        "note": "Variant already exists"
+                        "msg": "failure",
+                        "error": f"Variant {variant_data.get('sku')} already exists but couldn't be found"
                     }
                 else:
                     logger.error(f"Detailed variant creation error for {variant_data.get('sku')}: {result.get('error')}")
@@ -542,13 +384,34 @@ class MultiStoreNewItemsSync:
                 
                 # Check if the error is about variant already existing
                 if "already exists" in error_msg:
-                    logger.info(f"Variant {variant_data.get('sku')} already exists, treating as success")
+                    logger.info(f"Variant {variant_data.get('sku')} already exists, attempting to find it")
+                    
+                    # Try to find the existing variant by getting the product and searching for the SKU
+                    product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
+                    if product_info["msg"] == "success" and product_info["data"].get("product"):
+                        product = product_info["data"]["product"]
+                        existing_variant = None
+                        for variant_edge in product["variants"]["edges"]:
+                            variant = variant_edge["node"]
+                            if variant.get("sku") == variant_data.get('sku'):
+                                existing_variant = variant
+                                break
+                        
+                        if existing_variant:
+                            logger.info(f"Found existing variant {variant_data.get('sku')} with ID {existing_variant['id']}")
+                            return {
+                                "msg": "success",
+                                "shopify_variant_id": existing_variant["id"],
+                                "shopify_inventory_item_id": existing_variant["inventoryItem"]["id"],
+                                "sku": variant_data.get('sku'),
+                                "note": "Variant already exists"
+                            }
+                    
+                    # If we can't find the variant, return failure
+                    logger.error(f"Variant {variant_data.get('sku')} already exists but couldn't be found")
                     return {
-                        "msg": "success",
-                        "shopify_variant_id": "existing",  # Placeholder
-                        "shopify_inventory_item_id": "existing",  # Placeholder
-                        "sku": variant_data.get('sku'),
-                        "note": "Variant already exists"
+                        "msg": "failure",
+                        "error": f"Variant {variant_data.get('sku')} already exists but couldn't be found"
                     }
                 else:
                     await sl_add_log(
@@ -565,17 +428,17 @@ class MultiStoreNewItemsSync:
             
             # 4. Update the variant to set the color option if needed
             if color:
-                mapped_color = self._map_color_to_shopify_color(color)
+                sap_color = self._get_color_from_sap(color)
                 update_result = await multi_store_shopify_client.update_variant(
                     store_key, 
                     variant["id"], 
                     {
-                        "title": mapped_color  # Set the title to the mapped color value
+                        "title": sap_color  # Set the title to the SAP color value
                     }
                 )
                 
                 if update_result["msg"] == "success":
-                    logger.info(f"Updated variant {variant['sku']} title to '{color}'")
+                    logger.info(f"Updated variant {variant['sku']} title to '{sap_color}'")
                 else:
                     logger.warning(f"Failed to update variant {variant['sku']} title: {update_result.get('error')}")
             
@@ -592,11 +455,11 @@ class MultiStoreNewItemsSync:
                 value=f"Successfully added variant {variant['sku']} to product in store {store_key}"
             )
             
-            # Set inventory for the new variant
+            # Set inventory for the new variant (default to 0, will be updated by inventory sync)
             inventory_result = await multi_store_shopify_client.update_inventory(
                 store_key, 
                 variant["inventoryItem"]["id"], 
-                inventory_quantity
+                0  # Default inventory, will be updated by inventory sync
             )
             
             if inventory_result["msg"] == "failure":
@@ -757,6 +620,10 @@ class MultiStoreNewItemsSync:
                         main_product_name = group_items[0].get("MainProduct", "")
                         existing_shopify_product_id = group_items[0].get("Shopify_ProductCode")
                         
+                        # For items with NULL MainProduct, use itemcode as the product name
+                        if not main_product_name:
+                            main_product_name = group_items[0].get("itemcode", "")
+                        
                         # Check if we have an existing Shopify product ID
                         if existing_shopify_product_id:
                             logger.info(f"Found existing Shopify product ID: {existing_shopify_product_id} for {main_product_name}")
@@ -857,7 +724,7 @@ class MultiStoreNewItemsSync:
                             "U_SAP_Code": sap_code_for_mapping,
                             "U_Shopify_Store": store_key,
                             "U_SAP_Type": "item",
-                            "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
+                            "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
                         })                        
                         
                         # Handle variant mappings based on whether we created a new product or added to existing
@@ -884,7 +751,7 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
+                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
                                     })
                                     
                                     inventory_mapping_result = await sap_client.add_shopify_mapping({
@@ -894,7 +761,7 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
+                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
                                     })
                         else:
                             # For new products, use the store_result from create_product_in_store
@@ -916,7 +783,7 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
+                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
                                     })
                                     
                                 if inventory_id:
@@ -927,7 +794,7 @@ class MultiStoreNewItemsSync:
                                         "U_SAP_Code": itemcode,
                                         "U_Shopify_Store": store_key,
                                         "U_SAP_Type": "item",
-                                        "U_CreateDate": datetime.now().strftime('%Y-%m-%d')
+                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
                                     })
 
                             success += 1

@@ -189,7 +189,7 @@ async def execute_query(self, store_key: str, query: str, variables: dict = None
 ### SAP API Calls:
 - ✅ `GET /Items` - Getting items from SAP
 - ✅ `GET /view.svc/MASHURA_New_ItemsB1SLQuery` - Getting new items
-- ✅ `POST /U_SHOPIFY_MAPPING` - Adding mapping records
+- ✅ `POST /U_SHOPIFY_MAPPING_2` - Adding mapping records
 - ✅ `PATCH /Items('itemcode')` - Updating items
 - ✅ All other SAP entity operations
 

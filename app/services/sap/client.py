@@ -92,11 +92,13 @@ class SAPClient:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
         try:
-            log_api_call(
-                service="sap",
-                endpoint=endpoint,
-                request_data={"method": method, "url": url, "data": data, "params": params}
-            )
+            # Skip logging for U_SHOPIFY_MAPPING_2 endpoint as requested by user
+            if endpoint != 'U_SHOPIFY_MAPPING_2':
+                log_api_call(
+                    service="sap",
+                    endpoint=endpoint,
+                    request_data={"method": method, "url": url, "data": data, "params": params}
+                )
             
             async with httpx.AsyncClient(verify=False) as client:
                 if method.upper() == 'GET':
@@ -130,21 +132,25 @@ class SAPClient:
                         except:
                             response_data = response.text
                     
-                    log_api_call(
-                        service="sap",
-                        endpoint=endpoint,
-                        response_data=response_data,
-                        status="success"
-                    )
+                    # Skip logging for U_SHOPIFY_MAPPING_2 endpoint as requested by user
+                    if endpoint != 'U_SHOPIFY_MAPPING_2':
+                        log_api_call(
+                            service="sap",
+                            endpoint=endpoint,
+                            response_data=response_data,
+                            status="success"
+                        )
                     
                     return {"msg": "success", "data": response_data}
                 else:
-                    log_api_call(
-                        service="sap",
-                        endpoint=endpoint,
-                        response_data={"status_code": response.status_code, "text": response.text},
-                        status="failure"
-                    )
+                    # Skip logging for U_SHOPIFY_MAPPING_2 endpoint as requested by user
+                    if endpoint != 'U_SHOPIFY_MAPPING_2':
+                        log_api_call(
+                            service="sap",
+                            endpoint=endpoint,
+                            response_data={"status_code": response.status_code, "text": response.text},
+                            status="failure"
+                        )
                     
                     return {"msg": "failure", "error": f"HTTP {response.status_code}: {response.text}"}
                     
@@ -223,7 +229,7 @@ class SAPClient:
 
     async def add_shopify_mapping(self, mapping_data: dict) -> dict:
         """Add a mapping row to the SAP Shopify mapping table."""
-        return await self._make_request('POST', 'U_SHOPIFY_MAPPING', data=mapping_data)
+        return await self._make_request('POST', 'U_SHOPIFY_MAPPING_2', data=mapping_data)
 
 # Create singleton instance
 sap_client = SAPClient() 

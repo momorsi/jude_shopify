@@ -50,6 +50,9 @@ class ShopifyStoreConfig:
         self.enabled = store_data.get('enabled', True)
 
 class ConfigSettings(BaseSettings):
+    # Test Mode
+    test_mode: bool = config_data.get('test_mode', True)
+    
     # SAP Settings
     sap_server: str = config_data['sap']['server']
     sap_company: str = config_data['sap']['company']
@@ -75,6 +78,40 @@ class ConfigSettings(BaseSettings):
     def get_store_by_name(self, store_name: str) -> ShopifyStoreConfig:
         """Get store configuration by name"""
         return self.shopify_stores.get(store_name)
+    
+    def get_location_warehouse_mapping(self, store_key: str) -> Dict[str, Any]:
+        """Get location-warehouse mapping for a specific store"""
+        mapping_data = config_data['shopify'].get('location_warehouse_mapping', {})
+        return mapping_data.get(store_key, {})
+    
+    def get_warehouse_code_for_location(self, store_key: str, location_id: str) -> str:
+        """Get warehouse code for a specific location in a store"""
+        mapping = self.get_location_warehouse_mapping(store_key)
+        if not mapping:
+            return "SW"  # Default warehouse
+        
+        # Check if location has specific mapping
+        locations = mapping.get('locations', {})
+        if location_id in locations:
+            return locations[location_id]
+        
+        # Return default warehouse for the store
+        return mapping.get('default', 'SW')
+    
+    def get_warehouse_code_for_order(self, store_key: str, order_data: Dict[str, Any]) -> str:
+        """Get warehouse code for an order based on its location"""
+        # Extract location from order GraphQL response
+        location = order_data.get('location')
+        if location and location.get('id'):
+            # Extract the numeric ID from the GID format (e.g., "gid://shopify/Location/70074892354" -> "70074892354")
+            location_gid = location['id']
+            if 'gid://shopify/Location/' in location_gid:
+                location_id = location_gid.replace('gid://shopify/Location/', '')
+                return self.get_warehouse_code_for_location(store_key, location_id)
+        
+        # If no location found, use default
+        mapping = self.get_location_warehouse_mapping(store_key)
+        return mapping.get('default', 'SW') if mapping else 'SW'
     
     # Legacy support for backward compatibility
     @property
