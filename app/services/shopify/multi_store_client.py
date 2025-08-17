@@ -434,18 +434,66 @@ class MultiStoreShopifyClient:
     
     async def update_variant(self, store_key: str, variant_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update a variant (e.g., to set the title/option1)
+        Update a variant using the new Shopify API 2025-07 approach
+        Note: productVariantUpdate doesn't exist in API 2025-07, so we use productUpdate instead
         """
+        # First, get the product ID from the variant
+        variant_info = await self.get_variant_by_id(store_key, variant_id)
+        if variant_info["msg"] == "failure":
+            return variant_info
+        
+        product_id = variant_info["data"]["productVariant"]["product"]["id"]
+        
+        # Get the current product to update the specific variant
+        product_info = await self.get_product_by_id(store_key, product_id)
+        if product_info["msg"] == "failure":
+            return product_info
+        
+        product = product_info["data"]["product"]
+        variants = product["variants"]["edges"]
+        
+        # Find and update the specific variant
+        updated_variants = []
+        for variant_edge in variants:
+            variant = variant_edge["node"]
+            if variant["id"] == variant_id:
+                # Update this variant
+                updated_variant = {
+                    "id": variant["id"],
+                    "sku": variant["sku"],
+                    "price": variant_data.get("price", variant["price"]),
+                    "title": variant_data.get("title", variant["title"])
+                }
+                updated_variants.append(updated_variant)
+            else:
+                # Keep other variants unchanged
+                updated_variants.append({
+                    "id": variant["id"],
+                    "sku": variant["sku"],
+                    "price": variant["price"],
+                    "title": variant["title"]
+                })
+        
+        # Use productUpdate to update the variants
         mutation = """
-        mutation productVariantUpdate($input: ProductVariantInput!) {
-            productVariantUpdate(input: $input) {
-                productVariant {
+        mutation productUpdate($input: ProductInput!) {
+            productUpdate(input: $input) {
+                product {
+                    id
+                    title
+                    variants(first: 10) {
+                        edges {
+                            node {
                     id
                     sku
+                                price
                     title
                     selectedOptions {
                         name
                         value
+                                }
+                            }
+                        }
                     }
                 }
                 userErrors {
@@ -456,15 +504,18 @@ class MultiStoreShopifyClient:
         }
         """
         
-        # Add the variant ID to the data
-        variant_data["id"] = variant_id
+        update_data = {
+            "id": product_id,
+            "variants": updated_variants
+        }
         
-        return await self.execute_query(store_key, mutation, {"input": variant_data})
+        return await self.execute_query(store_key, mutation, {"input": update_data})
     
     async def update_product(self, store_key: str, product_id: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update a product in Shopify
+        Update a product in Shopify (product-level fields only)
         """
+        # Simple mutation for product-only updates
         mutation = """
         mutation productUpdate($input: ProductInput!) {
             productUpdate(input: $input) {
@@ -487,6 +538,88 @@ class MultiStoreShopifyClient:
         product_data["id"] = product_id
         
         return await self.execute_query(store_key, mutation, {"input": product_data})
+    
+    async def update_variant_comprehensive(self, store_key: str, variant_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update a variant comprehensively using the new Shopify API 2025-07 approach
+        """
+        # First, get the product ID from the variant
+        variant_info = await self.get_variant_by_id(store_key, variant_id)
+        if variant_info["msg"] == "failure":
+            return variant_info
+        
+        product_id = variant_info["data"]["productVariant"]["product"]["id"]
+        
+        # Get the current product to update the specific variant
+        product_info = await self.get_product_by_id(store_key, product_id)
+        if product_info["msg"] == "failure":
+            return product_info
+        
+        product = product_info["data"]["product"]
+        variants = product["variants"]["edges"]
+        
+        # Find and update the specific variant
+        updated_variants = []
+        for variant_edge in variants:
+            variant = variant_edge["node"]
+            if variant["id"] == variant_id:
+                # Update this variant with new data
+                updated_variant = {
+                    "id": variant["id"],
+                    "sku": variant["sku"],
+                    "price": variant["price"],
+                    "title": variant_data.get("title", variant.get("title", "")),
+                    "barcode": variant_data.get("barcode", variant.get("barcode", ""))
+                }
+                updated_variants.append(updated_variant)
+            else:
+                # Keep other variants unchanged
+                updated_variant = {
+                    "id": variant["id"],
+                    "sku": variant["sku"],
+                    "price": variant["price"],
+                    "title": variant.get("title", ""),
+                    "barcode": variant.get("barcode", "")
+                }
+                updated_variants.append(updated_variant)
+        
+        # Use productUpdate to update the variants
+        mutation = """
+        mutation productUpdate($input: ProductInput!) {
+            productUpdate(input: $input) {
+                product {
+                    id
+                    title
+                    status
+                    variants(first: 50) {
+                        edges {
+                            node {
+                                id
+                                title
+                                sku
+                                barcode
+                                selectedOptions {
+                                    name
+                                    value
+                                }
+                            }
+                        }
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        update_data = {
+            "id": product_id,
+            "variants": updated_variants
+        }
+        
+        return await self.execute_query(store_key, mutation, {"input": update_data})
     
     async def get_variant_by_id(self, store_key: str, variant_id: str) -> Dict[str, Any]:
         """
@@ -512,6 +645,125 @@ class MultiStoreShopifyClient:
         """
         
         return await self.execute_query(store_key, query, {"id": variant_id})
+    
+    async def create_product_with_options(self, store_key: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create product with options using the new Shopify API 2025-07 approach
+        This is step 1: Create the product with productOptions
+        """
+        mutation = """
+        mutation productCreate($input: ProductInput!) {
+            productCreate(input: $input) {
+                product {
+                    id
+                    title
+                    status
+                    options {
+                        id
+                        name
+                        position
+                        optionValues {
+                            id
+                            name
+                            hasVariants
+                        }
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        return await self.execute_query(store_key, mutation, {"input": product_data})
+    
+    async def create_product_variants_bulk(self, store_key: str, product_id: str, variants: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Create product variants in bulk using the new Shopify API 2025-07 approach
+        This is step 2: Add variants to the product using productVariantsBulkCreate
+        """
+        mutation = """
+        mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+            productVariantsBulkCreate(productId: $productId, variants: $variants, strategy: REMOVE_STANDALONE_VARIANT) {
+                productVariants {
+                    id
+                    title
+                    sku
+                    price
+                    selectedOptions {
+                        name
+                        value
+                    }
+                    inventoryItem {
+                        id
+                        sku
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        variables = {
+            "productId": product_id,
+            "variants": variants
+        }
+        
+        return await self.execute_query(store_key, mutation, variables)
+    
+    async def create_product_option(self, store_key: str, product_id: str, option_name: str) -> Dict[str, Any]:
+        """
+        Create a product option for an existing product
+        """
+        mutation = """
+        mutation productOptionCreate($input: ProductOptionInput!) {
+            productOptionCreate(input: $input) {
+                productOption {
+                    id
+                    name
+                    position
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        variables = {
+            "input": {
+                "productId": product_id,
+                "name": option_name
+            }
+        }
+        
+        try:
+            result = await self.execute_query(store_key, mutation, variables)
+            
+            if result["msg"] == "failure":
+                return result
+            
+            response_data = result["data"]["productOptionCreate"]
+            if response_data.get("userErrors"):
+                errors = [error["message"] for error in response_data["userErrors"]]
+                error_msg = "; ".join(errors)
+                return {"msg": "failure", "error": error_msg}
+            
+            product_option = response_data["productOption"]
+            return {
+                "msg": "success",
+                "option_id": product_option["id"],
+                "option_name": product_option["name"]
+            }
+            
+        except Exception as e:
+            return {"msg": "failure", "error": str(e)}
     
     def get_store_config(self, store_key: str) -> Optional[Any]:
         """

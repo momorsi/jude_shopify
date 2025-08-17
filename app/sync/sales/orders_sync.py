@@ -38,12 +38,10 @@ class OrdersSalesSync:
                             name
                             createdAt
                             tags
-                            financialStatus
-                            fulfillmentStatus
-                            location {
-                                id
-                                name
-                            }
+                            displayFinancialStatus
+                            displayFulfillmentStatus
+                            sourceName
+                            sourceIdentifier
                             totalPriceSet {
                                 shopMoney {
                                     amount
@@ -56,48 +54,18 @@ class OrdersSalesSync:
                                     currencyCode
                                 }
                             }
-                            totalTaxSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-                            totalShippingPriceSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
                             customer {
                                 id
                                 firstName
                                 lastName
                                 email
                                 phone
-                                addresses {
-                                    address1
-                                    address2
-                                    city
-                                    province
-                                    zip
-                                    country
-                                    phone
-                                }
                             }
                             shippingAddress {
                                 address1
                                 address2
                                 city
-                                province
-                                zip
-                                country
-                                phone
-                            }
-                            billingAddress {
-                                address1
-                                address2
-                                city
-                                province
+                                provinceCode
                                 zip
                                 country
                                 phone
@@ -106,9 +74,9 @@ class OrdersSalesSync:
                                 edges {
                                     node {
                                         id
+                                        name
                                         quantity
                                         sku
-                                        title
                                         variant {
                                             id
                                             sku
@@ -118,16 +86,22 @@ class OrdersSalesSync:
                                                 title
                                             }
                                         }
-                                        discountedTotalSet {
-                                            shopMoney {
-                                                amount
-                                                currencyCode
-                                            }
-                                        }
                                     }
                                 }
                             }
-                            note
+                            transactions(first: 10) {
+                                id
+                                kind
+                                status
+                                gateway
+                                amountSet {
+                                    shopMoney {
+                                        amount
+                                        currencyCode
+                                    }
+                                }
+                                processedAt
+                            }
                         }
                     }
                     pageInfo {
@@ -297,6 +271,19 @@ class OrdersSalesSync:
                                         }
                                     }
                                 }
+                            }
+                            transactions(first: 10) {
+                                id
+                                kind
+                                status
+                                gateway
+                                amountSet {
+                                    shopMoney {
+                                        amount
+                                        currencyCode
+                                    }
+                                }
+                                processedAt
                             }
                             tags
                             note
@@ -476,8 +463,8 @@ class OrdersSalesSync:
             currency = order_node["totalPriceSet"]["shopMoney"]["currencyCode"]
             
             # Get payment and fulfillment status
-            financial_status = order_node.get("financialStatus", "PENDING")
-            fulfillment_status = order_node.get("fulfillmentStatus", "UNFULFILLED")
+            financial_status = order_node.get("displayFinancialStatus", "PENDING")
+            fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
             
             # Map line items
             line_items = []
@@ -485,14 +472,19 @@ class OrdersSalesSync:
                 item = item_edge["node"]
                 sku = item.get("sku")
                 quantity = item["quantity"]
-                price = Decimal(item["discountedTotalSet"]["shopMoney"]["amount"])
                 
-                # Use a default item if SKU doesn't exist in SAP
-                item_code = "ACC-0000001"  # Default item
+                # Get price from variant if available, otherwise use a default
+                if item.get("variant") and item["variant"].get("price"):
+                    price = Decimal(item["variant"]["price"])
+                else:
+                    # Fallback to a default price if variant price is not available
+                    price = Decimal("0.00")
+                
+                # Use the actual SKU as item code, or a default if not available
                 if sku:
-                    # In a real implementation, you might want to map SKUs to SAP ItemCodes
-                    # For now, we'll use the default item
-                    item_code = "ACC-0000001"
+                    item_code = sku  # Use the actual SKU from Shopify
+                else:
+                    item_code = "ACC-0000001"  # Default item only if no SKU
                 
                 # Get warehouse code based on order location
                 warehouse_code = config_settings.get_warehouse_code_for_order(store_key, order_node)
@@ -611,9 +603,232 @@ class OrdersSalesSync:
         except Exception as e:
             logger.error(f"Error creating invoice in SAP: {str(e)}")
             return {"msg": "failure", "error": str(e)}
-    
+
+    def prepare_incoming_payment_data(self, shopify_order: Dict[str, Any], sap_invoice_data: Dict[str, Any], 
+                                    customer_card_code: str, store_key: str) -> Dict[str, Any]:
+        """
+        Prepare incoming payment data for SAP based on Shopify order payment information
+        """
+        try:
+            order_node = shopify_order["node"]
+            order_name = order_node["name"]
+            total_amount = float(order_node["totalPriceSet"]["shopMoney"]["amount"])
+            
+            # Get payment information from transactions
+            payment_info = self._extract_payment_info(order_node)
+            
+            # Get order channel information
+            source_name = order_node.get("sourceName", "").lower()
+            source_identifier = order_node.get("sourceIdentifier", "").lower()
+            
+            # Determine payment type based on channel and payment method
+            payment_type = self._determine_payment_type(source_name, source_identifier, payment_info)
+            
+            # Get invoice document entry from SAP invoice data
+            invoice_doc_entry = sap_invoice_data.get("DocEntry", "")
+            
+            # Initialize payment data
+            payment_data = {
+                "DocDate": datetime.now().strftime("%Y-%m-%d"),
+                "CardCode": customer_card_code,
+                "CashSum": 0.0,
+                "CheckSum": 0.0,
+                "TransferSum": 0.0,
+                "TransferAccount": "",
+                "TransferReference": order_name,  # Use order name as reference
+                "TransferDate": "",
+                "TransferReference2": payment_info.get('gateway', 'Unknown'),
+                "TransferReference3": payment_info.get('card_type', 'Unknown'),
+                "TransferSumFC": 0.0,
+                "TransferSumSC": 0.0,
+                "TransferDateFrom": "",
+                "TransferDateTo": "",
+                "Comments": f"Shopify Order: {order_name} | Store: {store_key} | Channel: {source_name} | Payment Type: {payment_type} | Gateway: {payment_info.get('gateway', 'Unknown')} | Card Type: {payment_info.get('card_type', 'Unknown')} | Last 4: {payment_info.get('last_4', 'Unknown')}",
+                "JournalMemo": f"Payment for Shopify Order {order_name}",
+                "DocumentLines": [
+                    {
+                        "DocEntry": invoice_doc_entry,
+                        "SumApplied": total_amount,
+                        "AppliedFC": total_amount,
+                        "AppliedSys": total_amount,
+                        "DocLine": 0,
+                        "DocType": "dDocument_Items",
+                        "InstallmentId": 1
+                    }
+                ]
+            }
+            
+            # Set payment method based on type
+            if payment_type == "PaidOnline":
+                # Online store payments - use bank transfer
+                payment_data["TransferSum"] = total_amount
+                transfer_account = config_settings.get_bank_transfer_account(store_key, "PaidOnline")
+                payment_data["TransferAccount"] = transfer_account
+                logger.info(f"Online store payment - using bank transfer account: {transfer_account}")
+                
+            elif payment_type == "COD":
+                # Cash on delivery - use bank transfer for COD
+                payment_data["TransferSum"] = total_amount
+                transfer_account = config_settings.get_bank_transfer_account(store_key, "COD")
+                payment_data["TransferAccount"] = transfer_account
+                logger.info(f"COD payment - using bank transfer account: {transfer_account}")
+                
+            elif payment_type == "Cash":
+                # Cash payment at store
+                payment_data["CashSum"] = total_amount
+                logger.info(f"Cash payment at store - using cash sum")
+                
+            elif payment_type == "CreditCard":
+                # Credit card payment at store
+                payment_data["CashSum"] = total_amount
+                logger.info(f"Credit card payment at store - using cash sum")
+                
+            else:
+                # Default to cash for unknown payment types
+                payment_data["CashSum"] = total_amount
+                logger.warning(f"Unknown payment type '{payment_type}' - defaulting to cash")
+            
+            return payment_data
+            
+        except Exception as e:
+            logger.error(f"Error preparing incoming payment data: {str(e)}")
+            raise
+
+    def _extract_payment_info(self, order_node: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract payment information from Shopify order transactions
+        """
+        payment_info = {
+            "gateway": "Unknown",
+            "card_type": "Unknown", 
+            "last_4": "Unknown",
+            "amount": 0.0,
+            "status": "Unknown"
+        }
+        
+        try:
+            transactions = order_node.get("transactions", [])
+            
+            for transaction in transactions:
+                
+                # Look for successful payment transactions
+                if (transaction.get("kind") == "SALE" and 
+                    transaction.get("status") == "SUCCESS"):
+                    
+                    payment_info["gateway"] = transaction.get("gateway", "Unknown")
+                    payment_info["amount"] = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
+                    payment_info["status"] = transaction.get("status", "Unknown")
+                    
+                    # Extract credit card information if available
+                    payment_details = transaction.get("paymentDetails", {})
+                    if payment_details:
+                        payment_info["card_type"] = payment_details.get("creditCardCompany", "Unknown")
+                        payment_info["last_4"] = payment_details.get("creditCardLastDigits", "Unknown")
+                    
+                    # Use the first successful payment transaction
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error extracting payment info: {str(e)}")
+        
+        return payment_info
+
+    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any]) -> str:
+        """
+        Determine payment type based on order channel and payment information
+        """
+        # Convert to lowercase for case-insensitive matching
+        source_name_lower = source_name.lower()
+        source_identifier_lower = source_identifier.lower()
+        
+        # Check if it's an online store order
+        if ("online store" in source_name_lower or 
+            "web" in source_name_lower or 
+            "shopify" in source_name_lower or
+            "online" in source_name_lower):
+            return "PaidOnline"
+        
+        # Check if it's a mobile app order
+        if ("mobile" in source_name_lower or 
+            "app" in source_name_lower or
+            "mobile app" in source_name_lower):
+            return "PaidOnline"
+        
+        # Check if it's a POS order (store location)
+        if ("pos" in source_name_lower or 
+            "point of sale" in source_name_lower or
+            "point of sale" in source_identifier_lower):
+            # For POS orders, check the payment method
+            gateway = payment_info.get('gateway', '').lower()
+            card_type = payment_info.get('card_type', '').lower()
+            
+            # Check for COD (Cash on Delivery)
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+                return "COD"
+            
+            # Check for cash payments
+            if "cash" in gateway or "cash" in card_type:
+                return "Cash"
+            
+            # Check for credit card payments
+            if any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
+                return "CreditCard"
+            
+            # Default for POS orders
+            return "Cash"
+        
+        # Check for other channels (like phone, email, etc.)
+        if ("phone" in source_name_lower or 
+            "email" in source_name_lower or
+            "phone" in source_identifier_lower):
+            # For phone/email orders, check payment method
+            gateway = payment_info.get('gateway', '').lower()
+            card_type = payment_info.get('card_type', '').lower()
+            
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+                return "COD"
+            elif any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
+                return "CreditCard"
+            else:
+                return "PaidOnline"  # Default to online payment for phone/email orders
+        
+        # Default case - assume online store if we can't determine
+        logger.warning(f"Could not determine payment type for source: {source_name}, identifier: {source_identifier}")
+        return "PaidOnline"
+
+    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create incoming payment in SAP
+        """
+        try:
+            result = await sap_client._make_request(
+                method='POST',
+                endpoint='IncomingPayments',
+                data=payment_data
+            )
+            
+            if result["msg"] == "failure":
+                logger.error(f"Failed to create incoming payment in SAP: {result.get('error')}")
+                return result
+            
+            created_payment = result["data"]
+            payment_number = created_payment.get('DocEntry', '')
+            
+            logger.info(f"Created incoming payment in SAP: {payment_number}")
+            
+            return {
+                "msg": "success",
+                "sap_payment_number": payment_number,
+                "sap_doc_entry": created_payment.get('DocEntry', ''),
+                "sap_doc_num": created_payment.get('DocNum', '')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating incoming payment in SAP: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
     async def update_order_meta_fields(self, store_key: str, order_id: str, 
-                                     synced_status: str, sap_invoice_number: str) -> Dict[str, Any]:
+                                    synced_status: str, sap_invoice_number: str) -> Dict[str, Any]:
         """
         Update order meta fields in Shopify
         """
@@ -661,6 +876,69 @@ class OrdersSalesSync:
             
         except Exception as e:
             logger.error(f"Error updating order meta fields: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def update_order_tags(self, store_key: str, order_id: str, 
+                              sap_invoice_number: str, sap_payment_number: str = None) -> Dict[str, Any]:
+        """
+        Update order tags to track sync status
+        """
+        try:
+            # Prepare tags for sync status
+            tags = [
+                "SAP_SYNCED",
+                f"SAP_INVOICE:{sap_invoice_number}"
+            ]
+            
+            if sap_payment_number:
+                tags.append(f"SAP_PAYMENT:{sap_payment_number}")
+                tags.append("PAYMENT_SYNCED")
+            else:
+                tags.append("PAYMENT_PENDING")
+            
+            # Mutation to update order tags
+            mutation = """
+            mutation orderUpdate($input: OrderInput!) {
+                orderUpdate(input: $input) {
+                    order {
+                        id
+                        name
+                        tags
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            # Prepare update data
+            update_data = {
+                "id": order_id,
+                "tags": tags
+            }
+            
+            result = await multi_store_shopify_client.execute_query(
+                store_key,
+                mutation,
+                {"input": update_data}
+            )
+            
+            if result["msg"] == "failure":
+                return result
+            
+            response_data = result["data"]["orderUpdate"]
+            
+            if response_data.get("userErrors"):
+                errors = [error["message"] for error in response_data["userErrors"]]
+                return {"msg": "failure", "error": "; ".join(errors)}
+            
+            logger.info(f"Updated order tags: {order_id}")
+            return {"msg": "success"}
+            
+        except Exception as e:
+            logger.error(f"Error updating order tags: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
     async def process_order(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:
@@ -728,6 +1006,30 @@ class OrdersSalesSync:
             if invoice_result["msg"] == "failure":
                 return invoice_result
             
+            # Check if order is paid and create incoming payment
+            sap_payment_number = None
+            if financial_status == "PAID":
+                logger.info(f"Order {order_name} is paid - creating incoming payment in SAP")
+                
+                # Prepare incoming payment data
+                payment_data = self.prepare_incoming_payment_data(
+                    shopify_order, 
+                    sap_invoice_data, 
+                    sap_customer["CardCode"], 
+                    store_key
+                )
+                
+                # Create incoming payment in SAP
+                payment_result = await self.create_incoming_payment_in_sap(payment_data)
+                if payment_result["msg"] == "success":
+                    sap_payment_number = payment_result["sap_payment_number"]
+                    logger.info(f"Successfully created incoming payment: {sap_payment_number}")
+                else:
+                    logger.warning(f"Failed to create incoming payment for {order_name}: {payment_result.get('error')}")
+                    # Don't fail the entire process if payment creation fails
+            else:
+                logger.info(f"Order {order_name} is not paid (status: {financial_status}) - skipping payment creation")
+            
             # Update order meta fields in Shopify
             meta_update_result = await self.update_order_meta_fields(
                 store_key,
@@ -740,12 +1042,25 @@ class OrdersSalesSync:
                 logger.warning(f"Failed to update order meta fields for {order_name}: {meta_update_result.get('error')}")
                 # Don't fail the entire process if meta update fails
             
+            # Update order tags to track sync status
+            tags_update_result = await self.update_order_tags(
+                store_key,
+                order_id,
+                str(invoice_result["sap_invoice_number"]),
+                sap_payment_number
+            )
+            
+            if tags_update_result["msg"] == "failure":
+                logger.warning(f"Failed to update order tags for {order_name}: {tags_update_result.get('error')}")
+                # Don't fail the entire process if tags update fails
+            
             logger.info(f"Successfully processed order {order_name}")
             
             return {
                 "msg": "success",
                 "order_name": order_name,
                 "sap_invoice_number": invoice_result["sap_invoice_number"],
+                "sap_payment_number": sap_payment_number,
                 "customer_card_code": sap_customer["CardCode"],
                 "ship_to_code": ship_to_code,
                 "financial_status": financial_status,

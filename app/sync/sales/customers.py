@@ -165,7 +165,8 @@ class CustomerManager:
         customer_data = {
             "CardName": f"{first_name} {last_name}".strip(),
             "CardType": "C",
-            "Series": 121,
+            "Series": 87,
+            "GroupCode": 110,
             "Phone1": phone,
             "Currency": "EGP"
         }

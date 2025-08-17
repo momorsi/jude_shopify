@@ -74,93 +74,237 @@ class MultiStoreNewItemsSync:
     def _create_single_product(self, sap_item: Dict[str, Any], store_config: Any) -> Dict[str, Any]:
         """
         Create a simple product without variant complexity
-        SKU is set at the variant level (Shopify standard approach)
-        Inventory will be handled separately by the inventory sync process
-        NOTE: Products are always created as DRAFT during testing
+        Updated for Shopify API 2025-07 two-step approach
         """
         price = self._get_store_price(sap_item, store_config.price_list)
                 
         product_status = "DRAFT"
         
+        # Step 1: Create product with options (even for single products)
         product_data = {
-            "title": sap_item.get('ItemName', ''),
+            "title": sap_item.get('FrgnName', ''),
             "descriptionHtml": sap_item.get('FrgnName', ''),
             "vendor": sap_item.get('U_Text1', ''),
             "productType": "Default",
-            "status": product_status,  # DRAFT in test mode, ACTIVE in production
+            "status": product_status,
             "tags": self._extract_tags(sap_item),
-            "variants": [{
-                "sku": sap_item.get('itemcode', ''),  # SKU at variant level (Shopify standard)
-                "price": str(price),
-                "inventoryPolicy": "DENY",
-                "inventoryManagement": "SHOPIFY",
-                "weight": sap_item.get('InventoryWeight', 0.0),
-                "weightUnit": "KILOGRAMS",
-                "taxable": False  # Disable tax on this variant
-                # Inventory quantities will be set separately by inventory sync
-            }]
+            "productOptions": [
+                {
+                    "name": "Title",
+                    "values": [
+                        {"name": "Default Title"}
+                    ]
+                }
+            ]
         }
         
-        # Add barcode at variant level if available
-        if sap_item.get('Barcode'):
-            product_data["variants"][0]["barcode"] = sap_item.get('Barcode')
-        
         # Add SEO fields
-        if sap_item.get('ItemName'):
+        if sap_item.get('FrgnName'):
             product_data["seo"] = {
-                "title": sap_item.get('ItemName'),
+                "title": sap_item.get('FrgnName'),
                 "description": sap_item.get('FrgnName', '')[:255] if sap_item.get('FrgnName') else ''
             }
         
-        return product_data
+        # Step 2: Prepare variant data for bulk creation
+        # Prepare inventory item data
+        inventory_item = {
+            "sku": sap_item.get('itemcode', ''),
+            "tracked": True
+        }
+        
+        variant = {
+            "price": str(price),
+            "taxable": False,  # Disable tax on this variant
+            "optionValues": [
+                {
+                    "name": "Default Title",
+                    "optionId": None  # Will be set after product creation
+                }
+            ],
+            "inventoryItem": inventory_item
+        }
+        
+        # Add barcode directly to the variant if available
+        if sap_item.get('Barcode'):
+            variant["barcode"] = sap_item.get('Barcode')
+        
+        return {
+            "product_data": product_data,
+            "variants_data": [variant],
+            "sap_items": [sap_item]  # Keep reference to original item for mapping
+        }
     
     def _create_product_with_variants(self, sap_items: List[Dict[str, Any]], store_config: Any) -> Dict[str, Any]:
         """
         Create a product with multiple variants based on color
-        Inventory will be handled separately by the inventory sync process
-        NOTE: Products are always created as DRAFT during testing
+        Updated for Shopify API 2025-07 two-step approach
         """
         # Use the first item as the base product
         base_item = sap_items[0]
         
-
-        
-        # For products with variants, if MainProduct is null, use ItemName as the title
-        product_title = base_item.get('MainProduct', '')
-        if not product_title:
-            product_title = base_item.get('ItemName', '')
+        # For products with variants, use FrgnName as the product title
+        product_title = base_item.get('FrgnName', '')
         
         # Determine product status based on test mode
         from app.core.config import config_settings
         product_status = "DRAFT" if config_settings.test_mode else "ACTIVE"
         
+        # Step 1: Create product with options
         product_data = {
             "title": product_title,
-            "status": product_status,  # DRAFT in test mode, ACTIVE in production
-            "options": ["Color"],
-            "variants": []
+            "descriptionHtml": base_item.get('FrgnName', ''),
+            "vendor": base_item.get('U_Text1', ''),
+            "productType": "Default",
+            "status": product_status,
+            "tags": self._extract_tags(base_item),
+            "productOptions": [
+                {
+                    "name": "Color",
+                    "values": []
+                }
+            ]
         }
-        # Add all variants with correct options, sku, and price fields
+        
+        # Add SEO fields
+        if base_item.get('FrgnName'):
+            product_data["seo"] = {
+                "title": base_item.get('FrgnName'),
+                "description": base_item.get('FrgnName', '')[:255] if base_item.get('FrgnName') else ''
+            }
+        
+        # Collect all unique colors for the product options
+        colors = set()
+        for item in sap_items:
+            color_name = item.get('Color', '')
+            if color_name:
+                sap_color = self._get_color_from_sap(color_name)
+                colors.add(sap_color)
+        
+        # Add color values to the product options
+        product_data["productOptions"][0]["values"] = [
+            {"name": color} for color in sorted(colors)
+        ]
+        
+        # Step 2: Prepare variants data for bulk creation
+        variants_data = []
         for item in sap_items:
             price = float(item.get('Price', 0))
             color_name = item.get('Color', '')
             sap_color = self._get_color_from_sap(color_name)
             
-            variant = {
-                "options": [sap_color],
+            # Prepare inventory item data
+            inventory_item = {
                 "sku": item.get('itemcode', ''),
-                "price": str(price),
-                "inventoryManagement": "SHOPIFY",
-                "inventoryPolicy": "DENY",
-                "taxable": False  # Disable tax on this variant
-                # Inventory quantities will be set separately by inventory sync
+                "tracked": True
             }
             
-            # Add barcode if available
+            variant = {
+                "price": str(price),
+                "taxable": False,  # Disable tax on this variant
+                "optionValues": [
+                    {
+                        "name": sap_color,
+                        "optionId": None  # Will be set after product creation
+                    }
+                ],
+                "inventoryItem": inventory_item
+            }
+            
+            # Add barcode directly to the variant if available
             if item.get('Barcode'):
                 variant["barcode"] = item.get('Barcode')
-            product_data["variants"].append(variant)
-        return product_data
+            
+            variants_data.append(variant)
+        
+        return {
+            "product_data": product_data,
+            "variants_data": variants_data,
+            "sap_items": sap_items  # Keep reference to original items for mapping
+        }
+    
+    async def create_product_with_variants_two_step(self, store_key: str, product_info: Dict[str, Any], store_config: Any) -> Dict[str, Any]:
+        """
+        Create product with variants using the new two-step Shopify API 2025-07 approach
+        """
+        try:
+            product_data = product_info["product_data"]
+            variants_data = product_info["variants_data"]
+            sap_items = product_info["sap_items"]
+            
+            # Step 1: Create the product with options
+            logger.info(f"Step 1: Creating product with options in store {store_key}")
+            product_result = await multi_store_shopify_client.create_product_with_options(store_key, product_data)
+            
+            if product_result["msg"] == "failure":
+                logger.error(f"Failed to create product with options in store {store_key}: {product_result.get('error')}")
+                return product_result
+            
+            response_data = product_result["data"]["productCreate"]
+            if response_data.get("userErrors"):
+                errors = [error["message"] for error in response_data["userErrors"]]
+                error_msg = "; ".join(errors)
+                logger.error(f"User errors creating product with options in store {store_key}: {error_msg}")
+                return {"msg": "failure", "error": error_msg}
+            
+            product = response_data["product"]
+            product_id = product["id"]
+            
+            # Get the option ID from the response (could be Color or Title)
+            option_id = None
+            option_name = None
+            for option in product["options"]:
+                if option["name"] in ["Color", "Title"]:
+                    option_id = option["id"]
+                    option_name = option["name"]
+                    break
+            
+            if not option_id:
+                logger.error(f"No valid option found in created product for store {store_key}")
+                return {"msg": "failure", "error": "No valid option found in created product"}
+            
+            # Step 2: Update variants with the correct option ID and location ID
+            logger.info(f"Step 2: Creating variants in bulk for store {store_key}")
+            
+            # Update variants with correct option ID (no inventory quantities needed)
+            for variant in variants_data:
+                variant["optionValues"][0]["optionId"] = option_id
+            
+            # Create variants in bulk
+            variants_result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, variants_data)
+            
+            if variants_result["msg"] == "failure":
+                logger.error(f"Failed to create variants in bulk for store {store_key}: {variants_result.get('error')}")
+                return variants_result
+            
+            response_data = variants_result["data"]["productVariantsBulkCreate"]
+            if response_data.get("userErrors"):
+                errors = [error["message"] for error in response_data["userErrors"]]
+                error_msg = "; ".join(errors)
+                logger.error(f"User errors creating variants in bulk for store {store_key}: {error_msg}")
+                return {"msg": "failure", "error": error_msg}
+            
+            # Extract variant information for SAP mapping
+            shopify_variants = []
+            for variant in response_data["productVariants"]:
+                shopify_variants.append({
+                    "id": variant["id"],
+                    "sku": variant["sku"],
+                    "inventory_item_id": variant["inventoryItem"]["id"],
+                    "selected_options": variant.get("selectedOptions", [])
+                })
+            
+            logger.info(f"Successfully created product with {len(shopify_variants)} variants in store {store_key}")
+            
+            return {
+                "msg": "success",
+                "shopify_product_id": product_id,
+                "shopify_variants": shopify_variants,
+                "handle": None  # Handle will be generated by Shopify
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in two-step product creation for store {store_key}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
     
     def _get_store_price(self, sap_item: Dict[str, Any], price_list: int) -> float:
         """
@@ -217,7 +361,7 @@ class MultiStoreNewItemsSync:
     
     def _extract_tags(self, sap_item: Dict[str, Any]) -> List[str]:
         """
-        Extract tags from SAP item custom fields
+        Extract tags from SAP item custom fields (excluding sync status which is now in metafields)
         """
         tags = []
         
@@ -288,159 +432,119 @@ class MultiStoreNewItemsSync:
     
     async def add_variant_to_existing_product(self, store_key: str, product_id: str, variant_data: Dict[str, Any], color: str = None) -> Dict[str, Any]:
         """
-        Add a variant to an existing product
+        Add a variant to an existing product using the new Shopify API 2025-07 approach
         """
         try:
             # 1. Get the product's current options using product ID
             product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
             if product_info["msg"] == "success" and product_info["data"].get("product"):
                 product = product_info["data"]["product"]
-                options = [opt["name"] for opt in product.get("options", [])]
-                # 2. If the only option is 'Title', update to ['Color']
-                if options == ["Title"]:
-                    await multi_store_shopify_client.update_product_options(store_key, product_id, ["Color"])
-                # 3. Ensure Color option has proper values for swatches to appear
-                elif "Color" in options and color:
-                    # Get current color values and add the new color if needed
-                    color_option = next((opt for opt in product.get("options", []) if opt["name"] == "Color"), None)
-                    if color_option:
-                        sap_color = self._get_color_from_sap(color)
-                        current_values = color_option.get("values", [])
-                        if sap_color not in current_values:
-                            # Note: We can't update option values via GraphQL in this version
-                            # The color swatches will appear when variants are created with proper color values
-                            logger.info(f"Color {sap_color} will be added to product options when variant is created")
-
+                
+                # Get the Color option ID from the product's options
+                color_option_id = None
+                for option in product.get("options", []):
+                    if option["name"] == "Color":
+                        color_option_id = option["id"]
+                        break
+                
+                # If Color option doesn't exist in product options, try to get it from existing variants
+                if not color_option_id:
+                    logger.info(f"Color option not found in product options, checking existing variants for store {store_key}")
+                    
+                    # Look for Color option in existing variants' selectedOptions
+                    for variant_edge in product.get("variants", {}).get("edges", []):
+                        variant = variant_edge["node"]
+                        for selected_option in variant.get("selectedOptions", []):
+                            if selected_option["name"] == "Color":
+                                # We found a Color option being used, but we need the option ID
+                                # Since we can't create options after product creation, we'll skip this variant
+                                logger.warning(f"Color option is being used in existing variants but not found in product options for store {store_key}")
+                                return {"msg": "failure", "error": "Color option not properly configured in existing product"}
+                
+                if color_option_id:
+                    logger.info(f"Found existing Color option with ID: {color_option_id}")
+                else:
+                    logger.warning(f"No Color option found in existing product for store {store_key}, will create new product")
+                    # Return a special error that indicates we should create a new product
+                    return {"msg": "failure", "error": "CREATE_NEW_PRODUCT"}
+            else:
+                # Product not found, create a new product instead
+                logger.warning(f"Product {product_id} not found in store {store_key}, will create new product")
+                return {"msg": "failure", "error": "CREATE_NEW_PRODUCT"}
             
-            # 3. Add the variant with options if color is available
-            if color:
-                sap_color = self._get_color_from_sap(color)
-                variant_data["options"] = [sap_color]  # Use SAP color directly
+            # 2. No location lookup needed - inventory will be handled by stock sync process
             
-            # Remove any option-related fields that might cause issues
-            variant_data.pop("selectedOptions", None)
-            variant_data.pop("option1", None)
+            # 3. Prepare variant data for bulk creation
+            sap_color = self._get_color_from_sap(color) if color else "Default Title"
+            
+            # Prepare inventory item data
+            inventory_item = {
+                "sku": variant_data.get('sku', ''),
+                "tracked": True
+            }
+            
+            variant_for_bulk = {
+                "price": variant_data.get('price', '0.0'),
+                "taxable": variant_data.get('taxable', False),
+                "optionValues": [
+                    {
+                        "name": sap_color,
+                        "optionId": color_option_id
+                    }
+                ],
+                "inventoryItem": inventory_item
+            }
+            
+            # Add barcode directly to the variant if available
+            if variant_data.get('barcode'):
+                variant_for_bulk["barcode"] = variant_data.get('barcode')
             
             # Log the variant addition
             await sl_add_log(
                 server="shopify",
                 endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"product_id": product_id, "variant_data": variant_data},
+                request_data={"product_id": product_id, "variant_data": variant_for_bulk},
                 action="add_variant",
                 value=f"Adding variant {variant_data.get('sku')} to product {product_id} in store {store_key}"
             )
             
-            result = await multi_store_shopify_client.add_variant_to_product(store_key, product_id, variant_data)
+            # 4. Create variant using productVariantsBulkCreate
+            result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk])
             
             if result["msg"] == "failure":
-                # Check if the error is about variant already existing
-                error_msg = result.get("error", "")
-                if "already exists" in error_msg:
-                    logger.info(f"Variant {variant_data.get('sku')} already exists, attempting to find it")
-                    
-                    # Try to find the existing variant by getting the product and searching for the SKU
-                    product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
-                    if product_info["msg"] == "success" and product_info["data"].get("product"):
-                        product = product_info["data"]["product"]
-                        existing_variant = None
-                        for variant_edge in product["variants"]["edges"]:
-                            variant = variant_edge["node"]
-                            if variant.get("sku") == variant_data.get('sku'):
-                                existing_variant = variant
-                                break
-                        
-                        if existing_variant:
-                            logger.info(f"Found existing variant {variant_data.get('sku')} with ID {existing_variant['id']}")
-                            return {
-                                "msg": "success",
-                                "shopify_variant_id": existing_variant["id"],
-                                "shopify_inventory_item_id": existing_variant["inventoryItem"]["id"],
-                                "sku": variant_data.get('sku'),
-                                "note": "Variant already exists"
-                            }
-                    
-                    # If we can't find the variant, return failure
-                    logger.error(f"Variant {variant_data.get('sku')} already exists but couldn't be found")
-                    return {
-                        "msg": "failure",
-                        "error": f"Variant {variant_data.get('sku')} already exists but couldn't be found"
-                    }
-                else:
-                    logger.error(f"Detailed variant creation error for {variant_data.get('sku')}: {result.get('error')}")
-                    await sl_add_log(
-                        server="shopify",
-                        endpoint=f"/admin/api/graphql_{store_key}",
-                        response_data={"error": result.get("error"), "variant_data": variant_data},
-                        status="failure",
-                        action="add_variant",
-                        value=f"Failed to add variant to product in store {store_key}: {result.get('error')}"
-                    )
-                    return result
+                logger.error(f"Failed to create variant in bulk for store {store_key}: {result.get('error')}")
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"error": result.get("error"), "variant_data": variant_for_bulk},
+                    status="failure",
+                    action="add_variant",
+                    value=f"Failed to add variant to product in store {store_key}: {result.get('error')}"
+                )
+                return result
                 
-            response_data = result["data"]["productVariantCreate"]
+            response_data = result["data"]["productVariantsBulkCreate"]
             if response_data.get("userErrors"):
                 errors = [error["message"] for error in response_data["userErrors"]]
                 error_msg = "; ".join(errors)
                 
-                # Check if the error is about variant already existing
-                if "already exists" in error_msg:
-                    logger.info(f"Variant {variant_data.get('sku')} already exists, attempting to find it")
-                    
-                    # Try to find the existing variant by getting the product and searching for the SKU
-                    product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
-                    if product_info["msg"] == "success" and product_info["data"].get("product"):
-                        product = product_info["data"]["product"]
-                        existing_variant = None
-                        for variant_edge in product["variants"]["edges"]:
-                            variant = variant_edge["node"]
-                            if variant.get("sku") == variant_data.get('sku'):
-                                existing_variant = variant
-                                break
-                        
-                        if existing_variant:
-                            logger.info(f"Found existing variant {variant_data.get('sku')} with ID {existing_variant['id']}")
-                            return {
-                                "msg": "success",
-                                "shopify_variant_id": existing_variant["id"],
-                                "shopify_inventory_item_id": existing_variant["inventoryItem"]["id"],
-                                "sku": variant_data.get('sku'),
-                                "note": "Variant already exists"
-                            }
-                    
-                    # If we can't find the variant, return failure
-                    logger.error(f"Variant {variant_data.get('sku')} already exists but couldn't be found")
-                    return {
-                        "msg": "failure",
-                        "error": f"Variant {variant_data.get('sku')} already exists but couldn't be found"
-                    }
-                else:
-                    await sl_add_log(
-                        server="shopify",
-                        endpoint=f"/admin/api/graphql_{store_key}",
-                        response_data={"user_errors": errors},
-                        status="failure",
-                        action="add_variant",
-                        value=f"User errors adding variant in store {store_key}: {error_msg}"
-                    )
-                    return {"msg": "failure", "error": error_msg}
-                
-            variant = response_data["productVariant"]
-            
-            # 4. Update the variant to set the color option if needed
-            if color:
-                sap_color = self._get_color_from_sap(color)
-                update_result = await multi_store_shopify_client.update_variant(
-                    store_key, 
-                    variant["id"], 
-                    {
-                        "title": sap_color  # Set the title to the SAP color value
-                    }
+                await sl_add_log(
+                    server="shopify",
+                    endpoint=f"/admin/api/graphql_{store_key}",
+                    response_data={"user_errors": errors},
+                    status="failure",
+                    action="add_variant",
+                    value=f"User errors adding variant in store {store_key}: {error_msg}"
                 )
+                return {"msg": "failure", "error": error_msg}
                 
-                if update_result["msg"] == "success":
-                    logger.info(f"Updated variant {variant['sku']} title to '{sap_color}'")
-                else:
-                    logger.warning(f"Failed to update variant {variant['sku']} title: {update_result.get('error')}")
+            # Get the created variant from the response
+            created_variants = response_data.get("productVariants", [])
+            if not created_variants:
+                logger.error(f"No variants created for {variant_data.get('sku')}")
+                return {"msg": "failure", "error": "No variants created"}
+            
+            variant = created_variants[0]  # We only created one variant
             
             await sl_add_log(
                 server="shopify",
@@ -454,16 +558,6 @@ class MultiStoreNewItemsSync:
                 action="add_variant",
                 value=f"Successfully added variant {variant['sku']} to product in store {store_key}"
             )
-            
-            # Set inventory for the new variant (default to 0, will be updated by inventory sync)
-            inventory_result = await multi_store_shopify_client.update_inventory(
-                store_key, 
-                variant["inventoryItem"]["id"], 
-                0  # Default inventory, will be updated by inventory sync
-            )
-            
-            if inventory_result["msg"] == "failure":
-                logger.warning(f"Failed to set inventory for variant {variant['sku']}: {inventory_result.get('error')}")
             
             return {
                 "msg": "success",
@@ -688,20 +782,57 @@ class MultiStoreNewItemsSync:
                                 
                                 # Add variant to existing product
                                 variant_result = await self.add_variant_to_existing_product(store_key, product_id, variant_data, color)
-                                variant_results.append(variant_result)
                                 
-                                if variant_result["msg"] == "success":
-                                    logger.info(f"Successfully added variant {sap_item.get('itemcode')} to existing product")
-                                    success += 1
+                                # Check if we need to create a new product instead
+                                if variant_result["msg"] == "failure" and variant_result.get("error") == "CREATE_NEW_PRODUCT":
+                                    logger.info(f"Creating new product instead of adding to existing one for store {store_key}")
+                                    
+                                    # Create new product with all variants using the two-step approach
+                                    product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
+                                    store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
+                                    
+                                    if store_result["msg"] == "failure":
+                                        logger.error(f"Failed to create new product in store {store_key}: {store_result.get('error')}")
+                                        errors += 1
+                                        break  # Break out of the variant loop since we're creating a new product
+                                    else:
+                                        logger.info(f"Successfully created new product in store {store_key}")
+                                        shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
+                                        success += len(group_items)  # Count all variants as success
+                                        break  # Break out of the variant loop since we're creating a new product
+                                elif variant_result["msg"] == "failure" and variant_result.get("error") == "Color option not properly configured in existing product":
+                                    logger.info(f"Existing product has configuration issues, creating new product for store {store_key}")
+                                    
+                                    # Create new product with all variants using the two-step approach
+                                    product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
+                                    store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
+                                    
+                                    if store_result["msg"] == "failure":
+                                        logger.error(f"Failed to create new product in store {store_key}: {store_result.get('error')}")
+                                        errors += 1
+                                        break  # Break out of the variant loop since we're creating a new product
+                                    else:
+                                        logger.info(f"Successfully created new product in store {store_key}")
+                                        shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
+                                        success += len(group_items)  # Count all variants as success
+                                        break  # Break out of the variant loop since we're creating a new product
                                 else:
-                                    logger.error(f"Failed to add variant {sap_item.get('itemcode')}: {variant_result.get('error')}")
-                                    errors += 1
+                                    variant_results.append(variant_result)
+                                    
+                                    if variant_result["msg"] == "success":
+                                        logger.info(f"Successfully added variant {sap_item.get('itemcode')} to existing product")
+                                        success += 1
+                                    else:
+                                        logger.error(f"Failed to add variant {sap_item.get('itemcode')}: {variant_result.get('error')}")
+                                        errors += 1
                             
                         else:
                             # Product doesn't exist, create new product with all variants
                             logger.info(f"Product {main_product_name} doesn't exist in store {store_key}, creating new product")
-                            product_data = self.map_sap_item_to_shopify_product(group_items, store_config)
-                            store_result = await self.create_product_in_store(store_key, product_data)
+                            
+                            # Use new two-step approach for ALL products (both single and multi-variant)
+                            product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
+                            store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
                             
                             if store_result["msg"] == "failure":
                                 logger.error(f"Failed to create product in store {store_key}: {store_result.get('error')}")

@@ -14,8 +14,8 @@
                 "name": "Local Store",
                 "shop_url": "eg-judebenhalim.myshopify.com",
                 "access_token": "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",
-                "api_version": "2024-01",
-                "timeout": 30,
+                "api_version": "2025-07",
+                "timeout": 45,
                 "currency": "EGP",
                 "price_list": 1,
                 "enabled": true
@@ -24,8 +24,8 @@
                 "name": "International Store",
                 "shop_url": "placeholder.myshopify.com",
                 "access_token": "placeholder_token",
-                "api_version": "2024-01",
-                "timeout": 30,
+                "api_version": "2025-07",
+                "timeout": 45,
                 "currency": "USD",
                 "price_list": 7,
                 "enabled": false
@@ -48,6 +48,15 @@
                     "gid://shopify/Location/111222333": "ONL",
                     "gid://shopify/Location/444555666": "PHO"
                 }
+            }
+        },
+        "bank_transfers": {
+            "local": {
+                "Cash on Delivery (COD)": "10801245",
+                "Paymob": "10801247"
+            },
+            "international": {
+                "Network": "10801237"
             }
         }
     },

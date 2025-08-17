@@ -39,53 +39,62 @@ class ItemChangesSync:
             logger.error(f"Error getting item changes for store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
-    async def update_product_status(self, store_key: str, product_id: str, is_active: bool) -> Dict[str, Any]:
+    async def update_product_comprehensive(self, store_key: str, product_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update product status (active/inactive) in Shopify
+        Update product comprehensively - handles title, status, and variant details with optimized approach
         """
         try:
-            # In test mode, always keep products as DRAFT regardless of SAP status
+            is_active = sap_item.get('IsActive', 'Y') == 'Y'
+            
+            # Determine status based on test mode and SAP status
             if config_settings.test_mode:
                 status = "DRAFT"
                 logger.info(f"Test mode enabled: Keeping product {product_id} as DRAFT regardless of SAP status")
             else:
                 status = "ACTIVE" if is_active else "DRAFT"
             
-            # Log the update
+            # Prepare product update data (product-level fields only)
+            product_update_data = {}
+            
+            # Add status
+            product_update_data["status"] = status
+            
+            # Add title if available
+            if sap_item.get('FrgnName'):
+                product_update_data["title"] = sap_item['FrgnName']
+            
+            # Log the product update
             await sl_add_log(
                 server="shopify",
                 endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"product_id": product_id, "status": status},
-                action="update_product_status",
-                value=f"Updating product {product_id} status to {status} in store {store_key}"
+                request_data={"product_id": product_id, "update_data": product_update_data},
+                action="update_product_comprehensive",
+                value=f"Updating product {product_id} comprehensively in store {store_key}"
             )
             
-            result = await multi_store_shopify_client.update_product(
-                store_key, 
-                product_id, 
-                {"status": status}
-            )
+            # Execute the product update
+            result = await multi_store_shopify_client.update_product(store_key, product_id, product_update_data)
             
             if result["msg"] == "success":
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"product_id": product_id, "status": status},
+                    response_data={"product_id": product_id, "updated_fields": list(product_update_data.keys())},
                     status="success",
-                    action="update_product_status",
-                    value=f"Successfully updated product {product_id} status to {status} in store {store_key}"
+                    action="update_product_comprehensive",
+                    value=f"Successfully updated product {product_id} comprehensively in store {store_key}"
                 )
-                logger.info(f"Successfully updated product {product_id} status to {status} in store {store_key}")
+                logger.info(f"Successfully updated product {product_id} comprehensively in store {store_key}")
             else:
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
                     response_data={"error": result.get("error")},
                     status="failure",
-                    action="update_product_status",
-                    value=f"Failed to update product {product_id} status in store {store_key}: {result.get('error')}"
+                    action="update_product_comprehensive",
+                    value=f"Failed to update product {product_id} comprehensively in store {store_key}: {result.get('error')}"
                 )
-                logger.error(f"Failed to update product {product_id} status in store {store_key}: {result.get('error')}")
+                logger.error(f"Failed to update product {product_id} comprehensively in store {store_key}: {result.get('error')}")
             
             return result
             
@@ -95,153 +104,66 @@ class ItemChangesSync:
                 endpoint=f"/admin/api/graphql_{store_key}",
                 response_data={"error": str(e)},
                 status="failure",
-                action="update_product_status",
-                value=f"Exception updating product {product_id} status in store {store_key}: {str(e)}"
+                action="update_product_comprehensive",
+                value=f"Exception updating product {product_id} comprehensively in store {store_key}: {str(e)}"
             )
-            logger.error(f"Error updating product {product_id} status in store {store_key}: {str(e)}")
+            logger.error(f"Error updating product {product_id} comprehensively in store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
-
-    async def update_variant_status(self, store_key: str, variant_id: str, is_active: bool) -> Dict[str, Any]:
+    
+    async def update_variant_comprehensive(self, store_key: str, variant_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update variant status (active/inactive) in Shopify
-        Note: Shopify doesn't have direct variant status, so we update the product status
+        Update variant comprehensively - handles barcode and color/title
         """
         try:
-            # Get the product ID from the variant ID
-            variant_info = await multi_store_shopify_client.get_variant_by_id(store_key, variant_id)
+            # Prepare variant update data
+            variant_update_data = {}
             
-            if variant_info["msg"] == "failure":
-                logger.error(f"Failed to get variant info for {variant_id}: {variant_info.get('error')}")
-                return variant_info
-            
-            # Extract product ID from variant
-            product_id = variant_info["data"]["productVariant"]["product"]["id"]
-            
-            # Update the product status (which affects the variant)
-            return await self.update_product_status(store_key, product_id, is_active)
-            
-        except Exception as e:
-            logger.error(f"Error updating variant {variant_id} status in store {store_key}: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
-
-    async def update_product_details(self, store_key: str, product_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Update product details in Shopify - Only title and barcode
-        """
-        try:
-            update_data = {}
-            
-            # Update title if changed
-            if sap_item.get('ItemName'):
-                update_data["title"] = sap_item['ItemName']
-            
-            # Update barcode if available (at product level if it's a single product)
+            # Add barcode if available
             if sap_item.get('Barcode'):
-                update_data["barcode"] = sap_item['Barcode']
+                variant_update_data["barcode"] = sap_item['Barcode']
             
-            if not update_data:
-                logger.info(f"No product details to update for product {product_id}")
-                return {"msg": "success", "note": "No changes needed"}
-            
-            # Log the update
-            await sl_add_log(
-                server="shopify",
-                endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"product_id": product_id, "update_data": update_data},
-                action="update_product_details",
-                value=f"Updating product {product_id} details in store {store_key}"
-            )
-            
-            result = await multi_store_shopify_client.update_product(store_key, product_id, update_data)
-            
-            if result["msg"] == "success":
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"product_id": product_id, "updated_fields": list(update_data.keys())},
-                    status="success",
-                    action="update_product_details",
-                    value=f"Successfully updated product {product_id} details in store {store_key}"
-                )
-                logger.info(f"Successfully updated product {product_id} details in store {store_key}")
-            else:
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"error": result.get("error")},
-                    status="failure",
-                    action="update_product_details",
-                    value=f"Failed to update product {product_id} details in store {store_key}: {result.get('error')}"
-                )
-                logger.error(f"Failed to update product {product_id} details in store {store_key}: {result.get('error')}")
-            
-            return result
-            
-        except Exception as e:
-            await sl_add_log(
-                server="shopify",
-                endpoint=f"/admin/api/graphql_{store_key}",
-                response_data={"error": str(e)},
-                status="failure",
-                action="update_product_details",
-                value=f"Exception updating product {product_id} details in store {store_key}: {str(e)}"
-            )
-            logger.error(f"Error updating product {product_id} details in store {store_key}: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
-
-    async def update_variant_details(self, store_key: str, variant_id: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Update variant details in Shopify - Only color and barcode
-        """
-        try:
-            update_data = {}
-            
-            # Update barcode if available
-            if sap_item.get('Barcode'):
-                update_data["barcode"] = sap_item['Barcode']
-            
-            # Update color if available (this will update the variant's option value)
+            # Add color/title if available
             if sap_item.get('Color'):
-                # Map the color to Shopify-recognized format for proper swatches
                 from app.sync.new_items_multi_store import multi_store_new_items_sync
-                mapped_color = multi_store_new_items_sync._map_color_to_shopify_color(sap_item['Color'])
-                update_data["title"] = mapped_color  # Set the variant title to the color
+                mapped_color = multi_store_new_items_sync._get_color_from_sap(sap_item['Color'])
+                variant_update_data["title"] = mapped_color
             
-            if not update_data:
+            if not variant_update_data:
                 logger.info(f"No variant details to update for variant {variant_id}")
                 return {"msg": "success", "note": "No changes needed"}
             
-            # Log the update
+            # Log the variant update
             await sl_add_log(
                 server="shopify",
                 endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"variant_id": variant_id, "update_data": update_data},
-                action="update_variant_details",
-                value=f"Updating variant {variant_id} details in store {store_key}"
+                request_data={"variant_id": variant_id, "update_data": variant_update_data},
+                action="update_variant_comprehensive",
+                value=f"Updating variant {variant_id} comprehensively in store {store_key}"
             )
             
-            result = await multi_store_shopify_client.update_variant(store_key, variant_id, update_data)
+            # Execute the variant update
+            result = await multi_store_shopify_client.update_variant_comprehensive(store_key, variant_id, variant_update_data)
             
             if result["msg"] == "success":
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"variant_id": variant_id, "updated_fields": list(update_data.keys())},
+                    response_data={"variant_id": variant_id, "updated_fields": list(variant_update_data.keys())},
                     status="success",
-                    action="update_variant_details",
-                    value=f"Successfully updated variant {variant_id} details in store {store_key}"
+                    action="update_variant_comprehensive",
+                    value=f"Successfully updated variant {variant_id} comprehensively in store {store_key}"
                 )
-                logger.info(f"Successfully updated variant {variant_id} details in store {store_key}")
+                logger.info(f"Successfully updated variant {variant_id} comprehensively in store {store_key}")
             else:
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
                     response_data={"error": result.get("error")},
                     status="failure",
-                    action="update_variant_details",
-                    value=f"Failed to update variant {variant_id} details in store {store_key}: {result.get('error')}"
+                    action="update_variant_comprehensive",
+                    value=f"Failed to update variant {variant_id} comprehensively in store {store_key}: {result.get('error')}"
                 )
-                logger.error(f"Failed to update variant {variant_id} details in store {store_key}: {result.get('error')}")
+                logger.error(f"Failed to update variant {variant_id} comprehensively in store {store_key}: {result.get('error')}")
             
             return result
             
@@ -251,10 +173,10 @@ class ItemChangesSync:
                 endpoint=f"/admin/api/graphql_{store_key}",
                 response_data={"error": str(e)},
                 status="failure",
-                action="update_variant_details",
-                value=f"Exception updating variant {variant_id} details in store {store_key}: {str(e)}"
+                action="update_variant_comprehensive",
+                value=f"Exception updating variant {variant_id} comprehensively in store {store_key}: {str(e)}"
             )
-            logger.error(f"Error updating variant {variant_id} details in store {store_key}: {str(e)}")
+            logger.error(f"Error updating variant {variant_id} comprehensively in store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
     async def update_item_change_record(self, item_code: str, update_date: str, update_time: str) -> Dict[str, Any]:
@@ -314,11 +236,10 @@ class ItemChangesSync:
 
     async def process_item_changes(self, store_key: str, sap_item: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process a single item change
+        Process a single item change with optimized approach - separate but efficient calls
         """
         try:
             item_code = sap_item.get('ItemCode', '')
-            is_active = sap_item.get('IsActive', 'Y') == 'Y'
             
             # Check if this is a product with no variants
             if sap_item.get('Shopify_ProductCode'):
@@ -326,11 +247,14 @@ class ItemChangesSync:
                 product_id = f"gid://shopify/Product/{sap_item['Shopify_ProductCode']}"
                 logger.info(f"Processing product change for {item_code} (product ID: {product_id})")
                 
-                # Update product details (title and barcode only)
-                details_result = await self.update_product_details(store_key, product_id, sap_item)
+                # Update product (title and status)
+                product_result = await self.update_product_comprehensive(store_key, product_id, sap_item)
                 
-                # Update product status
-                status_result = await self.update_product_status(store_key, product_id, is_active)
+                # Update variant if needed (barcode and color)
+                variant_result = {"msg": "success", "note": "No variant to update"}
+                if sap_item.get('Shopify_VariantId'):
+                    variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
+                    variant_result = await self.update_variant_comprehensive(store_key, variant_id, sap_item)
                 
                 # Update item change record
                 change_result = await self.update_item_change_record(
@@ -344,8 +268,8 @@ class ItemChangesSync:
                     "item_code": item_code,
                     "type": "product",
                     "product_id": product_id,
-                    "details_updated": details_result["msg"] == "success",
-                    "status_updated": status_result["msg"] == "success",
+                    "product_update_success": product_result["msg"] == "success",
+                    "variant_update_success": variant_result["msg"] == "success",
                     "change_record_updated": change_result["msg"] == "success"
                 }
                 
@@ -354,11 +278,21 @@ class ItemChangesSync:
                 variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
                 logger.info(f"Processing variant change for {item_code} (variant ID: {variant_id})")
                 
-                # Update variant details (color and barcode only)
-                details_result = await self.update_variant_details(store_key, variant_id, sap_item)
+                # Get the product ID from the variant
+                variant_info = await multi_store_shopify_client.get_variant_by_id(store_key, variant_id)
                 
-                # Update variant status (affects product status)
-                status_result = await self.update_variant_status(store_key, variant_id, is_active)
+                if variant_info["msg"] == "failure":
+                    logger.error(f"Failed to get variant info for {variant_id}: {variant_info.get('error')}")
+                    return variant_info
+                
+                # Extract product ID from variant
+                product_id = variant_info["data"]["productVariant"]["product"]["id"]
+                
+                # Update product (status only, since this is a variant change)
+                product_result = await self.update_product_comprehensive(store_key, product_id, sap_item)
+                
+                # Update variant (barcode and color)
+                variant_result = await self.update_variant_comprehensive(store_key, variant_id, sap_item)
                 
                 # Update item change record
                 change_result = await self.update_item_change_record(
@@ -372,8 +306,9 @@ class ItemChangesSync:
                     "item_code": item_code,
                     "type": "variant",
                     "variant_id": variant_id,
-                    "details_updated": details_result["msg"] == "success",
-                    "status_updated": status_result["msg"] == "success",
+                    "product_id": product_id,
+                    "product_update_success": product_result["msg"] == "success",
+                    "variant_update_success": variant_result["msg"] == "success",
                     "change_record_updated": change_result["msg"] == "success"
                 }
             else:

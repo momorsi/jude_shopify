@@ -113,6 +113,16 @@ class ConfigSettings(BaseSettings):
         mapping = self.get_location_warehouse_mapping(store_key)
         return mapping.get('default', 'SW') if mapping else 'SW'
     
+    def get_bank_transfer_mapping(self, store_key: str) -> Dict[str, str]:
+        """Get bank transfer account mappings for a specific store"""
+        bank_transfers = config_data['shopify'].get('bank_transfers', {})
+        return bank_transfers.get(store_key, {})
+    
+    def get_bank_transfer_account(self, store_key: str, payment_type: str) -> str:
+        """Get bank transfer account for a specific payment type in a store"""
+        mapping = self.get_bank_transfer_mapping(store_key)
+        return mapping.get(payment_type, "")
+    
     # Legacy support for backward compatibility
     @property
     def shopify_shop_url(self) -> str:
