@@ -37,7 +37,17 @@ class OrdersSalesSync:
                             id
                             name
                             createdAt
-                            tags
+                            metafields(first: 10, namespace: "custom") {
+                                edges {
+                                    node {
+                                        id
+                                        namespace
+                                        key
+                                        value
+                                        type
+                                    }
+                                }
+                            }
                             displayFinancialStatus
                             displayFulfillmentStatus
                             sourceName
@@ -54,21 +64,51 @@ class OrdersSalesSync:
                                     currencyCode
                                 }
                             }
+                            totalShippingPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
                             customer {
                                 id
                                 firstName
                                 lastName
                                 email
                                 phone
+                                addresses {
+                                    address1
+                                    address2
+                                    city
+                                    province
+                                    zip
+                                    country
+                                    phone
+                                }
                             }
                             shippingAddress {
                                 address1
                                 address2
                                 city
-                                provinceCode
+                                province
                                 zip
                                 country
                                 phone
+                                firstName
+                                lastName
+                                company
+                            }
+                            billingAddress {
+                                address1
+                                address2
+                                city
+                                province
+                                zip
+                                country
+                                phone
+                                firstName
+                                lastName
+                                company
                             }
                             lineItems(first: 50) {
                                 edges {
@@ -123,191 +163,6 @@ class OrdersSalesSync:
             
             orders = result["data"]["orders"]["edges"]
             
-            # Filter orders that don't have the synced tag
-            unsynced_orders = []
-            for order in orders:
-                order_node = order["node"]
-                tags = order_node.get("tags", [])
-                
-                # Check if order has synced tag
-                has_synced_tag = "synced" in tags
-                
-                if not has_synced_tag:
-                    unsynced_orders.append(order)
-            
-            logger.info(f"Retrieved {len(orders)} total orders, {len(unsynced_orders)} unsynced orders from Shopify store {store_key}")
-            
-            return {"msg": "success", "data": unsynced_orders}
-            
-        except Exception as e:
-            logger.error(f"Error getting orders from Shopify: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
-
-    async def get_orders_with_metafields(self, store_key: str) -> Dict[str, Any]:
-        """
-        Get orders from Shopify store that need to be synced using metafields
-        """
-        try:
-            # Query to get orders with metafields, ordered by creation date desc
-            query = """
-            query getOrdersWithMetafields($first: Int!, $after: String) {
-                orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true) {
-                    edges {
-                        node {
-                            id
-                            name
-                            createdAt
-                            metafields(first: 10, namespace: "sap_sync") {
-                                edges {
-                                    node {
-                                        id
-                                        namespace
-                                        key
-                                        value
-                                        type
-                                    }
-                                }
-                            }
-                            totalPriceSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-                            subtotalPriceSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-                            totalTaxSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-                            totalShippingPriceSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-                            customer {
-                                id
-                                firstName
-                                lastName
-                                email
-                                phone
-                                addresses {
-                                    address1
-                                    address2
-                                    city
-                                    province
-                                    zip
-                                    country
-                                    phone
-                                }
-                            }
-                            shippingAddress {
-                                address1
-                                address2
-                                city
-                                province
-                                zip
-                                country
-                                phone
-                            }
-                            billingAddress {
-                                address1
-                                address2
-                                city
-                                province
-                                zip
-                                country
-                                phone
-                            }
-                            lineItems(first: 50) {
-                                edges {
-                                    node {
-                                        id
-                                        quantity
-                                        sku
-                                        title
-                                        variant {
-                                            id
-                                            sku
-                                            price
-                                            product {
-                                                id
-                                                title
-                                            }
-                                        }
-                                        discountedTotalSet {
-                                            shopMoney {
-                                                amount
-                                                currencyCode
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            discountApplications(first: 10) {
-                                edges {
-                                    node {
-                                        type
-                                        value {
-                                            ... on MoneyV2 {
-                                                amount
-                                                currencyCode
-                                            }
-                                            ... on PricingPercentageValue {
-                                                percentage
-                                            }
-                                        }
-                                        target {
-                                            ... on OrderLineItem {
-                                                id
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            transactions(first: 10) {
-                                id
-                                kind
-                                status
-                                gateway
-                                amountSet {
-                                    shopMoney {
-                                        amount
-                                        currencyCode
-                                    }
-                                }
-                                processedAt
-                            }
-                            tags
-                            note
-                        }
-                    }
-                    pageInfo {
-                        hasNextPage
-                        endCursor
-                    }
-                }
-            }
-            """
-            
-            result = await multi_store_shopify_client.execute_query(
-                store_key,
-                query,
-                {"first": self.batch_size, "after": None}
-            )
-            
-            if result["msg"] == "failure":
-                return result
-            
-            orders = result["data"]["orders"]["edges"]
-            
             # Filter orders that don't have the synced metafield
             unsynced_orders = []
             for order in orders:
@@ -318,7 +173,7 @@ class OrdersSalesSync:
                 has_synced_metafield = False
                 for metafield_edge in metafields:
                     metafield = metafield_edge["node"]
-                    if metafield["namespace"] == "sap_sync" and metafield["key"] == "synced":
+                    if metafield["namespace"] == "custom" and metafield["key"] == "sap_sync":
                         has_synced_metafield = True
                         break
                 
@@ -333,124 +188,11 @@ class OrdersSalesSync:
             logger.error(f"Error getting orders from Shopify: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
-    async def get_single_order_for_testing(self, store_key: str) -> Dict[str, Any]:
-        """
-        Get a single order to test and understand the metafield structure
-        """
-        try:
-            # Query to get a single order with all metafields
-            query = """
-            query getSingleOrder($first: Int!) {
-                orders(first: $first, sortKey: CREATED_AT, reverse: true) {
-                    edges {
-                        node {
-                            id
-                            name
-                            createdAt
-                            metafields(first: 50) {
-                                edges {
-                                    node {
-                                        id
-                                        namespace
-                                        key
-                                        value
-                                        type
-                                    }
-                                }
-                            }
-                            totalPriceSet {
-                                shopMoney {
-                                    amount
-                                    currencyCode
-                                }
-                            }
-                            customer {
-                                id
-                                firstName
-                                lastName
-                                email
-                            }
-                            lineItems(first: 5) {
-                                edges {
-                                    node {
-                                        id
-                                        quantity
-                                        sku
-                                        title
-                                        variant {
-                                            id
-                                            sku
-                                            price
-                                        }
-                                        discountedTotalSet {
-                                            shopMoney {
-                                                amount
-                                                currencyCode
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            tags
-                        }
-                    }
-                }
-            }
-            """
-            
-            result = await multi_store_shopify_client.execute_query(
-                store_key,
-                query,
-                {"first": 1}
-            )
-            
-            if result["msg"] == "failure":
-                return result
-            
-            if not result["data"]["orders"]["edges"]:
-                return {"msg": "failure", "error": "No orders found"}
-            
-            order = result["data"]["orders"]["edges"][0]
-            order_node = order["node"]
-            
-            # Print important details
-            logger.info("=== SINGLE ORDER TEST ===")
-            logger.info(f"Order ID: {order_node['id']}")
-            logger.info(f"Order Name: {order_node['name']}")
-            logger.info(f"Created At: {order_node['createdAt']}")
-            logger.info(f"Total Price: {order_node['totalPriceSet']['shopMoney']['amount']} {order_node['totalPriceSet']['shopMoney']['currencyCode']}")
-            
-            # Print metafields
-            metafields = order_node.get("metafields", {}).get("edges", [])
-            logger.info(f"Number of metafields: {len(metafields)}")
-            
-            for metafield_edge in metafields:
-                metafield = metafield_edge["node"]
-                logger.info(f"Metafield: namespace='{metafield['namespace']}', key='{metafield['key']}', value='{metafield['value']}', type='{metafield['type']}'")
-            
-            # Print customer info
-            customer = order_node.get("customer")
-            if customer:
-                logger.info(f"Customer: {customer['firstName']} {customer['lastName']} ({customer['email']})")
-            
-            # Print line items
-            line_items = order_node.get("lineItems", {}).get("edges", [])
-            logger.info(f"Number of line items: {len(line_items)}")
-            
-            for item_edge in line_items:
-                item = item_edge["node"]
-                variant = item.get("variant", {})
-                logger.info(f"Line Item: {item['title']} (SKU: {item['sku'] or variant.get('sku', 'N/A')}, Qty: {item['quantity']}, Price: {item['discountedTotalSet']['shopMoney']['amount']})")
-            
-            logger.info("=== END SINGLE ORDER TEST ===")
-            
-            return {"msg": "success", "data": order}
-            
-        except Exception as e:
-            logger.error(f"Error getting single order for testing: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
+
     
-    def map_shopify_order_to_sap(self, shopify_order: Dict[str, Any], customer_card_code: str, ship_to_code: str, store_key: str) -> Dict[str, Any]:
+
+    
+    def map_shopify_order_to_sap(self, shopify_order: Dict[str, Any], customer_card_code: str, store_key: str) -> Dict[str, Any]:
         """
         Map Shopify order data to SAP invoice format
         """
@@ -493,12 +235,21 @@ class OrdersSalesSync:
                     "ItemCode": item_code,
                     "Quantity": quantity,
                     "UnitPrice": float(price),
-                    "WarehouseCode": warehouse_code
+                    "WarehouseCode": warehouse_code,
+                    "COGSCostingCode": "ONL",
+                    "COGSCostingCode2": "SAL",
+                    "COGSCostingCode3": "OnlineS",
+                    "CostingCode": "ONL",
+                    "CostingCode2": "SAL",
+                    "CostingCode3": "OnlineS"                    
                 }
                 line_items.append(line_item)
             
             # Parse date
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
+            
+            # Calculate freight expenses
+            freight_expenses = self._calculate_freight_expenses(order_node, store_key)
             
             # Create invoice data
             invoice_data = {
@@ -507,14 +258,17 @@ class OrdersSalesSync:
                 "NumAtCard": order_name,
                 "Series": 82,
                 "Comments": f"Shopify Order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}",
-                #"ShipToCode": ship_to_code,
                 #"U_Shopify_Order_ID": order_name,
                 #"U_Shopify_Financial_Status": financial_status,
                 #"U_Shopify_Fulfillment_Status": fulfillment_status,
                 "SalesPersonCode": 28,
-                "DocumentLines": line_items
-                # Removed DocumentAdditionalExpenses to avoid ExpenseCode issues
+                "DocumentLines": line_items,
+                "U_Pay_type": 1
             }
+            
+            # Add freight expenses if any
+            if freight_expenses:
+                invoice_data["DocumentAdditionalExpenses"] = freight_expenses
             
             return invoice_data
             
@@ -551,27 +305,67 @@ class OrdersSalesSync:
         
         return gift_card_lines
     
-    def _calculate_freight(self, order_node: Dict[str, Any]) -> float:
+    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str) -> List[Dict[str, Any]]:
         """
-        Calculate freight amount based on shipping address and order details
+        Calculate freight expenses based on shipping fee and store configuration
         """
         try:
-            # Get shipping address
-            shipping_address = order_node.get("shippingAddress")
-            if not shipping_address:
-                return 0.0
-            
             # Get shipping price from order
-            shipping_price = float(order_node["totalShippingPriceSet"]["shopMoney"]["amount"])
+            shipping_price = float(order_node.get("totalShippingPriceSet", {}).get("shopMoney", {}).get("amount", 0))
             
-            # You can implement more complex freight calculation logic here
-            # For example, based on country, weight, or other factors
+            if shipping_price == 0:
+                return []
             
-            return shipping_price
+            # Get freight configuration from config_data
+            from app.core.config import config_data
+            freight_config = config_data['shopify'].get("freight_config", {})
+            store_freight_config = freight_config.get(store_key, {})
+            
+            expenses = []
+            
+            if store_key == "local":
+                # Local store logic based on shipping fee
+                shipping_price_str = str(int(shipping_price))
+                
+                if shipping_price_str in store_freight_config:
+                    config = store_freight_config[shipping_price_str]
+                    
+                    # Add revenue expense
+                    if "revenue" in config: 
+                        config["revenue"]["DistributionRule"] = "ONL"                                               
+                        config["revenue"]["DistributionRule2"] = "SAL"                                               
+                        config["revenue"]["DistributionRule3"] = "OnlineS"                                               
+                        expenses.append(config["revenue"])
+                    
+                    # Add cost expense
+                    if "cost" in config:
+                        config["cost"]["DistributionRule"] = "ONL"                                               
+                        config["cost"]["DistributionRule2"] = "SAL"                                               
+                        config["cost"]["DistributionRule3"] = "OnlineS"  
+                        expenses.append(config["cost"])
+                        
+                    logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
+                else:
+                    logger.warning(f"No freight configuration found for shipping fee {shipping_price} in local store")
+                    
+            elif store_key == "international":
+                # International store logic - always add DHL expense
+                dhl_config = store_freight_config.get("dhl", {})
+                if dhl_config:
+                    # Set the actual shipping price as the line total
+                    dhl_expense = dhl_config.copy()
+                    dhl_expense["LineTotal"] = shipping_price
+                    expenses.append(dhl_expense)
+                    
+                    logger.info(f"Applied DHL freight expense for international order: {dhl_expense}")
+                else:
+                    logger.warning("No DHL configuration found for international store")
+            
+            return expenses
             
         except Exception as e:
-            logger.error(f"Error calculating freight: {str(e)}")
-            return 0.0
+            logger.error(f"Error calculating freight expenses: {str(e)}")
+            return []
     
     async def create_invoice_in_sap(self, invoice_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -618,75 +412,68 @@ class OrdersSalesSync:
             payment_info = self._extract_payment_info(order_node)
             
             # Get order channel information
-            source_name = order_node.get("sourceName", "").lower()
-            source_identifier = order_node.get("sourceIdentifier", "").lower()
+            source_name = (order_node.get("sourceName") or "").lower()
+            source_identifier = (order_node.get("sourceIdentifier") or "").lower()
             
             # Determine payment type based on channel and payment method
             payment_type = self._determine_payment_type(source_name, source_identifier, payment_info)
             
             # Get invoice document entry from SAP invoice data
             invoice_doc_entry = sap_invoice_data.get("DocEntry", "")
+            if not invoice_doc_entry:
+                logger.error("No DocEntry found in SAP invoice data")
+                raise ValueError("No DocEntry found in SAP invoice data")
             
-            # Initialize payment data
+            # Initialize payment data with the correct structure
             payment_data = {
                 "DocDate": datetime.now().strftime("%Y-%m-%d"),
                 "CardCode": customer_card_code,
-                "CashSum": 0.0,
-                "CheckSum": 0.0,
+                "DocType": "rCustomer",
+                "Series": 15,  # Series for incoming payments
                 "TransferSum": 0.0,
-                "TransferAccount": "",
-                "TransferReference": order_name,  # Use order name as reference
-                "TransferDate": "",
-                "TransferReference2": payment_info.get('gateway', 'Unknown'),
-                "TransferReference3": payment_info.get('card_type', 'Unknown'),
-                "TransferSumFC": 0.0,
-                "TransferSumSC": 0.0,
-                "TransferDateFrom": "",
-                "TransferDateTo": "",
-                "Comments": f"Shopify Order: {order_name} | Store: {store_key} | Channel: {source_name} | Payment Type: {payment_type} | Gateway: {payment_info.get('gateway', 'Unknown')} | Card Type: {payment_info.get('card_type', 'Unknown')} | Last 4: {payment_info.get('last_4', 'Unknown')}",
-                "JournalMemo": f"Payment for Shopify Order {order_name}",
-                "DocumentLines": [
-                    {
-                        "DocEntry": invoice_doc_entry,
-                        "SumApplied": total_amount,
-                        "AppliedFC": total_amount,
-                        "AppliedSys": total_amount,
-                        "DocLine": 0,
-                        "DocType": "dDocument_Items",
-                        "InstallmentId": 1
-                    }
-                ]
+                "TransferAccount": ""
             }
             
             # Set payment method based on type
             if payment_type == "PaidOnline":
-                # Online store payments - use bank transfer
+                # Online store payments - use Paymob account
                 payment_data["TransferSum"] = total_amount
-                transfer_account = config_settings.get_bank_transfer_account(store_key, "PaidOnline")
+                transfer_account = config_settings.get_bank_transfer_account(store_key, "Paymob")
                 payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Online store payment - using bank transfer account: {transfer_account}")
+                logger.info(f"Online store payment - using Paymob account: {transfer_account}")
                 
             elif payment_type == "COD":
-                # Cash on delivery - use bank transfer for COD
+                # Cash on delivery - use COD account
                 payment_data["TransferSum"] = total_amount
-                transfer_account = config_settings.get_bank_transfer_account(store_key, "COD")
+                transfer_account = config_settings.get_bank_transfer_account(store_key, "Cash on Delivery (COD)")
                 payment_data["TransferAccount"] = transfer_account
-                logger.info(f"COD payment - using bank transfer account: {transfer_account}")
+                logger.info(f"COD payment - using COD account: {transfer_account}")
                 
             elif payment_type == "Cash":
                 # Cash payment at store
-                payment_data["CashSum"] = total_amount
-                logger.info(f"Cash payment at store - using cash sum")
+                payment_data["TransferSum"] = total_amount
+                # For cash payments, we might need a different account or handle differently
+                logger.info(f"Cash payment at store - using transfer sum")
                 
             elif payment_type == "CreditCard":
                 # Credit card payment at store
-                payment_data["CashSum"] = total_amount
-                logger.info(f"Credit card payment at store - using cash sum")
+                payment_data["TransferSum"] = total_amount
+                logger.info(f"Credit card payment at store - using transfer sum")
                 
             else:
-                # Default to cash for unknown payment types
-                payment_data["CashSum"] = total_amount
-                logger.warning(f"Unknown payment type '{payment_type}' - defaulting to cash")
+                # Default to transfer for unknown payment types
+                payment_data["TransferSum"] = total_amount
+                logger.warning(f"Unknown payment type '{payment_type}' - defaulting to transfer")
+            
+            # Create invoice object for payment
+            inv_obj = {
+                "DocEntry": invoice_doc_entry,
+                "SumApplied": total_amount,
+                "InvoiceType": "it_Invoice"
+            }
+            
+            # Add invoice to payment data
+            payment_data["PaymentInvoices"] = [inv_obj]
             
             return payment_data
             
@@ -702,8 +489,12 @@ class OrdersSalesSync:
             "gateway": "Unknown",
             "card_type": "Unknown", 
             "last_4": "Unknown",
+            "payment_id": "Unknown",
+            "authorization": "Unknown",
             "amount": 0.0,
-            "status": "Unknown"
+            "status": "Unknown",
+            "processed_at": "Unknown",
+            "is_online_payment": False
         }
         
         try:
@@ -718,12 +509,31 @@ class OrdersSalesSync:
                     payment_info["gateway"] = transaction.get("gateway", "Unknown")
                     payment_info["amount"] = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
                     payment_info["status"] = transaction.get("status", "Unknown")
+                    payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                    payment_info["authorization"] = transaction.get("authorization", "Unknown")
                     
                     # Extract credit card information if available
                     payment_details = transaction.get("paymentDetails", {})
                     if payment_details:
                         payment_info["card_type"] = payment_details.get("creditCardCompany", "Unknown")
                         payment_info["last_4"] = payment_details.get("creditCardLastDigits", "Unknown")
+                    else:
+                        # Use gateway as card type if payment details not available
+                        payment_info["card_type"] = transaction.get("gateway", "Unknown")
+                    
+                    # Check if this is an online payment
+                    source_name = order_node.get("sourceName", "")
+                    if source_name:
+                        source_name = source_name.lower()
+                        if ("online store" in source_name or 
+                            "web" in source_name or 
+                            "shopify" in source_name or
+                            "online" in source_name or
+                            "mobile" in source_name or
+                            "app" in source_name):
+                            payment_info["is_online_payment"] = True
+                            # For online payments, use the transaction ID as payment ID
+                            payment_info["payment_id"] = transaction.get("id", "Unknown")
                     
                     # Use the first successful payment transaction
                     break
@@ -738,8 +548,8 @@ class OrdersSalesSync:
         Determine payment type based on order channel and payment information
         """
         # Convert to lowercase for case-insensitive matching
-        source_name_lower = source_name.lower()
-        source_identifier_lower = source_identifier.lower()
+        source_name_lower = (source_name or "").lower()
+        source_identifier_lower = (source_identifier or "").lower()
         
         # Check if it's an online store order
         if ("online store" in source_name_lower or 
@@ -827,118 +637,82 @@ class OrdersSalesSync:
             logger.error(f"Error creating incoming payment in SAP: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
-    async def update_order_meta_fields(self, store_key: str, order_id: str, 
-                                    synced_status: str, sap_invoice_number: str) -> Dict[str, Any]:
-        """
-        Update order meta fields in Shopify
-        """
-        try:
-            # Mutation to update order meta fields
-            mutation = """
-            mutation orderUpdate($input: OrderInput!) {
-                orderUpdate(input: $input) {
-                    order {
-                        id
-                        name
-                        tags
-                    }
-                    userErrors {
-                        field
-                        message
-                    }
-                }
-            }
-            """
-            
-            # Prepare update data
-            update_data = {
-                "id": order_id,
-                "tags": [synced_status, f"sap_invoice:{sap_invoice_number}"]
-            }
-            
-            result = await multi_store_shopify_client.execute_query(
-                store_key,
-                mutation,
-                {"input": update_data}
-            )
-            
-            if result["msg"] == "failure":
-                return result
-            
-            response_data = result["data"]["orderUpdate"]
-            
-            if response_data.get("userErrors"):
-                errors = [error["message"] for error in response_data["userErrors"]]
-                return {"msg": "failure", "error": "; ".join(errors)}
-            
-            logger.info(f"Updated order meta fields: {order_id}")
-            return {"msg": "success"}
-            
-        except Exception as e:
-            logger.error(f"Error updating order meta fields: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
 
-    async def update_order_tags(self, store_key: str, order_id: str, 
-                              sap_invoice_number: str, sap_payment_number: str = None) -> Dict[str, Any]:
+
+    async def update_order_metafield(self, store_key: str, order_id: str, status: str) -> Dict[str, Any]:
         """
-        Update order tags to track sync status
+        Update order metafield to track sync status
         """
         try:
-            # Prepare tags for sync status
-            tags = [
-                "SAP_SYNCED",
-                f"SAP_INVOICE:{sap_invoice_number}"
-            ]
+            import httpx
             
-            if sap_payment_number:
-                tags.append(f"SAP_PAYMENT:{sap_payment_number}")
-                tags.append("PAYMENT_SYNCED")
-            else:
-                tags.append("PAYMENT_PENDING")
+            # Get store configuration
+            enabled_stores = config_settings.get_enabled_stores()
+            store_config = enabled_stores.get(store_key)
             
-            # Mutation to update order tags
-            mutation = """
-            mutation orderUpdate($input: OrderInput!) {
-                orderUpdate(input: $input) {
-                    order {
-                        id
-                        name
-                        tags
-                    }
-                    userErrors {
-                        field
-                        message
-                    }
-                }
-            }
-            """
+            if not store_config:
+                logger.error(f"Store configuration not found for {store_key}")
+                return {"msg": "failure", "error": "Store configuration not found"}
             
-            # Prepare update data
-            update_data = {
-                "id": order_id,
-                "tags": tags
+            # Extract order ID number from GraphQL ID
+            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
+            
+            headers = {
+                'X-Shopify-Access-Token': store_config.access_token,
+                'Content-Type': 'application/json',
             }
             
-            result = await multi_store_shopify_client.execute_query(
-                store_key,
-                mutation,
-                {"input": update_data}
-            )
-            
-            if result["msg"] == "failure":
-                return result
-            
-            response_data = result["data"]["orderUpdate"]
-            
-            if response_data.get("userErrors"):
-                errors = [error["message"] for error in response_data["userErrors"]]
-                return {"msg": "failure", "error": "; ".join(errors)}
-            
-            logger.info(f"Updated order tags: {order_id}")
+            async with httpx.AsyncClient() as client:
+                # Get current metafields
+                metafields_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}/metafields.json"
+                metafields_response = await client.get(metafields_url, headers=headers)
+                metafields_response.raise_for_status()
+                metafields_data = metafields_response.json()
+                metafields = metafields_data.get('metafields', [])
+                
+                # Check if metafield already exists
+                existing_metafield = None
+                for metafield in metafields:
+                    if metafield.get('namespace') == 'custom' and metafield.get('key') == 'sap_sync':
+                        existing_metafield = metafield
+                        break
+                
+                if existing_metafield:
+                    # Update existing metafield
+                    update_url = f"https://{store_config.shop_url}/admin/api/2024-01/metafields/{existing_metafield['id']}.json"
+                    update_data = {
+                        "metafield": {
+                            "value": status
+                        }
+                    }
+                    
+                    update_response = await client.put(update_url, headers=headers, json=update_data)
+                    update_response.raise_for_status()
+                    
+                    logger.info(f"Updated metafield custom.sap_sync = {status} for order {order_id}")
+                else:
+                    # Create new metafield
+                    create_data = {
+                        "metafield": {
+                            "namespace": "custom",
+                            "key": "sap_sync",
+                            "value": status,
+                            "type": "single_line_text_field"
+                        }
+                    }
+                    
+                    create_response = await client.post(metafields_url, headers=headers, json=create_data)
+                    create_response.raise_for_status()
+                    
+                    logger.info(f"Created metafield custom.sap_sync = {status} for order {order_id}")
+                
             return {"msg": "success"}
             
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error setting metafield for order {order_id}: {e.response.status_code} - {e.response.text}")
+            return {"msg": "failure", "error": f"HTTP error: {e.response.status_code}"}
         except Exception as e:
-            logger.error(f"Error updating order tags: {str(e)}")
+            logger.error(f"Error setting metafield for order {order_id}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
     async def process_order(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:
@@ -951,10 +725,30 @@ class OrdersSalesSync:
             order_name = order_node["name"]
             
             # Check payment and fulfillment status
-            financial_status = order_node.get("financialStatus", "PENDING")
-            fulfillment_status = order_node.get("fulfillmentStatus", "UNFULFILLED")
+            financial_status = order_node.get("displayFinancialStatus", "PENDING")
+            fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
+            
+            # Extract payment information
+            payment_info = self._extract_payment_info(order_node)
+            
+            # Extract address information
+            shipping_address = order_node.get("shippingAddress", {})
+            billing_address = order_node.get("billingAddress", {})
             
             logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
+            logger.info(f"Payment Gateway: {payment_info['gateway']} | Card Type: {payment_info['card_type']} | Amount: {payment_info['amount']}")
+            
+            if payment_info['is_online_payment']:
+                logger.info(f"🔑 ONLINE PAYMENT ID: {payment_info['payment_id']}")
+            
+            # Log address information
+            if shipping_address:
+                ship_to = f"{shipping_address.get('firstName', '')} {shipping_address.get('lastName', '')} | {shipping_address.get('address1', '')} | {shipping_address.get('city', '')}, {shipping_address.get('province', '')} | {shipping_address.get('phone', 'No phone')}"
+                logger.info(f"📍 SHIP TO: {ship_to}")
+            
+            if billing_address:
+                bill_to = f"{billing_address.get('firstName', '')} {billing_address.get('lastName', '')} | {billing_address.get('address1', '')} | {billing_address.get('city', '')}, {billing_address.get('province', '')} | {billing_address.get('phone', 'No phone')}"
+                logger.info(f"📍 BILL TO: {bill_to}")
             
             # For now, we'll process all orders regardless of status
             # Later you can add logic to handle different statuses differently
@@ -970,8 +764,12 @@ class OrdersSalesSync:
                 logger.warning(f"No customer found for order {order_name}")
                 return {"msg": "failure", "error": "No customer found"}
             
-            # Extract phone number from customer
+            # Extract phone number from customer, then fall back to shipping/billing addresses
             phone = self.customer_manager._extract_phone_from_customer(customer)
+            if not phone:
+                shipping_phone = (order_node.get("shippingAddress") or {}).get("phone")
+                billing_phone = (order_node.get("billingAddress") or {}).get("phone")
+                phone = shipping_phone or billing_phone
             if not phone:
                 logger.warning(f"No phone number found for customer in order {order_name}")
                 return {"msg": "failure", "error": "No phone number found for customer"}
@@ -982,8 +780,6 @@ class OrdersSalesSync:
             if existing_customer:
                 logger.info(f"Found existing customer: {existing_customer.get('CardCode', 'Unknown')}")
                 sap_customer = existing_customer
-                # Use the ShipToDefault from the existing customer
-                ship_to_code = existing_customer.get('ShipToDefault', '')
             else:
                 # Create new customer in SAP
                 logger.info("Creating new customer in SAP")
@@ -991,12 +787,9 @@ class OrdersSalesSync:
             if not sap_customer:
                     logger.error(f"Failed to create customer for order {order_name}")
                     return {"msg": "failure", "error": "Failed to create customer"}
-                
-                # Use the ShipToDefault from the newly created customer
-                #ship_to_code = sap_customer.get('ShipToDefault', '')
             
             # Map order to SAP format
-            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], ship_to_code, store_key)
+            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key)
             if not sap_invoice_data:
                 logger.error(f"Failed to map order {order_name} to SAP format")
                 return {"msg": "failure", "error": "Failed to map order to SAP format"}
@@ -1006,6 +799,14 @@ class OrdersSalesSync:
             if invoice_result["msg"] == "failure":
                 return invoice_result
             
+            # Get the created invoice data with DocEntry
+            created_invoice_data = {
+                "DocEntry": invoice_result["sap_doc_entry"],
+                "DocNum": invoice_result["sap_doc_num"]
+            }
+            
+            logger.info(f"Created invoice data: {created_invoice_data}")
+            
             # Check if order is paid and create incoming payment
             sap_payment_number = None
             if financial_status == "PAID":
@@ -1014,7 +815,7 @@ class OrdersSalesSync:
                 # Prepare incoming payment data
                 payment_data = self.prepare_incoming_payment_data(
                     shopify_order, 
-                    sap_invoice_data, 
+                    created_invoice_data, 
                     sap_customer["CardCode"], 
                     store_key
                 )
@@ -1030,29 +831,16 @@ class OrdersSalesSync:
             else:
                 logger.info(f"Order {order_name} is not paid (status: {financial_status}) - skipping payment creation")
             
-            # Update order meta fields in Shopify
-            meta_update_result = await self.update_order_meta_fields(
+            # Update order metafield in Shopify
+            metafield_update_result = await self.update_order_metafield(
                 store_key,
                 order_id,
-                "synced",
-                str(invoice_result["sap_invoice_number"])
+                "synced"
             )
             
-            if meta_update_result["msg"] == "failure":
-                logger.warning(f"Failed to update order meta fields for {order_name}: {meta_update_result.get('error')}")
-                # Don't fail the entire process if meta update fails
-            
-            # Update order tags to track sync status
-            tags_update_result = await self.update_order_tags(
-                store_key,
-                order_id,
-                str(invoice_result["sap_invoice_number"]),
-                sap_payment_number
-            )
-            
-            if tags_update_result["msg"] == "failure":
-                logger.warning(f"Failed to update order tags for {order_name}: {tags_update_result.get('error')}")
-                # Don't fail the entire process if tags update fails
+            if metafield_update_result["msg"] == "failure":
+                logger.warning(f"Failed to update order metafield for {order_name}: {metafield_update_result.get('error')}")
+                # Don't fail the entire process if metafield update fails
             
             logger.info(f"Successfully processed order {order_name}")
             
@@ -1062,9 +850,14 @@ class OrdersSalesSync:
                 "sap_invoice_number": invoice_result["sap_invoice_number"],
                 "sap_payment_number": sap_payment_number,
                 "customer_card_code": sap_customer["CardCode"],
-                "ship_to_code": ship_to_code,
                 "financial_status": financial_status,
-                "fulfillment_status": fulfillment_status
+                "fulfillment_status": fulfillment_status,
+                "payment_id": payment_info.get("payment_id", "Unknown"),
+                "payment_gateway": payment_info.get("gateway", "Unknown"),
+                "payment_amount": payment_info.get("amount", 0.0),
+                "is_online_payment": payment_info.get("is_online_payment", False),
+                "shipping_address": shipping_address,
+                "billing_address": billing_address
             }
             
         except Exception as e:
@@ -1107,11 +900,33 @@ class OrdersSalesSync:
                     # Process each order
                     for shopify_order in orders:
                         try:
+                            order_node = shopify_order["node"]
+                            order_id = order_node["id"]
+                            
+                            logger.info(f"Processing order {order_node.get('name', 'Unknown')} (ID: {order_id})")
                             result = await self.process_order(store_key, shopify_order)
                             
                             if result["msg"] == "success":
                                 total_success += 1
                                 logger.info(f"✅ Processed order {result['order_name']} -> SAP Invoice: {result['sap_invoice_number']}")
+                                
+                                # Log additional payment and address information
+                                if result.get("is_online_payment"):
+                                    logger.info(f"   🔑 Payment ID: {result.get('payment_id', 'Unknown')}")
+                                
+                                logger.info(f"   💳 Gateway: {result.get('payment_gateway', 'Unknown')} | Amount: {result.get('payment_amount', 0.0)}")
+                                
+                                # Log address summary
+                                shipping_addr = result.get("shipping_address", {})
+                                if shipping_addr:
+                                    ship_to_summary = f"{shipping_addr.get('firstName', '')} {shipping_addr.get('lastName', '')} - {shipping_addr.get('city', '')}"
+                                    logger.info(f"   📍 Ship To: {ship_to_summary}")
+                                
+                                billing_addr = result.get("billing_address", {})
+                                if billing_addr:
+                                    bill_to_summary = f"{billing_addr.get('firstName', '')} {billing_addr.get('lastName', '')} - {billing_addr.get('city', '')}"
+                                    logger.info(f"   📍 Bill To: {bill_to_summary}")
+                                
                             else:
                                 total_errors += 1
                                 logger.error(f"❌ Failed to process order: {result.get('error')}")
@@ -1146,4 +961,697 @@ class OrdersSalesSync:
             
         except Exception as e:
             logger.error(f"Error in orders sync: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+
+
+    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any]) -> str:
+
+        """
+
+        Determine payment type based on order channel and payment information
+
+        """
+
+        # Convert to lowercase for case-insensitive matching
+
+        source_name_lower = source_name.lower()
+
+        source_identifier_lower = source_identifier.lower()
+
+        
+
+        # Check if it's an online store order
+
+        if ("online store" in source_name_lower or 
+
+            "web" in source_name_lower or 
+
+            "shopify" in source_name_lower or
+
+            "online" in source_name_lower):
+
+            return "PaidOnline"
+
+        
+
+        # Check if it's a mobile app order
+
+        if ("mobile" in source_name_lower or 
+
+            "app" in source_name_lower or
+
+            "mobile app" in source_name_lower):
+
+            return "PaidOnline"
+
+        
+
+        # Check if it's a POS order (store location)
+
+        if ("pos" in source_name_lower or 
+
+            "point of sale" in source_name_lower or
+
+            "point of sale" in source_identifier_lower):
+
+            # For POS orders, check the payment method
+
+            gateway = payment_info.get('gateway', '').lower()
+
+            card_type = payment_info.get('card_type', '').lower()
+
+            
+
+            # Check for COD (Cash on Delivery)
+
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+
+                return "COD"
+
+            
+
+            # Check for cash payments
+
+            if "cash" in gateway or "cash" in card_type:
+
+                return "Cash"
+
+            
+
+            # Check for credit card payments
+
+            if any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
+
+                return "CreditCard"
+
+            
+
+            # Default for POS orders
+
+            return "Cash"
+
+        
+
+        # Check for other channels (like phone, email, etc.)
+
+        if ("phone" in source_name_lower or 
+
+            "email" in source_name_lower or
+
+            "phone" in source_identifier_lower):
+
+            # For phone/email orders, check payment method
+
+            gateway = payment_info.get('gateway', '').lower()
+
+            card_type = payment_info.get('card_type', '').lower()
+
+            
+
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+
+                return "COD"
+
+            elif any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
+
+                return "CreditCard"
+
+            else:
+
+                return "PaidOnline"  # Default to online payment for phone/email orders
+
+        
+
+        # Default case - assume online store if we can't determine
+
+        logger.warning(f"Could not determine payment type for source: {source_name}, identifier: {source_identifier}")
+
+        return "PaidOnline"
+
+
+
+    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+
+        """
+
+        Create incoming payment in SAP
+
+        """
+
+        try:
+
+            result = await sap_client._make_request(
+
+                method='POST',
+
+                endpoint='IncomingPayments',
+
+                data=payment_data
+
+            )
+
+            
+
+            if result["msg"] == "failure":
+
+                logger.error(f"Failed to create incoming payment in SAP: {result.get('error')}")
+
+                return result
+
+            
+
+            created_payment = result["data"]
+
+            payment_number = created_payment.get('DocEntry', '')
+
+            
+
+            logger.info(f"Created incoming payment in SAP: {payment_number}")
+
+            
+
+            return {
+
+                "msg": "success",
+
+                "sap_payment_number": payment_number,
+
+                "sap_doc_entry": created_payment.get('DocEntry', ''),
+
+                "sap_doc_num": created_payment.get('DocNum', '')
+
+            }
+
+            
+
+        except Exception as e:
+
+            logger.error(f"Error creating incoming payment in SAP: {str(e)}")
+
+            return {"msg": "failure", "error": str(e)}
+
+
+
+
+
+    async def update_order_metafield(self, store_key: str, order_id: str, status: str) -> Dict[str, Any]:
+        """
+
+        Update order metafield to track sync status
+        """
+
+        try:
+
+            import httpx
+            
+            # Get store configuration
+            enabled_stores = config_settings.get_enabled_stores()
+            store_config = enabled_stores.get(store_key)
+            
+            if not store_config:
+                logger.error(f"Store configuration not found for {store_key}")
+                return {"msg": "failure", "error": "Store configuration not found"}
+            
+            # Extract order ID number from GraphQL ID
+            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
+            
+            headers = {
+                'X-Shopify-Access-Token': store_config.access_token,
+                'Content-Type': 'application/json',
+            }
+            
+            async with httpx.AsyncClient() as client:
+                # Get current metafields
+                metafields_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}/metafields.json"
+                metafields_response = await client.get(metafields_url, headers=headers)
+                metafields_response.raise_for_status()
+                metafields_data = metafields_response.json()
+                metafields = metafields_data.get('metafields', [])
+                
+                # Check if metafield already exists
+                existing_metafield = None
+                for metafield in metafields:
+                    if metafield.get('namespace') == 'custom' and metafield.get('key') == 'sap_sync':
+                        existing_metafield = metafield
+                        break
+                
+                if existing_metafield:
+                    # Update existing metafield
+                    update_url = f"https://{store_config.shop_url}/admin/api/2024-01/metafields/{existing_metafield['id']}.json"
+                    update_data = {
+                        "metafield": {
+                            "value": status
+                        }
+                    }
+                    
+                    update_response = await client.put(update_url, headers=headers, json=update_data)
+                    update_response.raise_for_status()
+                    
+                    logger.info(f"Updated metafield custom.sap_sync = {status} for order {order_id}")
+                else:
+                    # Create new metafield
+                    create_data = {
+                        "metafield": {
+                            "namespace": "custom",
+                            "key": "sap_sync",
+                            "value": status,
+                            "type": "single_line_text_field"
+                        }
+                    }
+                    
+                    create_response = await client.post(metafields_url, headers=headers, json=create_data)
+                    create_response.raise_for_status()
+                    
+                    logger.info(f"Created metafield custom.sap_sync = {status} for order {order_id}")
+                
+            return {"msg": "success"}
+
+            
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error setting metafield for order {order_id}: {e.response.status_code} - {e.response.text}")
+            return {"msg": "failure", "error": f"HTTP error: {e.response.status_code}"}
+        except Exception as e:
+
+            logger.error(f"Error setting metafield for order {order_id}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    
+
+    async def process_order(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:
+
+        """
+
+        Process a single order from Shopify to SAP
+
+        """
+
+        try:
+
+            order_node = shopify_order["node"]
+
+            order_id = order_node["id"]
+
+            order_name = order_node["name"]
+
+            
+
+            # Check payment and fulfillment status
+
+            financial_status = order_node.get("displayFinancialStatus", "PENDING")
+            fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
+            
+            # Extract payment information
+            payment_info = self._extract_payment_info(order_node)
+            
+            # Extract address information
+            shipping_address = order_node.get("shippingAddress", {})
+            billing_address = order_node.get("billingAddress", {})
+            
+
+            logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
+
+            logger.info(f"Payment Gateway: {payment_info['gateway']} | Card Type: {payment_info['card_type']} | Amount: {payment_info['amount']}")
+            
+            if payment_info['is_online_payment']:
+                logger.info(f"🔑 ONLINE PAYMENT ID: {payment_info['payment_id']}")
+            
+            # Log address information
+            if shipping_address:
+                ship_to = f"{shipping_address.get('firstName', '')} {shipping_address.get('lastName', '')} | {shipping_address.get('address1', '')} | {shipping_address.get('city', '')}, {shipping_address.get('province', '')} | {shipping_address.get('phone', 'No phone')}"
+                logger.info(f"📍 SHIP TO: {ship_to}")
+            
+            if billing_address:
+                bill_to = f"{billing_address.get('firstName', '')} {billing_address.get('lastName', '')} | {billing_address.get('address1', '')} | {billing_address.get('city', '')}, {billing_address.get('province', '')} | {billing_address.get('phone', 'No phone')}"
+                logger.info(f"📍 BILL TO: {bill_to}")
+            
+
+            # For now, we'll process all orders regardless of status
+
+            # Later you can add logic to handle different statuses differently
+
+            if financial_status == "PENDING":
+
+                logger.info(f"Order {order_name} is pending payment - will process anyway")
+
+            
+
+            if fulfillment_status == "UNFULFILLED":
+
+                logger.info(f"Order {order_name} is unfulfilled - will process anyway")
+
+            
+
+            # Get or create customer in SAP
+
+            customer = order_node.get("customer")
+
+            if not customer:
+
+                logger.warning(f"No customer found for order {order_name}")
+
+                return {"msg": "failure", "error": "No customer found"}
+
+            
+
+            # Extract phone number from customer, then fall back to shipping/billing addresses
+            phone = self.customer_manager._extract_phone_from_customer(customer)
+
+            if not phone:
+                shipping_phone = (order_node.get("shippingAddress") or {}).get("phone")
+                billing_phone = (order_node.get("billingAddress") or {}).get("phone")
+                phone = shipping_phone or billing_phone
+            if not phone:
+
+                logger.warning(f"No phone number found for customer in order {order_name}")
+
+                return {"msg": "failure", "error": "No phone number found for customer"}
+
+            
+
+            # Check if customer exists in SAP by phone
+
+            existing_customer = await self.customer_manager.find_customer_by_phone(phone)
+
+            
+
+            if existing_customer:
+
+                logger.info(f"Found existing customer: {existing_customer.get('CardCode', 'Unknown')}")
+
+                sap_customer = existing_customer
+
+            else:
+
+                # Create new customer in SAP
+
+                logger.info("Creating new customer in SAP")
+
+                sap_customer = await self.customer_manager.create_customer_in_sap(customer)
+
+            if not sap_customer:
+
+                    logger.error(f"Failed to create customer for order {order_name}")
+
+                    return {"msg": "failure", "error": "Failed to create customer"}
+
+            
+
+            # Map order to SAP format
+
+            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key)
+            if not sap_invoice_data:
+
+                logger.error(f"Failed to map order {order_name} to SAP format")
+
+                return {"msg": "failure", "error": "Failed to map order to SAP format"}
+
+            
+
+            # Create invoice in SAP
+
+            invoice_result = await self.create_invoice_in_sap(sap_invoice_data)
+
+            if invoice_result["msg"] == "failure":
+
+                return invoice_result
+
+            # Build created invoice data to include DocEntry for payment linkage
+            created_invoice_data = {
+                "DocEntry": invoice_result["sap_doc_entry"],
+                "DocNum": invoice_result["sap_doc_num"]
+            }
+
+            # Check if order is paid and create incoming payment
+
+            sap_payment_number = None
+
+            if financial_status == "PAID":
+
+                logger.info(f"Order {order_name} is paid - creating incoming payment in SAP")
+
+                
+
+                # Prepare incoming payment data
+
+                payment_data = self.prepare_incoming_payment_data(
+
+                    shopify_order, 
+
+                    created_invoice_data, 
+
+                    sap_customer["CardCode"], 
+
+                    store_key
+
+                )
+
+                
+
+                # Create incoming payment in SAP
+
+                payment_result = await self.create_incoming_payment_in_sap(payment_data)
+
+                if payment_result["msg"] == "success":
+
+                    sap_payment_number = payment_result["sap_payment_number"]
+
+                    logger.info(f"Successfully created incoming payment: {sap_payment_number}")
+
+                else:
+
+                    logger.warning(f"Failed to create incoming payment for {order_name}: {payment_result.get('error')}")
+
+                    # Don't fail the entire process if payment creation fails
+
+            else:
+
+                logger.info(f"Order {order_name} is not paid (status: {financial_status}) - skipping payment creation")
+
+            
+
+            # Update order metafield in Shopify
+            metafield_update_result = await self.update_order_metafield(
+                store_key,
+
+                order_id,
+
+                "synced"
+            )
+            
+            if metafield_update_result["msg"] == "failure":
+                logger.warning(f"Failed to update order metafield for {order_name}: {metafield_update_result.get('error')}")
+                # Don't fail the entire process if metafield update fails
+            
+
+            logger.info(f"Successfully processed order {order_name}")
+
+            
+
+            return {
+
+                "msg": "success",
+
+                "order_name": order_name,
+
+                "sap_invoice_number": invoice_result["sap_invoice_number"],
+
+                "sap_payment_number": sap_payment_number,
+
+                "customer_card_code": sap_customer["CardCode"],
+
+                "financial_status": financial_status,
+
+                "fulfillment_status": fulfillment_status,
+                "payment_id": payment_info.get("payment_id", "Unknown"),
+                "payment_gateway": payment_info.get("gateway", "Unknown"),
+                "payment_amount": payment_info.get("amount", 0.0),
+                "is_online_payment": payment_info.get("is_online_payment", False),
+                "shipping_address": shipping_address,
+                "billing_address": billing_address
+            }
+
+            
+
+        except Exception as e:
+
+            logger.error(f"Error processing order {order_name}: {str(e)}")
+
+            return {"msg": "failure", "error": str(e)}
+
+    
+
+    async def sync_orders(self) -> Dict[str, Any]:
+
+        """
+
+        Main orders sync process
+
+        """
+
+        logger.info("Starting orders sync...")
+
+        
+
+        try:
+
+            # Get enabled stores
+
+            enabled_stores = config_settings.get_enabled_stores()
+
+            if not enabled_stores:
+
+                logger.warning("No enabled stores found")
+
+                return {"msg": "failure", "error": "No enabled stores found"}
+
+            
+
+            total_processed = 0
+
+            total_success = 0
+
+            total_errors = 0
+
+            
+
+            # Process orders for each enabled store
+
+            for store_key, store_config in enabled_stores.items():
+
+                try:
+
+                    # Get orders from this store
+
+                    orders_result = await self.get_orders_from_shopify(store_key)
+
+                    if orders_result["msg"] == "failure":
+
+                        logger.error(f"Failed to get orders from store {store_key}: {orders_result.get('error')}")
+
+                        continue
+
+                    
+
+                    orders = orders_result["data"]
+
+                    if not orders:
+
+                        logger.info(f"No orders to process for store {store_key}")
+
+                        continue
+
+                    
+
+                    logger.info(f"Processing {len(orders)} orders from store {store_key}")
+
+                    
+
+                    # Process each order
+
+                    for shopify_order in orders:
+
+                        try:
+
+                            order_node = shopify_order["node"]
+                            order_id = order_node["id"]
+                            
+                            logger.info(f"Processing order {order_node.get('name', 'Unknown')} (ID: {order_id})")
+                            result = await self.process_order(store_key, shopify_order)
+
+                            
+
+                            if result["msg"] == "success":
+
+                                total_success += 1
+
+                                logger.info(f"✅ Processed order {result['order_name']} -> SAP Invoice: {result['sap_invoice_number']}")
+
+                                
+                                # Log additional payment and address information
+                                if result.get("is_online_payment"):
+                                    logger.info(f"   🔑 Payment ID: {result.get('payment_id', 'Unknown')}")
+                                
+                                logger.info(f"   💳 Gateway: {result.get('payment_gateway', 'Unknown')} | Amount: {result.get('payment_amount', 0.0)}")
+                                
+                                # Log address summary
+                                shipping_addr = result.get("shipping_address", {})
+                                if shipping_addr:
+                                    ship_to_summary = f"{shipping_addr.get('firstName', '')} {shipping_addr.get('lastName', '')} - {shipping_addr.get('city', '')}"
+                                    logger.info(f"   📍 Ship To: {ship_to_summary}")
+                                
+                                billing_addr = result.get("billing_address", {})
+                                if billing_addr:
+                                    bill_to_summary = f"{billing_addr.get('firstName', '')} {billing_addr.get('lastName', '')} - {billing_addr.get('city', '')}"
+                                    logger.info(f"   📍 Bill To: {bill_to_summary}")
+                                
+                            else:
+
+                                total_errors += 1
+
+                                logger.error(f"❌ Failed to process order: {result.get('error')}")
+
+                            
+
+                            total_processed += 1
+
+                            
+
+                        except Exception as e:
+
+                            total_errors += 1
+
+                            logger.error(f"Error processing order: {str(e)}")
+
+                            continue
+
+                    
+
+                except Exception as e:
+
+                    logger.error(f"Error processing store {store_key}: {str(e)}")
+
+                    continue
+
+            
+
+            # Log sync event
+
+            log_sync_event(
+
+                sync_type="sales_orders",
+
+                items_processed=total_processed,
+
+                success_count=total_success,
+
+                error_count=total_errors
+
+            )
+
+            
+
+            logger.info(f"Orders sync completed. Processed: {total_processed}, Success: {total_success}, Errors: {total_errors}")
+
+            
+
+            return {
+
+                "msg": "success",
+
+                "processed": total_processed,
+
+                "success": total_success,
+
+                "errors": total_errors
+
+            }
+
+            
+
+        except Exception as e:
+
+            logger.error(f"Error in orders sync: {str(e)}")
+
             return {"msg": "failure", "error": str(e)} 

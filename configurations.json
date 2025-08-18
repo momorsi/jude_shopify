@@ -53,13 +53,35 @@
         "bank_transfers": {
             "local": {
                 "Cash on Delivery (COD)": "10801245",
-                "Paymob": "10801247"
+                "Paymob": "10801236"
             },
             "international": {
                 "Network": "10801237"
             }
+        },
+        "freight_config": {
+            "local": {
+                "120": {
+                    "revenue": {"ExpenseCode": 4, "LineTotal": 30},
+                    "cost": {"ExpenseCode": 6, "LineTotal": 90}
+                },
+                "160": {
+                    "revenue": {"ExpenseCode": 4, "LineTotal": 60},
+                    "cost": {"ExpenseCode": 6, "LineTotal": 100}
+                },
+                "200": {
+                    "revenue": {"ExpenseCode": 4, "LineTotal": 80},
+                    "cost": {"ExpenseCode": 6, "LineTotal": 120}
+                }
+            },
+            "international": {
+                "dhl": {
+                    "ExpenseCode": 1,
+                    "LineTotal": 0
+                }
+            }
         }
-    },
+    },    
     "sync": {
         "new_items": {
             "enabled": true,
@@ -110,7 +132,7 @@
             }
         },
         "orders": {
-            "enabled": false,
+            "enabled": true,
             "interval_minutes": 5,
             "batch_size": 20,
             "statuses": ["open", "pending", "paid", "fulfilled"],
@@ -132,7 +154,7 @@
                 "batch_size": 50
             },
             "orders": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 5,
                 "batch_size": 20
             }
