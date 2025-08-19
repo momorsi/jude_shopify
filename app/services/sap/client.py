@@ -4,7 +4,8 @@ import asyncio
 from typing import Dict, Any, Optional, List
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.core.config import config_settings
-from app.utils.logging import logger, log_api_call
+from app.utils.logging import logger
+from app.services.sap.api_logger import sap_api_logger
 
 
 class SAPClient:
@@ -25,12 +26,6 @@ class SAPClient:
             headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
             url = f"{self.base_url}/Login"
             
-            log_api_call(
-                service="sap",
-                endpoint="login",
-                request_data={"company": config_settings.sap_company, "user": config_settings.sap_user}
-            )
-            
             async with httpx.AsyncClient(verify=False) as client:
                 response = await client.post(url=url, json=payload, headers=headers, timeout=self.timeout)
                 
@@ -38,23 +33,9 @@ class SAPClient:
                     self.session_token = response.cookies.get('B1SESSION', '')
                     self.session_time = datetime.datetime.now()
                     
-                    log_api_call(
-                        service="sap",
-                        endpoint="login",
-                        response_data={"status": "success"},
-                        status="success"
-                    )
-                    
                     logger.info("SAP login successful")
                     return True
                 else:
-                    log_api_call(
-                        service="sap",
-                        endpoint="login",
-                        response_data={"status": "failed", "status_code": response.status_code},
-                        status="failure"
-                    )
-                    
                     logger.error(f"SAP login failed: {response.status_code} - {response.text}")
                     return False
                     
@@ -73,7 +54,7 @@ class SAPClient:
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def _make_request(self, method: str, endpoint: str, data: Dict = None, 
-                           params: Dict = None, login_required: bool = True) -> Dict[str, Any]:
+                           params: Dict = None, login_required: bool = True, order_id: str = "") -> Dict[str, Any]:
         """Make HTTP request to SAP with automatic session management"""
         
         # Ensure we have a valid session
@@ -92,13 +73,20 @@ class SAPClient:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
         try:
-            # Skip logging for U_SHOPIFY_MAPPING_2 endpoint as requested by user
-            if endpoint != 'U_SHOPIFY_MAPPING_2':
-                log_api_call(
-                    service="sap",
-                    endpoint=endpoint,
-                    request_data={"method": method, "url": url, "data": data, "params": params}
-                )
+            # Skip logging for certain endpoints
+            skip_logging_endpoints = [
+                'U_SHOPIFY_MAPPING_2', 
+                'U_API_LOG',
+                'login',
+                'BusinessPartners'  # Skip GET business partner calls
+            ]
+            
+            # Only log if not in skip list and not a GET request to BusinessPartners
+            should_log = (endpoint not in skip_logging_endpoints and 
+                         not (method.upper() == 'GET' and 'BusinessPartners' in endpoint))
+            
+            # Store request data for logging later with response
+            request_log_data = {"method": method, "url": url, "data": data, "params": params} if should_log else None
             
             async with httpx.AsyncClient(verify=False) as client:
                 if method.upper() == 'GET':
@@ -132,24 +120,28 @@ class SAPClient:
                         except:
                             response_data = response.text
                     
-                    # Skip logging for U_SHOPIFY_MAPPING_2 endpoint as requested by user
-                    if endpoint != 'U_SHOPIFY_MAPPING_2':
-                        log_api_call(
-                            service="sap",
+                    # Log success response with request data
+                    if should_log:
+                        await sap_api_logger.log_api_call(
+                            server="sap",
                             endpoint=endpoint,
+                            request_data=request_log_data,
                             response_data=response_data,
-                            status="success"
+                            status="success",
+                            order_id=order_id
                         )
                     
                     return {"msg": "success", "data": response_data}
                 else:
-                    # Skip logging for U_SHOPIFY_MAPPING_2 endpoint as requested by user
-                    if endpoint != 'U_SHOPIFY_MAPPING_2':
-                        log_api_call(
-                            service="sap",
+                    # Log failure response with request data
+                    if should_log:
+                        await sap_api_logger.log_api_call(
+                            server="sap",
                             endpoint=endpoint,
+                            request_data=request_log_data,
                             response_data={"status_code": response.status_code, "text": response.text},
-                            status="failure"
+                            status="failure",
+                            order_id=order_id
                         )
                     
                     return {"msg": "failure", "error": f"HTTP {response.status_code}: {response.text}"}

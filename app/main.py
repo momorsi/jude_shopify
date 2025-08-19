@@ -9,11 +9,10 @@ import argparse
 from typing import Dict, Any, List
 from app.sync.new_items_multi_store import MultiStoreNewItemsSync
 from app.sync.inventory import sync_stock_change_view
-from app.sync.master_data import sync_master_data
-from app.sync.orders import sync_orders
-from app.sync.gift_cards import GiftCardsSync
+
 from app.sync.sales.gift_cards_sync import GiftCardsSalesSync
 from app.sync.sales.orders_sync import OrdersSalesSync
+from app.sync.sales.payment_recovery import PaymentRecoverySync
 from app.sync.item_changes import item_changes_sync
 from app.sync.price_changes import price_changes_sync
 from app.utils.logging import logger
@@ -26,9 +25,9 @@ class ShopifySAPSync:
     
     def __init__(self):
         self.new_items_sync = MultiStoreNewItemsSync()
-        self.gift_cards_sync = GiftCardsSync()
         self.sales_gift_cards_sync = GiftCardsSalesSync()
         self.sales_orders_sync = OrdersSalesSync()
+        self.payment_recovery_sync = PaymentRecoverySync()
         self.running = False
     
     async def run_new_items_sync(self) -> Dict[str, Any]:
@@ -45,26 +44,7 @@ class ShopifySAPSync:
         logger.info("Starting stock change sync...")
         return await sync_stock_change_view()
     
-    async def run_master_data_sync(self) -> Dict[str, Any]:
-        """
-        Run master data sync (Shopify → SAP)
-        """
-        logger.info("Starting master data sync...")
-        return await sync_master_data()
-    
-    async def run_orders_sync(self) -> Dict[str, Any]:
-        """
-        Run orders sync (Shopify → SAP)
-        """
-        logger.info("Starting orders sync...")
-        return await sync_orders()
-    
-    async def run_gift_cards_sync(self) -> Dict[str, Any]:
-        """
-        Run gift cards sync (SAP → Shopify)
-        """
-        logger.info("Starting gift cards sync...")
-        return await self.gift_cards_sync.sync_gift_cards()
+
     
     async def run_sales_gift_cards_sync(self) -> Dict[str, Any]:
         """
@@ -79,6 +59,13 @@ class ShopifySAPSync:
         """
         logger.info("Starting sales orders sync...")
         return await self.sales_orders_sync.sync_orders()
+    
+    async def run_payment_recovery_sync(self) -> Dict[str, Any]:
+        """
+        Run payment recovery sync (SAP → Shopify → SAP)
+        """
+        logger.info("Starting payment recovery sync...")
+        return await self.payment_recovery_sync.sync_payment_recovery()
     
     async def run_item_changes_sync(self) -> Dict[str, Any]:
         """
@@ -117,12 +104,7 @@ class ShopifySAPSync:
         if config_settings.price_changes_enabled:
             results["price_changes"] = await self.run_price_changes_sync()
         
-        # Shopify → SAP syncs (check config)
-        if config_settings.master_data_enabled:
-            results["master_data"] = await self.run_master_data_sync()
-        
-        if config_settings.orders_enabled:
-            results["orders"] = await self.run_orders_sync()
+
         
         # Sales Module syncs
         if config_settings.sales_gift_cards_enabled:
@@ -152,16 +134,7 @@ class ShopifySAPSync:
                 "msg": "failure",
                 "error": "Stock change sync is disabled in configuration"
             }
-        elif sync_type == "master_data" and not config_settings.master_data_enabled:
-            return {
-                "msg": "failure",
-                "error": "Master data sync is disabled in configuration"
-            }
-        elif sync_type == "orders" and not config_settings.orders_enabled:
-            return {
-                "msg": "failure",
-                "error": "Orders sync is disabled in configuration"
-            }
+
         elif sync_type == "sales_gift_cards" and not config_settings.sales_gift_cards_enabled:
             return {
                 "msg": "failure",
@@ -178,11 +151,9 @@ class ShopifySAPSync:
             "stock": self.run_stock_change_sync,
             "item_changes": self.run_item_changes_sync,
             "price_changes": self.run_price_changes_sync,
-            "master_data": self.run_master_data_sync,
-            "orders": self.run_orders_sync,
-            "gift_cards": self.run_gift_cards_sync,
             "sales_gift_cards": self.run_sales_gift_cards_sync,
             "sales_orders": self.run_sales_orders_sync,
+            "payment_recovery": self.run_payment_recovery_sync,
             "all": self.run_all_syncs
         }
         
@@ -232,19 +203,7 @@ class ShopifySAPSync:
             tasks.append(price_changes_task)
             logger.info(f"Price changes sync scheduled to run every {config_settings.price_changes_interval} minutes")
         
-        if config_settings.master_data_enabled:
-            master_data_task = asyncio.create_task(
-                self._run_sync_with_interval("master_data", config_settings.master_data_interval)
-            )
-            tasks.append(master_data_task)
-            logger.info(f"Master data sync scheduled to run every {config_settings.master_data_interval} minutes")
-        
-        if config_settings.orders_enabled:
-            orders_task = asyncio.create_task(
-                self._run_sync_with_interval("orders", config_settings.orders_interval)
-            )
-            tasks.append(orders_task)
-            logger.info(f"Orders sync scheduled to run every {config_settings.orders_interval} minutes")
+
         
         # Sales Module continuous syncs
         if config_settings.sales_gift_cards_enabled:
@@ -314,7 +273,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "item_changes", "price_changes", "master_data", "orders", "gift_cards", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "sales_orders", "sales_gift_cards", "payment_recovery", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(
@@ -354,10 +313,7 @@ async def main():
                 print(f"🔄 Item Changes: Every {config_settings.item_changes_interval} minutes")
             if config_settings.price_changes_enabled:
                 print(f"💰 Price Changes: Every {config_settings.price_changes_interval} minutes")
-            if config_settings.master_data_enabled:
-                print(f"📋 Master Data: Every {config_settings.master_data_interval} minutes")
-            if config_settings.orders_enabled:
-                print(f"📦 Orders: Every {config_settings.orders_interval} minutes")
+
             
             print()
             await sync_controller.run_continuous_syncs()

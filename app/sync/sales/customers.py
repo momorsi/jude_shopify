@@ -17,7 +17,7 @@ class CustomerManager:
     """
     
     def __init__(self):
-        self.batch_size = config_settings.orders_batch_size
+        self.batch_size = config_settings.sales_orders_batch_size
     
     async def find_customer_by_phone(self, phone: str) -> Optional[Dict[str, Any]]:
         """

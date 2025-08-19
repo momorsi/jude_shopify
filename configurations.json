@@ -77,7 +77,7 @@
             "international": {
                 "dhl": {
                     "ExpenseCode": 1,
-                    "LineTotal": 0
+                    "LineTotal": 25
                 }
             }
         }
@@ -104,49 +104,7 @@
             "interval_minutes": 3,
             "batch_size": 50
         },
-        "master_data": {
-            "enabled": false,
-            "interval_minutes": 60,
-            "batch_size": 100,
-            "fields": {
-                "products": [
-                    "id",
-                    "title",
-                    "handle",
-                    "description",
-                    "vendor",
-                    "productType",
-                    "tags",
-                    "status",
-                    "variants"
-                ],
-                "variants": [
-                    "id",
-                    "sku",
-                    "price",
-                    "compareAtPrice",
-                    "inventoryQuantity",
-                    "inventoryPolicy",
-                    "inventoryManagement"
-                ]
-            }
-        },
-        "orders": {
-            "enabled": true,
-            "interval_minutes": 5,
-            "batch_size": 20,
-            "statuses": ["open", "pending", "paid", "fulfilled"],
-            "fields": [
-                "id",
-                "name",
-                "createdAt",
-                "totalPriceSet",
-                "lineItems",
-                "shippingAddress",
-                "billingAddress",
-                "customer"
-            ]
-        },
+
         "sales": {
             "gift_cards": {
                 "enabled": false,
@@ -157,6 +115,11 @@
                 "enabled": true,
                 "interval_minutes": 5,
                 "batch_size": 20
+            },
+            "payment_recovery": {
+                "enabled": true,
+                "interval_minutes": 15,
+                "batch_size": 50
             }
         }
     },

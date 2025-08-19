@@ -152,11 +152,36 @@ class OrdersSalesSync:
             }
             """
             
-            result = await multi_store_shopify_client.execute_query(
-                store_key,
-                query,
-                {"first": self.batch_size, "after": None}
-            )
+            # Add retry logic for GraphQL queries to handle rate limiting
+            max_retries = 3
+            retry_delay = 2  # Start with 2 seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    result = await multi_store_shopify_client.execute_query(
+                        store_key,
+                        query,
+                        {"first": self.batch_size, "after": None}
+                    )
+                    
+                    if result["msg"] == "success":
+                        break  # Success, exit retry loop
+                    else:
+                        logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
+                        
+                        if attempt < max_retries - 1:  # Don't sleep on last attempt
+                            logger.info(f"Retrying in {retry_delay} seconds...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            
+                except Exception as e:
+                    logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
             
             if result["msg"] == "failure":
                 return result
@@ -180,7 +205,10 @@ class OrdersSalesSync:
                 if not has_synced_metafield:
                     unsynced_orders.append(order)
             
-            logger.info(f"Retrieved {len(orders)} total orders, {len(unsynced_orders)} unsynced orders from Shopify store {store_key}")
+            # Take only the last 5 most recent orders
+            unsynced_orders = unsynced_orders[:5]
+            
+            logger.info(f"Retrieved {len(orders)} total orders, {len(unsynced_orders)} unsynced orders (limited to 5 most recent) from Shopify store {store_key}")
             
             return {"msg": "success", "data": unsynced_orders}
             
@@ -198,7 +226,11 @@ class OrdersSalesSync:
         """
         try:
             # Extract order data
+            
             order_node = shopify_order["node"]
+            order_id = order_node["id"]
+            # Extract just the numeric ID from the full GID (e.g., "6342714261570" from "gid://shopify/Order/6342714261570")
+            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
             order_name = order_node["name"]
             created_at = order_node["createdAt"]
             total_price = Decimal(order_node["totalPriceSet"]["shopMoney"]["amount"])
@@ -263,7 +295,8 @@ class OrdersSalesSync:
                 #"U_Shopify_Fulfillment_Status": fulfillment_status,
                 "SalesPersonCode": 28,
                 "DocumentLines": line_items,
-                "U_Pay_type": 1
+                "U_Pay_type": 1 if financial_status == "PAID" else 2 if store_key == "local" else 3,
+                "U_Shopify_Order_ID": order_id_number
             }
             
             # Add freight expenses if any
@@ -367,7 +400,7 @@ class OrdersSalesSync:
             logger.error(f"Error calculating freight expenses: {str(e)}")
             return []
     
-    async def create_invoice_in_sap(self, invoice_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_invoice_in_sap(self, invoice_data: Dict[str, Any], order_id: str = "") -> Dict[str, Any]:
         """
         Create invoice in SAP
         """
@@ -375,7 +408,8 @@ class OrdersSalesSync:
             result = await sap_client._make_request(
                 method='POST',
                 endpoint='Invoices',
-                data=invoice_data
+                data=invoice_data,
+                order_id=order_id
             )
             
             if result["msg"] == "failure":
@@ -606,7 +640,7 @@ class OrdersSalesSync:
         logger.warning(f"Could not determine payment type for source: {source_name}, identifier: {source_identifier}")
         return "PaidOnline"
 
-    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any], order_id: str = "") -> Dict[str, Any]:
         """
         Create incoming payment in SAP
         """
@@ -614,7 +648,8 @@ class OrdersSalesSync:
             result = await sap_client._make_request(
                 method='POST',
                 endpoint='IncomingPayments',
-                data=payment_data
+                data=payment_data,
+                order_id=order_id
             )
             
             if result["msg"] == "failure":
@@ -638,6 +673,25 @@ class OrdersSalesSync:
             return {"msg": "failure", "error": str(e)}
 
 
+
+    async def _handle_order_failure(self, store_key: str, order_id: str, order_name: str, error_msg: str) -> Dict[str, Any]:
+        """
+        Helper method to handle order processing failures and update metafield
+        """
+        logger.error(f"Failed to process order {order_name}: {error_msg}")
+        
+        # Update order metafield to "failed"
+        try:
+            await self.update_order_metafield(
+                store_key,
+                order_id,
+                "failed"
+            )
+            logger.info(f"Updated order {order_name} metafield to 'failed'")
+        except Exception as metafield_error:
+            logger.warning(f"Failed to update failed metafield for order {order_name}: {str(metafield_error)}")
+        
+        return {"msg": "failure", "error": error_msg}
 
     async def update_order_metafield(self, store_key: str, order_id: str, status: str) -> Dict[str, Any]:
         """
@@ -794,8 +848,11 @@ class OrdersSalesSync:
                 logger.error(f"Failed to map order {order_name} to SAP format")
                 return {"msg": "failure", "error": "Failed to map order to SAP format"}
             
+            # Extract numeric order ID for logging
+            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
+            
             # Create invoice in SAP
-            invoice_result = await self.create_invoice_in_sap(sap_invoice_data)
+            invoice_result = await self.create_invoice_in_sap(sap_invoice_data, order_id_number)
             if invoice_result["msg"] == "failure":
                 return invoice_result
             
@@ -821,7 +878,7 @@ class OrdersSalesSync:
                 )
                 
                 # Create incoming payment in SAP
-                payment_result = await self.create_incoming_payment_in_sap(payment_data)
+                payment_result = await self.create_incoming_payment_in_sap(payment_data, order_id_number)
                 if payment_result["msg"] == "success":
                     sap_payment_number = payment_result["sap_payment_number"]
                     logger.info(f"Successfully created incoming payment: {sap_payment_number}")
@@ -1091,7 +1148,7 @@ class OrdersSalesSync:
 
 
 
-    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any], order_id: str = "") -> Dict[str, Any]:
 
         """
 
@@ -1107,7 +1164,9 @@ class OrdersSalesSync:
 
                 endpoint='IncomingPayments',
 
-                data=payment_data
+                data=payment_data,
+
+                order_id=order_id
 
             )
 
@@ -1309,9 +1368,7 @@ class OrdersSalesSync:
 
             if not customer:
 
-                logger.warning(f"No customer found for order {order_name}")
-
-                return {"msg": "failure", "error": "No customer found"}
+                return await self._handle_order_failure(store_key, order_id, order_name, "No customer found")
 
             
 
@@ -1324,9 +1381,7 @@ class OrdersSalesSync:
                 phone = shipping_phone or billing_phone
             if not phone:
 
-                logger.warning(f"No phone number found for customer in order {order_name}")
-
-                return {"msg": "failure", "error": "No phone number found for customer"}
+                return await self._handle_order_failure(store_key, order_id, order_name, "No phone number found for customer")
 
             
 
@@ -1352,9 +1407,7 @@ class OrdersSalesSync:
 
             if not sap_customer:
 
-                    logger.error(f"Failed to create customer for order {order_name}")
-
-                    return {"msg": "failure", "error": "Failed to create customer"}
+                    return await self._handle_order_failure(store_key, order_id, order_name, "Failed to create customer")
 
             
 
@@ -1363,19 +1416,19 @@ class OrdersSalesSync:
             sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key)
             if not sap_invoice_data:
 
-                logger.error(f"Failed to map order {order_name} to SAP format")
-
-                return {"msg": "failure", "error": "Failed to map order to SAP format"}
+                return await self._handle_order_failure(store_key, order_id, order_name, "Failed to map order to SAP format")
 
             
 
+            # Extract numeric order ID for logging
+            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
+            
             # Create invoice in SAP
-
-            invoice_result = await self.create_invoice_in_sap(sap_invoice_data)
+            invoice_result = await self.create_invoice_in_sap(sap_invoice_data, order_id_number)
 
             if invoice_result["msg"] == "failure":
 
-                return invoice_result
+                return await self._handle_order_failure(store_key, order_id, order_name, invoice_result.get("error", "Failed to create invoice in SAP"))
 
             # Build created invoice data to include DocEntry for payment linkage
             created_invoice_data = {
@@ -1410,8 +1463,7 @@ class OrdersSalesSync:
                 
 
                 # Create incoming payment in SAP
-
-                payment_result = await self.create_incoming_payment_in_sap(payment_data)
+                payment_result = await self.create_incoming_payment_in_sap(payment_data, order_id_number)
 
                 if payment_result["msg"] == "success":
 
@@ -1431,7 +1483,7 @@ class OrdersSalesSync:
 
             
 
-            # Update order metafield in Shopify
+            # Update order metafield in Shopify to "synced" since we successfully processed it
             metafield_update_result = await self.update_order_metafield(
                 store_key,
 
@@ -1476,9 +1528,7 @@ class OrdersSalesSync:
 
         except Exception as e:
 
-            logger.error(f"Error processing order {order_name}: {str(e)}")
-
-            return {"msg": "failure", "error": str(e)}
+            return await self._handle_order_failure(store_key, order_id, order_name, str(e))
 
     
 

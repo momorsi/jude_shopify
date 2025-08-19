@@ -175,13 +175,7 @@ class ConfigSettings(BaseSettings):
     price_changes_interval: int = config_data['sync']['price_changes']['interval_minutes']
     price_changes_batch_size: int = config_data['sync']['price_changes']['batch_size']
     
-    master_data_enabled: bool = config_data['sync']['master_data']['enabled']
-    master_data_interval: int = config_data['sync']['master_data']['interval_minutes']
-    master_data_batch_size: int = config_data['sync']['master_data']['batch_size']
-    
-    orders_enabled: bool = config_data['sync']['orders']['enabled']
-    orders_interval: int = config_data['sync']['orders']['interval_minutes']
-    orders_batch_size: int = config_data['sync']['orders']['batch_size']
+
     
     # Sales Module Settings
     sales_gift_cards_enabled: bool = config_data['sync']['sales']['gift_cards']['enabled']
@@ -191,6 +185,10 @@ class ConfigSettings(BaseSettings):
     sales_orders_enabled: bool = config_data['sync']['sales']['orders']['enabled']
     sales_orders_interval: int = config_data['sync']['sales']['orders']['interval_minutes']
     sales_orders_batch_size: int = config_data['sync']['sales']['orders']['batch_size']
+    
+    payment_recovery_enabled: bool = config_data['sync']['sales']['payment_recovery']['enabled']
+    payment_recovery_interval: int = config_data['sync']['sales']['payment_recovery']['interval_minutes']
+    payment_recovery_batch_size: int = config_data['sync']['sales']['payment_recovery']['batch_size']
     
     # Logging Settings
     log_level: str = config_data['logging']['level']

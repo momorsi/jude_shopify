@@ -36,11 +36,7 @@ async def run_all_enabled_syncs():
     enabled_syncs.append("new_items")
     enabled_syncs.append("stock")
     
-    if config_settings.master_data_enabled:
-        enabled_syncs.append("master_data")
-    
-    if config_settings.orders_enabled:
-        enabled_syncs.append("orders")
+
     
     # Gift cards not in config yet, so we'll skip for now
     # if config_settings.gift_cards_enabled:

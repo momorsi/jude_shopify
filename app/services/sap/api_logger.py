@@ -18,7 +18,8 @@ class SAPAPILogger:
                           status: str = "success",
                           reference: str = "",
                           action: str = "",
-                          value: str = "") -> bool:
+                          value: str = "",
+                          order_id: str = "") -> bool:
         """
         Log API call to SAP table similar to sl_add_log function from reference project
         
@@ -42,6 +43,14 @@ class SAPAPILogger:
             truncated_reference = str(reference)[:60] if reference else ""
             truncated_status = str(status)[:20] if status else ""
             
+            # Add order ID to reference if provided
+            final_reference = truncated_reference
+            if order_id:
+                if final_reference:
+                    final_reference = f"{final_reference} | Order: {order_id}"
+                else:
+                    final_reference = f"Order: {order_id}"
+            
             # Prepare the log data with truncated fields
             log_data = {
                 'U_Server': truncated_server,
@@ -49,7 +58,7 @@ class SAPAPILogger:
                 'U_Request': json.dumps(request_data) if request_data else "",
                 'U_Response': json.dumps(response_data) if response_data else "",
                 'U_Status': truncated_status,
-                'U_Reference': truncated_reference,
+                'U_Reference': final_reference[:60],  # Truncate to 60 chars
                 'U_LogDate': datetime.datetime.now().strftime('%Y-%m-%d'),
                 'U_LogTime': datetime.datetime.now().strftime('%H%M'),
                 'U_Action': truncated_action,
@@ -114,7 +123,7 @@ sap_api_logger = SAPAPILogger()
 # Convenience functions for backward compatibility with reference project style
 async def sl_add_log(server: str, endpoint: str, request_data: Dict[str, Any] = None,
                     response_data: Dict[str, Any] = None, status: str = "success",
-                    reference: str = "", action: str = "", value: str = "") -> bool:
+                    reference: str = "", action: str = "", value: str = "", order_id: str = "") -> bool:
     """Convenience function that matches the reference project's sl_add_log signature"""
     return await sap_api_logger.log_api_call(
         server=server,
@@ -124,7 +133,8 @@ async def sl_add_log(server: str, endpoint: str, request_data: Dict[str, Any] = 
         status=status,
         reference=reference,
         action=action,
-        value=value
+        value=value,
+        order_id=order_id
     )
 
 async def sl_add_sync(sync_code: int, sync_date: str = None, sync_time: str = None) -> bool:
