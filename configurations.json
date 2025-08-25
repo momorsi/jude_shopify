@@ -114,7 +114,7 @@
             "orders": {
                 "enabled": true,
                 "interval_minutes": 5,
-                "batch_size": 20
+                "batch_size": 5
             },
             "payment_recovery": {
                 "enabled": true,

@@ -168,6 +168,7 @@ class CustomerManager:
             "Series": 87,
             "GroupCode": 110,
             "Phone1": phone,
+            "Cellular": phone,
             "Currency": "EGP"
         }
         
