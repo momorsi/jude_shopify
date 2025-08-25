@@ -230,6 +230,10 @@ class SAPClient:
         """Add a mapping row to the SAP Shopify mapping table."""
         return await self._make_request('POST', 'U_SHOPIFY_MAPPING_2', data=mapping_data)
 
+    async def create_gift_card(self, gift_card_data: dict) -> dict:
+        """Create a gift card entry in SAP."""
+        return await self._make_request('POST', 'GiftCards', data=gift_card_data)
+
 # Create singleton instance
 sap_client = SAPClient() 
 

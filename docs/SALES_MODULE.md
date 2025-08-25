@@ -34,7 +34,7 @@ Update your `configurations.json` to enable the sales module:
 {
     "sync": {
         "sales": {
-            "gift_cards": {
+            
                 "enabled": true,
                 "interval_minutes": 30,
                 "batch_size": 50
@@ -69,7 +69,7 @@ Update your `configurations.json` to enable the sales module:
 
 ```bash
 # Run gift cards sync only
-python -m app.main --sync sales_gift_cards
+python -m app.main --sync sales_orders
 
 # Run orders sync only
 python -m app.main --sync sales_orders
@@ -88,29 +88,30 @@ python -m app.main --continuous
 ### Programmatic Usage
 
 ```python
-from app.sync.sales import GiftCardsSalesSync, OrdersSalesSync
+from app.sync.sales import OrdersSalesSync
 
 # Initialize sync classes
-gift_cards_sync = GiftCardsSalesSync()
 orders_sync = OrdersSalesSync()
 
 # Run syncs
-gift_cards_result = await gift_cards_sync.sync_gift_cards()
 orders_result = await orders_sync.sync_orders()
 ```
 
 ## SAP Requirements
 
-### Gift Cards Sync
+### Gift Cards Processing
 
-SAP Items table should have the following custom fields:
-- `U_IsGiftCard`: Set to 'Y' for gift card items
-- `U_GiftCardDescription`: Description for the gift card
-- `U_Category`: Gift card category
-- `U_Occasion`: Occasion type
-- `U_Theme`: Theme type
-- `U_Value`: Value type
-- `U_Design`: Design type
+The Orders Sync handles gift card processing within the order flow:
+
+**For Gift Card Purchases:**
+- Creates entries in SAP's `GiftCards` entity using real Shopify gift card IDs
+- Populates `U_GiftCard` field on invoice line items
+- Checks for existing gift cards to prevent duplicates
+
+**For Gift Card Redemptions:**
+- Adds expense entries with negative amounts
+- Includes gift card ID in `U_GiftCard` field
+- Uses expense code 3 for gift card redemptions
 
 ### Orders Sync
 
@@ -132,12 +133,13 @@ SAP should have:
 
 ## Shopify Requirements
 
-### Gift Cards Sync
+### Gift Cards Processing
 
-Shopify stores should have:
-- Proper location IDs configured
-- Price lists configured for multi-store pricing
-- API access with product creation permissions
+The Orders Sync handles gift card processing automatically:
+- Detects gift card purchases by SKU patterns
+- Queries Shopify Gift Cards API for real gift card IDs
+- Matches gift cards by amount for proper association
+- Handles both purchases and redemptions within order flow
 
 ### Orders Sync
 
@@ -167,14 +169,21 @@ The Sales Module includes intelligent customer management:
 - Maintains bidirectional relationship
 - Tracks sync status and timestamps
 
-## Gift Card Redemption Handling
+## Gift Card Processing
 
-The Orders Sync handles gift card redemptions by:
+The Orders Sync handles both gift card purchases and redemptions:
 
-1. **Identifying Redemptions**: Detects discount applications that are gift card redemptions
-2. **Creating Redemption Lines**: Adds special line items for gift card redemptions
-3. **Negative Pricing**: Applies negative amounts to reflect the discount
-4. **Tracking**: Marks redemption lines for reporting and reconciliation
+### Gift Card Purchases
+1. **Detection**: Identifies gift card items by SKU patterns
+2. **Real ID Extraction**: Queries Shopify Gift Cards API for actual gift card IDs
+3. **SAP Creation**: Creates entries in SAP's `GiftCards` entity
+4. **Line Item Association**: Populates `U_GiftCard` field on invoice lines
+
+### Gift Card Redemptions
+1. **Detection**: Identifies gift card discount applications
+2. **Expense Creation**: Adds expense entries with negative amounts
+3. **Gift Card Tracking**: Includes gift card ID in expense entries
+4. **Reconciliation**: Enables proper tracking and reporting
 
 ## Freight Calculation
 

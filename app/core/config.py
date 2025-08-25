@@ -178,9 +178,7 @@ class ConfigSettings(BaseSettings):
 
     
     # Sales Module Settings
-    sales_gift_cards_enabled: bool = config_data['sync']['sales']['gift_cards']['enabled']
-    sales_gift_cards_interval: int = config_data['sync']['sales']['gift_cards']['interval_minutes']
-    sales_gift_cards_batch_size: int = config_data['sync']['sales']['gift_cards']['batch_size']
+    
     
     sales_orders_enabled: bool = config_data['sync']['sales']['orders']['enabled']
     sales_orders_interval: int = config_data['sync']['sales']['orders']['interval_minutes']

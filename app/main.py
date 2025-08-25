@@ -10,7 +10,7 @@ from typing import Dict, Any, List
 from app.sync.new_items_multi_store import MultiStoreNewItemsSync
 from app.sync.inventory import sync_stock_change_view
 
-from app.sync.sales.gift_cards_sync import GiftCardsSalesSync
+
 from app.sync.sales.orders_sync import OrdersSalesSync
 from app.sync.sales.payment_recovery import PaymentRecoverySync
 from app.sync.item_changes import item_changes_sync
@@ -25,7 +25,7 @@ class ShopifySAPSync:
     
     def __init__(self):
         self.new_items_sync = MultiStoreNewItemsSync()
-        self.sales_gift_cards_sync = GiftCardsSalesSync()
+
         self.sales_orders_sync = OrdersSalesSync()
         self.payment_recovery_sync = PaymentRecoverySync()
         self.running = False
@@ -46,12 +46,7 @@ class ShopifySAPSync:
     
 
     
-    async def run_sales_gift_cards_sync(self) -> Dict[str, Any]:
-        """
-        Run sales gift cards sync (SAP → Shopify)
-        """
-        logger.info("Starting sales gift cards sync...")
-        return await self.sales_gift_cards_sync.sync_gift_cards()
+
     
     async def run_sales_orders_sync(self) -> Dict[str, Any]:
         """
@@ -107,8 +102,6 @@ class ShopifySAPSync:
 
         
         # Sales Module syncs
-        if config_settings.sales_gift_cards_enabled:
-            results["sales_gift_cards"] = await self.run_sales_gift_cards_sync()
         
         if config_settings.sales_orders_enabled:
             results["sales_orders"] = await self.run_sales_orders_sync()
@@ -135,11 +128,7 @@ class ShopifySAPSync:
                 "error": "Stock change sync is disabled in configuration"
             }
 
-        elif sync_type == "sales_gift_cards" and not config_settings.sales_gift_cards_enabled:
-            return {
-                "msg": "failure",
-                "error": "Sales gift cards sync is disabled in configuration"
-            }
+
         elif sync_type == "sales_orders" and not config_settings.sales_orders_enabled:
             return {
                 "msg": "failure",
@@ -151,7 +140,7 @@ class ShopifySAPSync:
             "stock": self.run_stock_change_sync,
             "item_changes": self.run_item_changes_sync,
             "price_changes": self.run_price_changes_sync,
-            "sales_gift_cards": self.run_sales_gift_cards_sync,
+    
             "sales_orders": self.run_sales_orders_sync,
             "payment_recovery": self.run_payment_recovery_sync,
             "all": self.run_all_syncs
@@ -206,12 +195,6 @@ class ShopifySAPSync:
 
         
         # Sales Module continuous syncs
-        if config_settings.sales_gift_cards_enabled:
-            sales_gift_cards_task = asyncio.create_task(
-                self._run_sync_with_interval("sales_gift_cards", config_settings.sales_gift_cards_interval)
-            )
-            tasks.append(sales_gift_cards_task)
-            logger.info(f"Sales gift cards sync scheduled to run every {config_settings.sales_gift_cards_interval} minutes")
         
         if config_settings.sales_orders_enabled:
             sales_orders_task = asyncio.create_task(
@@ -273,7 +256,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "item_changes", "price_changes", "sales_orders", "sales_gift_cards", "payment_recovery", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "sales_orders", "payment_recovery", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(

@@ -272,7 +272,7 @@ class OrdersSalesSync:
     
 
     
-    def map_shopify_order_to_sap(self, shopify_order: Dict[str, Any], customer_card_code: str, store_key: str) -> Dict[str, Any]:
+    def map_shopify_order_to_sap(self, shopify_order: Dict[str, Any], customer_card_code: str, store_key: str, created_gift_cards: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Map Shopify order data to SAP invoice format
         """
@@ -309,10 +309,13 @@ class OrdersSalesSync:
                     price = Decimal("0.00")
                 
                 # Use the actual SKU as item code, or a default if not available
+                # Check line item SKU first, then variant SKU
                 if sku:
-                    item_code = sku  # Use the actual SKU from Shopify
+                    item_code = sku  # Use the actual SKU from Shopify line item
+                elif item.get("variant") and item["variant"].get("sku"):
+                    item_code = item["variant"]["sku"]  # Use variant SKU if line item SKU is empty
                 else:
-                    item_code = "ACC-0000001"  # Default item only if no SKU
+                    item_code = "ACC-0000001"  # Default item only if no SKU available
                 
                 # Get warehouse code based on order location
                 warehouse_code = config_settings.get_warehouse_code_for_order(store_key, order_node)
@@ -341,28 +344,36 @@ class OrdersSalesSync:
                         line_item["DiscountPercent"] = (total_item_discount / (float(price) * quantity)) * 100
                         line_item["U_ItemDiscountAmount"] = total_item_discount
                 
+                # Check if this is a gift card line item and add U_GiftCard field
+                if created_gift_cards:
+                    # Calculate line total for this item
+                    line_total = float(price) * quantity
+                    
+                    for gift_card_info in created_gift_cards:
+                        # Match by amount (line total) to ensure correct gift card association
+                        if abs(gift_card_info.get("amount", 0) - line_total) < 0.01:  # Use small tolerance for floating point comparison
+                            # This is a gift card line item, add the gift card ID
+                            line_item["U_GiftCard"] = gift_card_info.get("gift_card_id")
+                            logger.info(f"Added U_GiftCard field to line item: {gift_card_info.get('gift_card_id')} for amount: {line_total}")
+                            break
+                
                 line_items.append(line_item)
             
-            # Add gift card lines if any gift cards were used
+            # Add gift card expense entries if any gift cards were used
             payment_info = self._extract_payment_info(order_node)
+            gift_card_expenses = []
             if payment_info.get("gift_cards"):
                 for gift_card in payment_info["gift_cards"]:
-                    gift_card_line = {
-                        "ItemCode": "GIFT_CARD_REDEMPTION",  # You'll need to create this item in SAP
-                        "Quantity": 1,
-                        "UnitPrice": -float(gift_card["amount"]),  # Negative amount
-                        "LineTotal": -float(gift_card["amount"]),
-                        "U_GiftCardLastChars": gift_card["last_characters"],
-                        "U_GiftCardID": gift_card["gift_card_id"],
-                        "U_IsGiftCardRedemption": "Y",
-                        "COGSCostingCode": "ONL",
-                        "COGSCostingCode2": "SAL",
-                        "COGSCostingCode3": "OnlineS",
-                        "CostingCode": "ONL",
-                        "CostingCode2": "SAL",
-                        "CostingCode3": "OnlineS"
+                    gift_card_expense = {
+                        "ExpenseCode": 2,  # Gift card expense code
+                        "LineTotal": -float(gift_card["amount"]),  # Negative amount
+                        "Remarks": f"Gift Card: {gift_card['last_characters']}",
+                        "U_GiftCard": gift_card["gift_card_id"],  # Add gift card ID to expense entry
+                        "DistributionRule": "ONL",                                               
+                        "DistributionRule2": "SAL",                                               
+                        "DistributionRule3": "OnlineS"   
                     }
-                    line_items.append(gift_card_line)
+                    gift_card_expenses.append(gift_card_expense)
             
             # Parse date
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
@@ -377,35 +388,8 @@ class OrdersSalesSync:
             delivery_address = self._generate_address_string(shipping_address)
             billing_address_str = self._generate_address_string(billing_address)
             
-            # Extract courier information for U_OrderType from metafields
-            courier_metafield = None
-            for metafield_edge in order_node.get("metafields", {}).get("edges", []):
-                metafield = metafield_edge["node"]
-                if metafield["namespace"] == "custom" and metafield["key"] == "courier":
-                    courier_metafield = metafield["value"]
-                    break
-            
-            # Extract first character from courier value for U_OrderType
-            order_type = ""
-            if courier_metafield and isinstance(courier_metafield, str) and courier_metafield.strip():
-                courier_value = courier_metafield.strip()
-                
-                # Handle JSON array format like ["4 - Tuyingo"]
-                if courier_value.startswith("[") and courier_value.endswith("]"):
-                    try:
-                        import json
-                        courier_array = json.loads(courier_value)
-                        if courier_array and len(courier_array) > 0:
-                            # Extract first character from first element
-                            first_element = str(courier_array[0])
-                            if first_element and first_element.strip():
-                                order_type = first_element.strip()[0]
-                    except (json.JSONDecodeError, IndexError):
-                        # Fallback to original logic if JSON parsing fails
-                        order_type = courier_value[0]
-                else:
-                    # Handle simple string format
-                    order_type = courier_value[0]
+            # Determine U_OrderType based on order characteristics
+            order_type = self._determine_order_type(order_node)
             
             # Create invoice data
             invoice_data = {
@@ -431,11 +415,319 @@ class OrdersSalesSync:
             if freight_expenses:
                 invoice_data["DocumentAdditionalExpenses"] = freight_expenses
             
+            # Add gift card expenses if any
+            if gift_card_expenses:
+                if "DocumentAdditionalExpenses" not in invoice_data:
+                    invoice_data["DocumentAdditionalExpenses"] = []
+                invoice_data["DocumentAdditionalExpenses"].extend(gift_card_expenses)
+            
             return invoice_data
             
         except Exception as e:
             logger.error(f"Error mapping order to SAP format: {str(e)}")
             raise
+
+    def _extract_courier_info(self, order_node: Dict[str, Any]) -> str:
+        """
+        Extract courier information for U_OrderType from metafields
+        """
+        courier_metafield = None
+        for metafield_edge in order_node.get("metafields", {}).get("edges", []):
+            metafield = metafield_edge["node"]
+            if metafield["namespace"] == "custom" and metafield["key"] == "courier":
+                courier_metafield = metafield["value"]
+                break
+        
+        # Extract first character from courier value for U_OrderType
+        order_type = ""
+        if courier_metafield and isinstance(courier_metafield, str) and courier_metafield.strip():
+            courier_value = courier_metafield.strip()
+            
+            # Handle JSON array format like ["4 - Tuyingo"]
+            if courier_value.startswith("[") and courier_value.endswith("]"):
+                try:
+                    import json
+                    courier_array = json.loads(courier_value)
+                    if courier_array and len(courier_array) > 0:
+                        # Extract first character from first element
+                        first_element = str(courier_array[0])
+                        if first_element and first_element.strip():
+                            order_type = first_element.strip()[0]
+                except (json.JSONDecodeError, IndexError):
+                    # Fallback to original logic if JSON parsing fails
+                    order_type = courier_value[0]
+            else:
+                # Handle simple string format
+                order_type = courier_value[0]
+        
+        return order_type
+
+    def _determine_order_type(self, order_node: Dict[str, Any]) -> str:
+        """
+        Determine U_OrderType based on order characteristics:
+        - "1" for gift card purchases or pickup orders (no shipping)
+        - Courier metafield first character for regular orders
+        """
+        # Check if this is a gift card purchase order
+        line_items = order_node.get("lineItems", {}).get("edges", [])
+        for item_edge in line_items:
+            item = item_edge["node"]
+            # Check SKU from line item first, then from variant
+            sku = (item.get('sku') or '').lower()
+            variant_sku = (item.get('variant', {}).get('sku') or '').lower()
+            name = (item.get('name') or '').lower()
+            
+            # Check for gift card patterns in line item SKU, variant SKU, or name
+            if ('gift' in sku or 'gift' in name or 'card' in sku or 'card' in name or
+                'gift' in variant_sku or 'card' in variant_sku):
+                return "1"
+        
+        # Check if this is a pickup order (no shipping address)
+        shipping_address = order_node.get("shippingAddress")
+        if not shipping_address or not shipping_address.get("address1"):
+            return "1"
+        
+        # For regular orders, use courier metafield
+        return self._extract_courier_info(order_node)
+
+    def _detect_gift_card_purchases(self, order_node: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Detect gift card purchases in the order and return gift card details
+        """
+        gift_cards = []
+        line_items = order_node.get("lineItems", {}).get("edges", [])
+        
+        for item_edge in line_items:
+            item = item_edge["node"]
+            # Check SKU from line item first, then from variant
+            sku = (item.get('sku') or '').lower()
+            variant_sku = (item.get('variant', {}).get('sku') or '').lower()
+            name = (item.get('name') or '').lower()
+            
+            # Check for gift card patterns in line item SKU, variant SKU, or name
+            if ('gift' in sku or 'gift' in name or 'card' in sku or 'card' in name or
+                'gift' in variant_sku or 'card' in variant_sku):
+                # Calculate line total
+                quantity = item["quantity"]
+                if item.get("discountedUnitPriceSet") and item["discountedUnitPriceSet"].get("shopMoney"):
+                    price = Decimal(item["discountedUnitPriceSet"]["shopMoney"]["amount"])
+                elif item.get("variant") and item["variant"].get("price"):
+                    price = Decimal(item["variant"]["price"])
+                else:
+                    price = Decimal("0.00")
+                
+                line_total = float(price * quantity)
+                
+                # Use variant SKU if line item SKU is empty
+                final_sku = item.get("sku") or item.get("variant", {}).get("sku", "")
+                
+                gift_card_info = {
+                    "sku": final_sku,
+                    "name": item.get("name", ""),
+                    "quantity": quantity,
+                    "unit_price": float(price),
+                    "line_total": line_total,
+                    "variant_id": item.get("variant", {}).get("id", ""),
+                    "product_id": item.get("variant", {}).get("product", {}).get("id", "")
+                }
+                gift_cards.append(gift_card_info)
+        
+        return gift_cards
+
+    async def _get_gift_cards_for_order(self, order_id: str, order_created_at: str) -> List[Dict[str, Any]]:
+        """
+        Query Shopify Gift Cards API to get gift cards created for this order
+        """
+        try:
+            order_date = order_created_at.split("T")[0] if "T" in order_created_at else order_created_at
+            query = """
+            query getGiftCards($query: String!) {
+                giftCards(first: 50, query: $query) {
+                    edges {
+                        node {
+                            id   
+                            order {
+                                id
+                            }     
+                            initialValue {
+                                amount
+                                currencyCode
+                            }
+                            createdAt
+                            expiresOn
+                            customer {
+                                id
+                                email
+                            }
+                        }
+                    }
+                }
+            }
+            """
+            query_string = f"createdAt:>={order_date}"
+            
+            # Add retry logic for GraphQL queries
+            max_retries = 3
+            retry_delay = 2
+            
+            for attempt in range(max_retries):
+                try:
+                    result = await multi_store_shopify_client.execute_query("local", query, {"query": query_string})
+                    
+                    if result["msg"] == "success":
+                        break  # Success, exit retry loop
+                    else:
+                        logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
+                        
+                        if attempt < max_retries - 1:  # Don't sleep on last attempt
+                            logger.info(f"Retrying in {retry_delay} seconds...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            
+                except Exception as e:
+                    logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
+            
+            if result["msg"] == "failure":
+                logger.error(f"Failed to query gift cards: {result.get('error')}")
+                return []
+            
+            gift_cards = []
+            for edge in result["data"]["giftCards"]["edges"]:
+                gift_card = edge["node"]
+                # Check if this gift card belongs to our order
+                order_info = gift_card.get("order", {})
+                if order_info.get("id") == f"gid://shopify/Order/{order_id}":
+                    gift_cards.append({
+                        "id": gift_card["id"],
+                        "order_id": order_id,
+                        "initial_value": float(gift_card["initialValue"]["amount"]),
+                        "currency": gift_card["initialValue"]["currencyCode"],
+                        "created_at": gift_card["createdAt"],
+                        "expires_on": gift_card.get("expiresOn"),
+                        "customer_email": gift_card.get("customer", {}).get("email", "")
+                    })
+            
+            logger.info(f"Found {len(gift_cards)} gift cards for order {order_id}")
+            return gift_cards
+            
+        except Exception as e:
+            logger.error(f"Error querying gift cards: {str(e)}")
+            return []
+
+    async def _create_gift_cards_in_sap(self, gift_cards: List[Dict[str, Any]], order_date: str, customer_card_code: str, order_name: str, order_id: str, order_created_at: str, shopify_gift_cards: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Create gift card entries in SAP for gift card purchases using actual gift card IDs from Shopify
+        """
+        created_gift_cards = []
+        
+        # If shopify_gift_cards not provided, query them
+        if shopify_gift_cards is None:
+            shopify_gift_cards = await self._get_gift_cards_for_order(order_id, order_created_at)
+        
+        if not shopify_gift_cards:
+            logger.warning(f"No gift cards found in Shopify for order {order_id}")
+            return []
+        
+        for gift_card in gift_cards:
+            try:
+                # Find matching Shopify gift card by amount
+                matching_shopify_gift_card = None
+                for shopify_gc in shopify_gift_cards:
+                    if abs(shopify_gc["initial_value"] - gift_card["line_total"]) < 0.01:
+                        matching_shopify_gift_card = shopify_gc
+                        break
+                
+                if not matching_shopify_gift_card:
+                    logger.warning(f"No matching gift card found in Shopify for amount {gift_card['line_total']}")
+                    continue
+                
+                # Use the actual Shopify gift card ID
+                shopify_gift_card_id = matching_shopify_gift_card["id"]
+                numeric_id = shopify_gift_card_id.split("/")[-1] if "/" in shopify_gift_card_id else shopify_gift_card_id
+                
+                # Check if gift card already exists in SAP
+                existing_gift_card = await self._check_gift_card_exists_in_sap(numeric_id)
+                
+                if existing_gift_card:
+                    # Gift card already exists, use it
+                    logger.info(f"Gift card {numeric_id} already exists in SAP, using existing record")
+                    created_gift_cards.append({
+                        "gift_card_id": numeric_id,
+                        "amount": gift_card["line_total"],
+                        "sku": gift_card["sku"],
+                        "sap_result": {"msg": "success", "existing": True}
+                    })
+                else:
+                    # Gift card doesn't exist, create it
+                    # Calculate expiration date (1 year from order date)
+                    from datetime import datetime, timedelta
+                    order_datetime = datetime.strptime(order_date, "%Y-%m-%d")
+                    expiration_date = order_datetime + timedelta(days=365)
+                    expiration_date_str = expiration_date.strftime("%Y-%m-%d")
+                    
+                    gift_card_data = {
+                        "Code": numeric_id,  # Use the actual gift card ID
+                        "U_ActiveDate": order_date,
+                        "U_ExpirDate": expiration_date_str,
+                        "U_Active": "Yes",
+                        "U_CardBal": gift_card["line_total"],
+                        "U_Customer": customer_card_code,
+                        "U_Location": "SRM",
+                        "U_Consumed": 0,
+                        "U_CardAmount": gift_card["line_total"],
+                        "U_Expired": "No"
+                    }
+                    
+                    # Create gift card in SAP
+                    result = await sap_client.create_gift_card(gift_card_data)
+                    
+                    if result["msg"] == "success":
+                        created_gift_cards.append({
+                            "gift_card_id": numeric_id,
+                            "amount": gift_card["line_total"],
+                            "sku": gift_card["sku"],
+                            "sap_result": result
+                        })
+                        logger.info(f"Created gift card in SAP: {numeric_id} - Amount: {gift_card['line_total']} - SKU: {gift_card['sku']}")
+                    else:
+                        logger.error(f"Failed to create gift card in SAP: {numeric_id} - Error: {result.get('error')}")
+                        
+            except Exception as e:
+                logger.error(f"Error creating gift card in SAP: {str(e)}")
+        
+        return created_gift_cards
+
+    async def _check_gift_card_exists_in_sap(self, gift_card_id: str) -> bool:
+        """
+        Check if a gift card already exists in SAP GiftCards entity
+        """
+        try:
+            # Query SAP for gift card with specific ID
+            endpoint = f"GiftCards('{gift_card_id}')"
+            
+            result = await sap_client._make_request(
+                method='GET',
+                endpoint=endpoint
+            )
+            
+            if result["msg"] == "success":
+                # Gift card exists
+                logger.info(f"Gift card {gift_card_id} exists in SAP")
+                return True
+            else:
+                # Gift card doesn't exist
+                logger.info(f"Gift card {gift_card_id} does not exist in SAP")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error checking gift card existence in SAP: {str(e)}")
+            return False
     
 
     
@@ -738,13 +1030,13 @@ class OrdersSalesSync:
                             
                             gift_card_info = {
                                 "last_characters": receipt_data.get("gift_card_last_characters", "Unknown"),
-                                "amount": float(receipt_data.get("amount", 0)),
-                                "currency": receipt_data.get("currency", "Unknown"),
+                                "amount": amount,  # Use the transaction amount directly
+                                "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
                                 "gift_card_id": receipt_data.get("gift_card_id", "Unknown")
                             }
                             
                             payment_info["gift_cards"].append(gift_card_info)
-                            payment_info["total_gift_card_amount"] += gift_card_info["amount"]
+                            payment_info["total_gift_card_amount"] += amount
                             
                         except (json.JSONDecodeError, KeyError) as e:
                             logger.warning(f"Error parsing gift card receipt JSON: {e}")
@@ -1267,14 +1559,41 @@ class OrdersSalesSync:
                     logger.error(f"Failed to create customer for order {order_name}")
                     return {"msg": "failure", "error": "Failed to create customer"}
             
-            # Map order to SAP format
-            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key)
+            # Extract numeric order ID for logging (needed for gift card creation)
+            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
+            
+            # Check for gift card purchases and create gift cards in SAP FIRST
+            gift_card_purchases = self._detect_gift_card_purchases(order_node)
+            created_gift_cards = []
+            
+            if gift_card_purchases:
+                logger.info(f"Found {len(gift_card_purchases)} gift card purchase(s) in order {order_name}")
+                
+                # Parse order date for gift card creation
+                created_at = order_node["createdAt"]
+                order_date = created_at.split("T")[0] if "T" in created_at else created_at
+                
+                # Create gift cards in SAP FIRST (before invoice creation)
+                created_gift_cards = await self._create_gift_cards_in_sap(
+                    gift_card_purchases, 
+                    order_date, 
+                    sap_customer["CardCode"], 
+                    order_name,
+                    order_id_number,
+                    created_at
+                )
+                
+                if created_gift_cards:
+                    logger.info(f"Successfully created {len(created_gift_cards)} gift card(s) in SAP")
+                else:
+                    logger.warning(f"Failed to create gift cards in SAP for order {order_name}")
+                    # Continue with invoice creation even if gift card creation fails
+            
+            # Map order to SAP format (pass created gift cards for line item mapping)
+            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key, created_gift_cards)
             if not sap_invoice_data:
                 logger.error(f"Failed to map order {order_name} to SAP format")
                 return {"msg": "failure", "error": "Failed to map order to SAP format"}
-            
-            # Extract numeric order ID for logging
-            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
             
             # Check if order already exists in SAP
             order_exists_result = await self.check_order_exists_in_sap(order_id_number)

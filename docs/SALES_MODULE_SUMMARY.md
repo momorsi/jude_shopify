@@ -10,7 +10,7 @@ The Sales Module has been successfully implemented and integrated into the exist
 - **`app/sync/sales/`** - Main sales module directory
 - **`app/sync/sales/__init__.py`** - Module initialization and exports
 - **`app/sync/sales/customers.py`** - Customer management functionality
-- **`app/sync/sales/gift_cards_sync.py`** - Gift cards sync (SAP → Shopify)
+
 - **`app/sync/sales/orders_sync.py`** - Orders sync (Shopify → SAP)
 
 ### 2. **Customer Management System**
@@ -45,7 +45,7 @@ The Sales Module has been successfully implemented and integrated into the exist
 
 ### 6. **Main Application Integration**
 - **`app/main.py`**: Integrated sales syncs into main application
-- **Command Line Support**: Added `--sync sales_gift_cards` and `--sync sales_orders`
+- **Command Line Support**: Added `--sync sales_orders`
 - **Continuous Mode**: Sales syncs run in continuous mode with separate intervals
 - **All Syncs**: Sales syncs included in `--sync all` command
 
@@ -78,8 +78,7 @@ sap_customer = await customer_manager.get_or_create_customer(shopify_customer)
 ### Gift Cards Sync
 ```python
 # Multi-store gift card sync
-gift_cards_sync = GiftCardsSalesSync()
-result = await gift_cards_sync.sync_gift_cards()
+
 # Handles price conversion, inventory, SEO, and tags
 ```
 
@@ -98,7 +97,7 @@ result = await orders_sync.sync_orders()
 {
     "sync": {
         "sales": {
-            "gift_cards": {
+            
                 "enabled": true,
                 "interval_minutes": 30,
                 "batch_size": 50
@@ -128,7 +127,7 @@ result = await orders_sync.sync_orders()
 ### Command Line Interface
 ```bash
 # Run specific sales syncs
-python -m app.main --sync sales_gift_cards
+python -m app.main --sync sales_orders
 python -m app.main --sync sales_orders
 
 # Run all syncs (including sales)
@@ -140,13 +139,11 @@ python -m app.main --continuous
 
 ### Programmatic Usage
 ```python
-from app.sync.sales import GiftCardsSalesSync, OrdersSalesSync
+from app.sync.sales import OrdersSalesSync
 
 # Initialize and run syncs
-gift_cards_sync = GiftCardsSalesSync()
 orders_sync = OrdersSalesSync()
 
-await gift_cards_sync.sync_gift_cards()
 await orders_sync.sync_orders()
 ```
 
@@ -158,11 +155,12 @@ await orders_sync.sync_orders()
 - ✅ Address mapping and validation
 - ✅ Bidirectional relationship tracking
 
-### 2. **Gift Card Redemption Handling**
-- ✅ Detects gift card discount applications
-- ✅ Creates special redemption line items
-- ✅ Negative pricing for discounts
-- ✅ Tracking and reconciliation support
+### 2. **Gift Card Processing**
+- ✅ Detects gift card purchases and redemptions
+- ✅ Creates gift card entries in SAP GiftCards entity
+- ✅ Handles gift card redemptions with expense entries
+- ✅ Uses real gift card IDs from Shopify
+- ✅ Prevents duplicate gift card creation
 
 ### 3. **Freight Calculation**
 - ✅ Automatic shipping cost extraction
@@ -198,7 +196,7 @@ All tests passed successfully:
 app/sync/sales/
 ├── __init__.py              # Module initialization
 ├── customers.py             # Customer management
-├── gift_cards_sync.py       # Gift cards sync (SAP → Shopify)
+
 └── orders_sync.py           # Orders sync (Shopify → SAP)
 
 docs/
@@ -220,8 +218,8 @@ test_sales_module.py         # Test suite
 
 ### New Capabilities
 - 🆕 **Customer Management**: New customer creation and lookup system
-- 🆕 **Gift Card Processing**: Specialized gift card sync logic
-- 🆕 **Order Processing**: Complete order-to-invoice workflow
+- 🆕 **Gift Card Processing**: Integrated gift card purchase and redemption handling
+- 🆕 **Order Processing**: Complete order-to-invoice workflow with gift card support
 - 🆕 **Meta Field Management**: Shopify order metadata updates
 
 ## 🎯 Next Steps
