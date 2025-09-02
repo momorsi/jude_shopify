@@ -49,13 +49,13 @@ class CustomerManager:
             logger.error(f"Error finding customer by phone: {str(e)}")
             return None
     
-    async def create_customer_in_sap(self, customer_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def create_customer_in_sap(self, customer_data: Dict[str, Any], store_key: str = "local") -> Optional[Dict[str, Any]]:
         """
         Create new customer in SAP
         """
         try:
             # Prepare customer data for SAP
-            sap_customer_data = self._map_shopify_customer_to_sap(customer_data)
+            sap_customer_data = self._map_shopify_customer_to_sap(customer_data, store_key)
             
             # Create customer in SAP
             result = await sap_client._make_request(
@@ -148,7 +148,7 @@ class CustomerManager:
         
         return None
     
-    def _map_shopify_customer_to_sap(self, shopify_customer: Dict[str, Any]) -> Dict[str, Any]:
+    def _map_shopify_customer_to_sap(self, shopify_customer: Dict[str, Any], store_key: str = "local") -> Dict[str, Any]:
         """
         Map Shopify customer data to SAP Business Partner format
         """
@@ -161,6 +161,10 @@ class CustomerManager:
         # Generate SAP CardCode (you might want to implement a specific logic)
         card_code = self._generate_card_code(first_name, last_name)
         
+        # Get currency for the store
+        from app.core.config import config_settings
+        store_currency = config_settings.get_currency_for_store(store_key)
+        
         # Create customer data with only main header fields (no addresses)
         customer_data = {
             "CardName": f"{first_name} {last_name}".strip(),
@@ -169,7 +173,7 @@ class CustomerManager:
             "GroupCode": 110,
             "Phone1": phone,
             "Cellular": phone,
-            "Currency": "EGP"
+            "Currency": store_currency
         }
         
         return customer_data

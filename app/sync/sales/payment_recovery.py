@@ -107,10 +107,10 @@ class PaymentRecoverySync:
             
             # Build query filter for orders that need payment recovery
             # We want orders that:
-            # 1. Have invoice tags (sap_invoice_*)
-            # 2. Don't have payment tags (sap_payment_*)
+            # 1. Have sap_invoice_synced tag (successfully synced invoices)
+            # 2. Don't have sap_payment_synced or sap_payment_failed tags
             # 3. Are PAID
-            query_filter = "financial_status:paid AND tag:sap_invoice_* AND -tag:sap_payment_*"
+            query_filter = "financial_status:paid AND tag:sap_invoice_synced AND -tag:sap_payment_synced AND -tag:sap_payment_failed"
             
             # Add retry logic for GraphQL queries to handle rate limiting
             max_retries = 3

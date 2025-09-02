@@ -12,6 +12,7 @@ from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.sync.sales.customers import CustomerManager
 from datetime import datetime
+from order_location_mapper import OrderLocationMapper
 
 
 class OrdersSalesSync:
@@ -222,8 +223,8 @@ class OrdersSalesSync:
             max_retries = 3
             retry_delay = 2  # Start with 2 seconds
             
-            # Filter to exclude orders that already have sap_invoice_* tags
-            query_filter = "-tag:sap_invoice_*"
+            # Filter to only include orders with "take" tag and exclude orders that already have sap_invoice_synced or sap_invoice_failed tags
+            query_filter = "tag:take -tag:sap_invoice_synced -tag:sap_invoice_failed"
             
             for attempt in range(max_retries):
                 try:
@@ -292,6 +293,26 @@ class OrdersSalesSync:
             financial_status = order_node.get("displayFinancialStatus", "PENDING")
             fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
             
+            # Get location mapping for this order
+            location_analysis = OrderLocationMapper.analyze_order_source(order_node, store_key)
+            sap_codes = location_analysis.get('sap_codes', {})
+            
+            # Use location-based costing codes, fallback to defaults if not available
+            default_codes = {
+                'COGSCostingCode': 'ONL',
+                'COGSCostingCode2': 'SAL', 
+                'COGSCostingCode3': 'OnlineS',
+                'CostingCode': 'ONL',
+                'CostingCode2': 'SAL',
+                'CostingCode3': 'OnlineS',
+                'Warehouse': 'SW'
+            }
+            
+            # Override with location-specific codes if available
+            costing_codes = {key: sap_codes.get(key, default_codes[key]) for key in default_codes.keys()}
+            
+            logger.info(f"Using location-based costing codes for order {order_node.get('name', 'Unknown')}: {costing_codes}")
+            
             # Map line items with discount information
             line_items = []
             for item_edge in order_node["lineItems"]["edges"]:
@@ -299,14 +320,15 @@ class OrdersSalesSync:
                 sku = item.get("sku")
                 quantity = item["quantity"]
                 
-                # Get price from discounted unit price if available, otherwise from variant
-                if item.get("discountedUnitPriceSet") and item["discountedUnitPriceSet"].get("shopMoney"):
-                    price = Decimal(item["discountedUnitPriceSet"]["shopMoney"]["amount"])
+                # Get original price from original unit price set
+                original_price = Decimal("0.00")
+                if item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
+                    original_price = Decimal(item["originalUnitPriceSet"]["shopMoney"]["amount"])
                 elif item.get("variant") and item["variant"].get("price"):
-                    price = Decimal(item["variant"]["price"])
+                    original_price = Decimal(item["variant"]["price"])
                 else:
                     # Fallback to a default price if variant price is not available
-                    price = Decimal("0.00")
+                    original_price = Decimal("0.00")
                 
                 # Use the actual SKU as item code, or a default if not available
                 # Check line item SKU first, then variant SKU
@@ -317,20 +339,20 @@ class OrdersSalesSync:
                 else:
                     item_code = "ACC-0000001"  # Default item only if no SKU available
                 
-                # Get warehouse code based on order location
-                warehouse_code = config_settings.get_warehouse_code_for_order(store_key, order_node)
+                # Get warehouse code based on order location (use location-based warehouse if available)
+                warehouse_code = costing_codes.get('Warehouse', config_settings.get_warehouse_code_for_order(store_key, order_node))
                 
                 line_item = {
                     "ItemCode": item_code,
                     "Quantity": quantity,
-                    "UnitPrice": float(price),
+                    "UnitPrice": float(original_price),  # Always use original price
                     "WarehouseCode": warehouse_code,
-                    "COGSCostingCode": "ONL",
-                    "COGSCostingCode2": "SAL",
-                    "COGSCostingCode3": "OnlineS",
-                    "CostingCode": "ONL",
-                    "CostingCode2": "SAL",
-                    "CostingCode3": "OnlineS"                    
+                    "COGSCostingCode": costing_codes['COGSCostingCode'],
+                    "COGSCostingCode2": costing_codes['COGSCostingCode2'],
+                    "COGSCostingCode3": costing_codes['COGSCostingCode3'],
+                    "CostingCode": costing_codes['CostingCode'],
+                    "CostingCode2": costing_codes['CostingCode2'],
+                    "CostingCode3": costing_codes['CostingCode3']                    
                 }
                 
                 # Add discount information if available
@@ -340,14 +362,15 @@ class OrdersSalesSync:
                         float(allocation.get("allocatedAmount", {}).get("amount", 0))
                         for allocation in discount_allocations
                     )
-                    if total_item_discount > 0:
-                        line_item["DiscountPercent"] = (total_item_discount / (float(price) * quantity)) * 100
+                    if total_item_discount > 0 and original_price > 0:
+                        # Calculate discount percentage based on original price
+                        line_item["DiscountPercent"] = (total_item_discount / float(original_price)) * 100
                         line_item["U_ItemDiscountAmount"] = total_item_discount
                 
                 # Check if this is a gift card line item and add U_GiftCard field
                 if created_gift_cards:
                     # Calculate line total for this item
-                    line_total = float(price) * quantity
+                    line_total = float(original_price) * quantity
                     
                     for gift_card_info in created_gift_cards:
                         # Match by amount (line total) to ensure correct gift card association
@@ -369,9 +392,9 @@ class OrdersSalesSync:
                         "LineTotal": -float(gift_card["amount"]),  # Negative amount
                         "Remarks": f"Gift Card: {gift_card['last_characters']}",
                         "U_GiftCard": gift_card["gift_card_id"],  # Add gift card ID to expense entry
-                        "DistributionRule": "ONL",                                               
-                        "DistributionRule2": "SAL",                                               
-                        "DistributionRule3": "OnlineS"   
+                        "DistributionRule": sap_codes.get('DistributionRule', 'ONL'),                                               
+                        "DistributionRule2": sap_codes.get('DistributionRule2', 'SAL'),                                               
+                        "DistributionRule3": sap_codes.get('DistributionRule3', 'OnlineS')   
                     }
                     gift_card_expenses.append(gift_card_expense)
             
@@ -379,7 +402,7 @@ class OrdersSalesSync:
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
             
             # Calculate freight expenses
-            freight_expenses = self._calculate_freight_expenses(order_node, store_key)
+            freight_expenses = self._calculate_freight_expenses(order_node, store_key, sap_codes)
             
             # Generate address strings
             shipping_address = order_node.get("shippingAddress", {})
@@ -408,8 +431,69 @@ class OrdersSalesSync:
                 "U_DeliveryAddress": delivery_address,
                 "U_BillingAddress": billing_address_str,
                 "U_OrderType": order_type,
-                "ImportFileNum": order_name.replace("#", "")
+                "ImportFileNum": order_name.replace("#", ""),
+                "DocCurrency": config_settings.get_currency_for_store(store_key)
             }
+            
+            # Add POS receipt number if this is a POS order
+            if location_analysis.get('is_pos_order') and location_analysis.get('extracted_receipt_number'):
+                invoice_data["U_POS_Receipt_Number"] = location_analysis['extracted_receipt_number']
+                logger.info(f"Added POS receipt number to invoice: {location_analysis['extracted_receipt_number']}")
+            
+            # Handle order-level discounts
+            discount_applications = order_node.get("discountApplications", {}).get("edges", [])
+            discount_reasons = []
+            
+            for discount_edge in discount_applications:
+                discount = discount_edge["node"]
+                target_type = discount.get("targetType", "UNKNOWN")
+                
+                # Extract discount reason/code for both order and line item discounts
+                discount_code = discount.get("code", "")
+                discount_title = discount.get("title", "")
+                
+                # Build discount reason string
+                if discount_code and discount_title:
+                    discount_reason = f"{discount_code} - {discount_title}"
+                elif discount_code:
+                    discount_reason = discount_code
+                elif discount_title:
+                    discount_reason = discount_title
+                else:
+                    discount_reason = "Unknown Discount"
+                
+                discount_reasons.append(discount_reason)
+                
+                if target_type == "ORDER":
+                    # Order-level discount
+                    value = discount.get("value", {})
+                    discount_amount = 0.0
+                    discount_percentage = 0.0
+                    
+                    if value.get("__typename") == "PricingPercentageValue":
+                        # Percentage discount
+                        discount_percentage = float(value.get("percentage", 0))
+                        # Calculate discount amount from order subtotal
+                        subtotal = float(order_node.get("subtotalPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                        discount_amount = (discount_percentage / 100) * subtotal
+                    elif value.get("__typename") == "MoneyV2":
+                        # Fixed amount discount
+                        discount_amount = float(value.get("amount", 0))
+                        # Calculate discount percentage from order subtotal
+                        subtotal = float(order_node.get("subtotalPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                        if subtotal > 0:
+                            discount_percentage = (discount_amount / subtotal) * 100
+                    
+                    if discount_percentage > 0:
+                        invoice_data["DiscountPercent"] = discount_percentage
+                        invoice_data["U_OrderDiscountAmount"] = discount_amount
+                        invoice_data["U_OrderDiscountCode"] = discount.get("code", "")
+                        logger.info(f"Applied order-level discount: {discount_percentage}% ({discount_amount} EGP) - Code: {discount.get('code', 'N/A')}")
+            
+            # Add discount reason to invoice header if any discounts were found
+            if discount_reasons:
+                invoice_data["U_CustomerAddress"] = " | ".join(discount_reasons)
+                logger.info(f"Added discount reason to invoice: {invoice_data['U_CustomerAddress']}")
             
             # Add freight expenses if any
             if freight_expenses:
@@ -783,7 +867,7 @@ class OrdersSalesSync:
         else:
             return ", ".join(address_parts)
 
-    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str) -> List[Dict[str, Any]]:
+    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str, sap_codes: Dict[str, str] = None) -> List[Dict[str, Any]]:
         """
         Calculate freight expenses based on shipping fee and store configuration
         """
@@ -810,16 +894,16 @@ class OrdersSalesSync:
                     
                     # Add revenue expense
                     if "revenue" in config: 
-                        config["revenue"]["DistributionRule"] = "ONL"                                               
-                        config["revenue"]["DistributionRule2"] = "SAL"                                               
-                        config["revenue"]["DistributionRule3"] = "OnlineS"                                               
+                        config["revenue"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
+                        config["revenue"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
+                        config["revenue"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"                                               
                         expenses.append(config["revenue"])
                     
                     # Add cost expense
                     if "cost" in config:
-                        config["cost"]["DistributionRule"] = "ONL"                                               
-                        config["cost"]["DistributionRule2"] = "SAL"                                               
-                        config["cost"]["DistributionRule3"] = "OnlineS"  
+                        config["cost"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
+                        config["cost"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
+                        config["cost"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"  
                         expenses.append(config["cost"])
                         
                     logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
@@ -919,11 +1003,23 @@ class OrdersSalesSync:
             
             # Set payment method based on type
             if payment_type == "PaidOnline":
-                # Online store payments - use Paymob account
+                # Online store payments - use the actual gateway account
                 payment_data["TransferSum"] = total_amount
-                transfer_account = config_settings.get_bank_transfer_account(store_key, "Paymob")
+                
+                # Get the actual gateway from payment info
+                gateway = payment_info.get('gateway', 'Paymob')  # Default to Paymob for local store
+                
+                # For international store, use the actual gateway
+                if store_key == "international":
+                    # Use the actual gateway from the transaction
+                    transfer_account = config_settings.get_bank_transfer_account(store_key, gateway)
+                    logger.info(f"International store payment - using {gateway} account: {transfer_account}")
+                else:
+                    # For local store, use Paymob as default
+                    transfer_account = config_settings.get_bank_transfer_account(store_key, "Paymob")
+                    logger.info(f"Local store payment - using Paymob account: {transfer_account}")
+                
                 payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Online store payment - using Paymob account: {transfer_account}")
                 
             elif payment_type == "COD":
                 # Cash on delivery - use COD account
@@ -995,20 +1091,20 @@ class OrdersSalesSync:
                     amount = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
                     receipt_json = transaction.get("receiptJson", "{}")
                     
-                    # Handle Paymob transactions
-                    if gateway == "Paymob":
+                    # Handle all payment gateway transactions (Paymob, N-Genius, etc.)
+                    if gateway in ["Paymob", "N-Genius Online by Network", "Cash on Delivery (COD)"] or gateway != "Unknown":
                         payment_info["gateway"] = gateway
                         payment_info["amount"] = amount
                         payment_info["status"] = transaction.get("status", "Unknown")
                         payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
                         
-                        # Extract payment_id from receiptJson
+                        # Extract payment_id from receiptJson (for supported gateways)
                         try:
                             import json
                             receipt_data = json.loads(receipt_json)
-                            payment_info["payment_id"] = receipt_data.get("payment_id", "Unknown")
+                            payment_info["payment_id"] = receipt_data.get("payment_id", transaction.get("id", "Unknown"))
                         except (json.JSONDecodeError, KeyError):
-                            payment_info["payment_id"] = "Unknown"
+                            payment_info["payment_id"] = transaction.get("id", "Unknown")
                         
                         # Check if this is an online payment
                         source_name = order_node.get("sourceName", "")
@@ -1162,11 +1258,24 @@ class OrdersSalesSync:
                     allocated_amount = allocation.get("allocatedAmount", {})
                     discount_application = allocation.get("discountApplication", {})
                     
+                    # Get original price for percentage calculation
+                    original_price = 0.0
+                    if item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
+                        original_price = float(item["originalUnitPriceSet"]["shopMoney"]["amount"])
+                    elif item.get("variant") and item["variant"].get("price"):
+                        original_price = float(item["variant"]["price"])
+                    
+                    allocated_amount_value = float(allocated_amount.get("amount", 0))
+                    discount_percentage = 0.0
+                    if original_price > 0:
+                        discount_percentage = (allocated_amount_value / original_price) * 100
+                    
                     item_discount_data = {
                         "item_name": item_name,
                         "item_sku": item.get("sku", "Unknown"),
-                        "allocated_amount": float(allocated_amount.get("amount", 0)),
+                        "allocated_amount": allocated_amount_value,
                         "currency": allocated_amount.get("currencyCode", "Unknown"),
+                        "discount_percentage": discount_percentage,
                         "discount_title": discount_application.get("title", "Unknown Discount"),
                         "discount_code": discount_application.get("code", "")
                     }
@@ -1178,8 +1287,11 @@ class OrdersSalesSync:
             for discount in discount_info["order_level_discounts"]:
                 if discount["value_type"] == "FIXED_AMOUNT":
                     discount_info["total_order_discount"] += discount["value"]
-                # For percentage discounts, we'd need the order subtotal to calculate the actual amount
-                # This would require additional logic based on your business rules
+                elif discount["value_type"] == "PERCENTAGE":
+                    # Calculate discount amount from order subtotal
+                    subtotal = float(order_node.get("subtotalPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                    discount_amount = (discount["value"] / 100) * subtotal
+                    discount_info["total_order_discount"] += discount_amount
             
         except Exception as e:
             logger.error(f"Error extracting discount info: {str(e)}")
@@ -1339,11 +1451,11 @@ class OrdersSalesSync:
             await self.add_order_tag(
                 store_key,
                 order_id,
-                "sap_sync_failed"
+                "sap_invoice_failed"
             )
-            logger.info(f"Added failed tag to order {order_name}")
+            logger.info(f"Added invoice failed tag to order {order_name}")
         except Exception as tag_error:
-            logger.warning(f"Failed to add failed tag for order {order_name}: {str(tag_error)}")
+            logger.warning(f"Failed to add invoice failed tag for order {order_name}: {str(tag_error)}")
         
         return {"msg": "failure", "error": error_msg}
 
@@ -1554,7 +1666,7 @@ class OrdersSalesSync:
             else:
                 # Create new customer in SAP
                 logger.info("Creating new customer in SAP")
-                sap_customer = await self.customer_manager.create_customer_in_sap(customer)
+                sap_customer = await self.customer_manager.create_customer_in_sap(customer, store_key)
             if not sap_customer:
                     logger.error(f"Failed to create customer for order {order_name}")
                     return {"msg": "failure", "error": "Failed to create customer"}
@@ -1605,16 +1717,29 @@ class OrdersSalesSync:
                 # Order already exists in SAP, add invoice sync tag and skip processing
                 logger.info(f"Order {order_name} already exists in SAP with DocEntry: {order_exists_result['doc_entry']}")
                 
-                # Add invoice sync tag to order
+                # Add invoice sync tags to order
                 invoice_tag = f"sap_invoice_{order_exists_result['doc_entry']}"
+                invoice_synced_tag = "sap_invoice_synced"
+                
+                # Add specific invoice tag
                 tag_update_result = await self.add_order_tag(
                     store_key,
                     order_id,
                     invoice_tag
                 )
                 
+                # Add general synced tag
+                synced_tag_result = await self.add_order_tag(
+                    store_key,
+                    order_id,
+                    invoice_synced_tag
+                )
+                
                 if tag_update_result["msg"] == "failure":
                     logger.warning(f"Failed to add invoice sync tag for {order_name}: {tag_update_result.get('error')}")
+                
+                if synced_tag_result["msg"] == "failure":
+                    logger.warning(f"Failed to add invoice synced tag for {order_name}: {synced_tag_result.get('error')}")
                 
                 return {
                     "msg": "skipped",
@@ -1658,15 +1783,29 @@ class OrdersSalesSync:
                     sap_payment_number = payment_result["sap_payment_number"]
                     logger.info(f"Successfully created incoming payment: {sap_payment_number}")
                     
-                    # Add payment sync tag
+                    # Add payment sync tags
                     payment_tag = f"sap_payment_{sap_payment_number}"
+                    payment_synced_tag = "sap_payment_synced"
+                    
+                    # Add specific payment tag
                     payment_tag_result = await self.add_order_tag(
                         store_key,
                         order_id,
                         payment_tag
                     )
+                    
+                    # Add general payment synced tag
+                    synced_tag_result = await self.add_order_tag(
+                        store_key,
+                        order_id,
+                        payment_synced_tag
+                    )
+                    
                     if payment_tag_result["msg"] == "failure":
                         logger.warning(f"Failed to add payment sync tag for {order_name}: {payment_tag_result.get('error')}")
+                    
+                    if synced_tag_result["msg"] == "failure":
+                        logger.warning(f"Failed to add payment synced tag for {order_name}: {synced_tag_result.get('error')}")
                 else:
                     logger.warning(f"Failed to create incoming payment for {order_name}: {payment_result.get('error')}")
                     
@@ -1687,16 +1826,30 @@ class OrdersSalesSync:
             # Add small delay before adding invoice tag to avoid rate limiting
             await asyncio.sleep(1)
             
-            # Add invoice sync tag to order
+            # Add invoice sync tags to order
             invoice_tag = f"sap_invoice_{invoice_result['sap_doc_entry']}"
+            invoice_synced_tag = "sap_invoice_synced"
+            
+            # Add specific invoice tag
             tag_update_result = await self.add_order_tag(
                 store_key,
                 order_id,
                 invoice_tag
             )
             
+            # Add general synced tag
+            synced_tag_result = await self.add_order_tag(
+                store_key,
+                order_id,
+                invoice_synced_tag
+            )
+            
             if tag_update_result["msg"] == "failure":
                 logger.warning(f"Failed to add invoice sync tag for {order_name}: {tag_update_result.get('error')}")
+                # Don't fail the entire process if tag update fails
+            
+            if synced_tag_result["msg"] == "failure":
+                logger.warning(f"Failed to add invoice synced tag for {order_name}: {synced_tag_result.get('error')}")
                 # Don't fail the entire process if tag update fails
             
             logger.info(f"Successfully processed order {order_name}")
@@ -2228,7 +2381,7 @@ class OrdersSalesSync:
 
                 logger.info("Creating new customer in SAP")
 
-                sap_customer = await self.customer_manager.create_customer_in_sap(customer)
+                sap_customer = await self.customer_manager.create_customer_in_sap(customer, store_key)
 
             if not sap_customer:
 
@@ -2296,15 +2449,29 @@ class OrdersSalesSync:
 
                     logger.info(f"Successfully created incoming payment: {sap_payment_number}")
                     
-                    # Add payment sync tag
+                    # Add payment sync tags
                     payment_tag = f"sap_payment_{sap_payment_number}"
+                    payment_synced_tag = "sap_payment_synced"
+                    
+                    # Add specific payment tag
                     payment_tag_result = await self.add_order_tag(
                         store_key,
                         order_id,
                         payment_tag
                     )
+                    
+                    # Add general payment synced tag
+                    synced_tag_result = await self.add_order_tag(
+                        store_key,
+                        order_id,
+                        payment_synced_tag
+                    )
+                    
                     if payment_tag_result["msg"] == "failure":
                         logger.warning(f"Failed to add payment sync tag for {order_name}: {payment_tag_result.get('error')}")
+                    
+                    if synced_tag_result["msg"] == "failure":
+                        logger.warning(f"Failed to add payment synced tag for {order_name}: {synced_tag_result.get('error')}")
 
                 else:
 
@@ -2328,16 +2495,30 @@ class OrdersSalesSync:
 
             
 
-            # Add invoice sync tag to order
+            # Add invoice sync tags to order
             invoice_tag = f"sap_invoice_{invoice_result['sap_doc_entry']}"
+            invoice_synced_tag = "sap_invoice_synced"
+            
+            # Add specific invoice tag
             tag_update_result = await self.add_order_tag(
                 store_key,
                 order_id,
                 invoice_tag
             )
             
+            # Add general synced tag
+            synced_tag_result = await self.add_order_tag(
+                store_key,
+                order_id,
+                invoice_synced_tag
+            )
+            
             if tag_update_result["msg"] == "failure":
                 logger.warning(f"Failed to add invoice sync tag for {order_name}: {tag_update_result.get('error')}")
+                # Don't fail the entire process if tag update fails
+            
+            if synced_tag_result["msg"] == "failure":
+                logger.warning(f"Failed to add invoice synced tag for {order_name}: {synced_tag_result.get('error')}")
                 # Don't fail the entire process if tag update fails
             
 

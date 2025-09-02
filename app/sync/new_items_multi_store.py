@@ -77,6 +77,7 @@ class MultiStoreNewItemsSync:
         Updated for Shopify API 2025-07 two-step approach
         """
         price = self._get_store_price(sap_item, store_config.price_list)
+        sale_price = self._get_store_sale_price(sap_item, store_config.price_list)
                 
         product_status = "DRAFT"
         
@@ -123,6 +124,10 @@ class MultiStoreNewItemsSync:
             ],
             "inventoryItem": inventory_item
         }
+        
+        # Add compare price (sale price) if available
+        if sale_price is not None:
+            variant["compareAtPrice"] = str(sale_price)
         
         # Add barcode directly to the variant if available
         if sap_item.get('Barcode'):
@@ -188,7 +193,8 @@ class MultiStoreNewItemsSync:
         # Step 2: Prepare variants data for bulk creation
         variants_data = []
         for item in sap_items:
-            price = float(item.get('Price', 0))
+            price = self._get_store_price(item, store_config.price_list)
+            sale_price = self._get_store_sale_price(item, store_config.price_list)
             color_name = item.get('Color', '')
             sap_color = self._get_color_from_sap(color_name)
             
@@ -209,6 +215,10 @@ class MultiStoreNewItemsSync:
                 ],
                 "inventoryItem": inventory_item
             }
+            
+            # Add compare price (sale price) if available
+            if sale_price is not None:
+                variant["compareAtPrice"] = str(sale_price)
             
             # Add barcode directly to the variant if available
             if item.get('Barcode'):
@@ -231,13 +241,49 @@ class MultiStoreNewItemsSync:
             variants_data = product_info["variants_data"]
             sap_items = product_info["sap_items"]
             
-            # Step 1: Create the product with options
+            # Step 1: Create the product with options with retry logic
             logger.info(f"Step 1: Creating product with options in store {store_key}")
-            product_result = await multi_store_shopify_client.create_product_with_options(store_key, product_data)
             
-            if product_result["msg"] == "failure":
-                logger.error(f"Failed to create product with options in store {store_key}: {product_result.get('error')}")
-                return product_result
+            # Add retry logic for product creation
+            max_retries = 3
+            retry_delay = 2  # Start with 2 seconds
+            
+            product_result = None
+            for attempt in range(max_retries):
+                try:
+                    product_result = await multi_store_shopify_client.create_product_with_options(store_key, product_data)
+                    
+                    if product_result["msg"] == "success":
+                        break  # Success, exit retry loop
+                    elif product_result["msg"] == "failure":
+                        error_msg = product_result.get('error', '')
+                        # Check if error is empty or timeout-related
+                        if not error_msg or 'timeout' in error_msg.lower() or 'GraphQL query error' in error_msg:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {error_msg}")
+                                logger.info(f"Retrying in {retry_delay} seconds...")
+                                await asyncio.sleep(retry_delay)
+                                retry_delay *= 2  # Exponential backoff
+                                continue
+                        else:
+                            # Non-retryable error, break immediately
+                            break
+                            
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Exception in attempt {attempt + 1}/{max_retries}: {str(e)}")
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        # Last attempt failed, return the error
+                        return {"msg": "failure", "error": str(e)}
+            
+            if product_result is None or product_result["msg"] == "failure":
+                error_msg = product_result.get('error', 'Unknown error') if product_result else 'No result returned'
+                logger.error(f"Failed to create product with options in store {store_key} after {max_retries} attempts: {error_msg}")
+                return product_result if product_result else {"msg": "failure", "error": "No result returned"}
             
             response_data = product_result["data"]["productCreate"]
             if response_data.get("userErrors"):
@@ -269,12 +315,46 @@ class MultiStoreNewItemsSync:
             for variant in variants_data:
                 variant["optionValues"][0]["optionId"] = option_id
             
-            # Create variants in bulk
-            variants_result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, variants_data)
+            # Create variants in bulk with retry logic
+            max_retries = 3
+            retry_delay = 2  # Start with 2 seconds
             
-            if variants_result["msg"] == "failure":
-                logger.error(f"Failed to create variants in bulk for store {store_key}: {variants_result.get('error')}")
-                return variants_result
+            variants_result = None
+            for attempt in range(max_retries):
+                try:
+                    variants_result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, variants_data)
+                    
+                    if variants_result["msg"] == "success":
+                        break  # Success, exit retry loop
+                    elif variants_result["msg"] == "failure":
+                        error_msg = variants_result.get('error', '')
+                        # Check if error is empty or timeout-related
+                        if not error_msg or 'timeout' in error_msg.lower() or 'GraphQL query error' in error_msg:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {error_msg}")
+                                logger.info(f"Retrying in {retry_delay} seconds...")
+                                await asyncio.sleep(retry_delay)
+                                retry_delay *= 2  # Exponential backoff
+                                continue
+                        else:
+                            # Non-retryable error, break immediately
+                            break
+                            
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Exception in attempt {attempt + 1}/{max_retries}: {str(e)}")
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        # Last attempt failed, return the error
+                        return {"msg": "failure", "error": str(e)}
+            
+            if variants_result is None or variants_result["msg"] == "failure":
+                error_msg = variants_result.get('error', 'Unknown error') if variants_result else 'No result returned'
+                logger.error(f"Failed to create variants in bulk for store {store_key} after {max_retries} attempts: {error_msg}")
+                return variants_result if variants_result else {"msg": "failure", "error": "No result returned"}
             
             response_data = variants_result["data"]["productVariantsBulkCreate"]
             if response_data.get("userErrors"):
@@ -324,6 +404,28 @@ class MultiStoreNewItemsSync:
             return price * exchange_rate
         
         return price
+    
+    def _get_store_sale_price(self, sap_item: Dict[str, Any], price_list: int) -> Optional[float]:
+        """
+        Get sale price (compare price) for a specific store based on price list
+        Uses the SalePrice field from SAP and maps to compare_at_price in Shopify
+        """
+        # Get the sale price from SAP
+        sale_price = sap_item.get('SalePrice', 0.0)
+        
+        # If no sale price is set, return None (no compare price)
+        if not sale_price or sale_price <= 0:
+            return None
+        
+        # Apply store-specific price adjustments if needed
+        if price_list == 1:  # Local store (SAR)
+            return sale_price
+        elif price_list == 2:  # International store (USD)
+            # Convert SAR to USD (you can adjust the exchange rate)
+            exchange_rate = 0.27  # 1 SAR = 0.27 USD (approximate)
+            return sale_price * exchange_rate
+        
+        return sale_price
     
 
     

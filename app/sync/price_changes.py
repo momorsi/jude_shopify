@@ -39,69 +39,21 @@ class PriceChangesSync:
             logger.error(f"Error getting price changes for store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
-    async def update_product_price(self, store_key: str, product_id: str, price: float) -> Dict[str, Any]:
+    async def update_product_price(self, store_key: str, product_id: str, price: float, sale_price: Optional[float] = None) -> Dict[str, Any]:
         """
         Update product price in Shopify by updating the default variant
+        Use the SAP variant ID directly - no need to query Shopify first
         """
         try:
-            # First, get the product to find its default variant
-            product_result = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
+            # Extract the product number from the product ID
+            # Format: gid://shopify/Product/1234567890 -> 1234567890
+            product_number = product_id.split('/')[-1]
             
-            if product_result["msg"] == "failure":
-                logger.error(f"Failed to get product {product_id} for price update: {product_result.get('error')}")
-                return product_result
+            # For products, we need to find the variant ID from SAP data
+            # Since we don't have it here, we'll need to get it from the calling method
+            logger.info(f"Product price update requested for {product_id} - need variant ID from SAP data")
             
-            product_data = product_result["data"]["product"]
-            variants = product_data.get("variants", {}).get("edges", [])
-            
-            if not variants:
-                logger.error(f"No variants found for product {product_id}")
-                return {"msg": "failure", "error": f"No variants found for product {product_id}"}
-            
-            # Get the first variant (default variant)
-            default_variant = variants[0]["node"]
-            variant_id = default_variant["id"]
-            
-            logger.info(f"Updating default variant {variant_id} price for product {product_id}")
-            
-            # Log the update
-            await sl_add_log(
-                server="shopify",
-                endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"product_id": product_id, "variant_id": variant_id, "price": price},
-                action="update_product_price",
-                value=f"Updating product {product_id} default variant price to {price} in store {store_key}"
-            )
-            
-            # Update the default variant's price
-            result = await multi_store_shopify_client.update_variant(
-                store_key, 
-                variant_id, 
-                {"price": str(price)}
-            )
-            
-            if result["msg"] == "success":
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"product_id": product_id, "variant_id": variant_id, "price": price},
-                    status="success",
-                    action="update_product_price",
-                    value=f"Successfully updated product {product_id} default variant price to {price} in store {store_key}"
-                )
-                logger.info(f"Successfully updated product {product_id} default variant price to {price} in store {store_key}")
-            else:
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"error": result.get("error")},
-                    status="failure",
-                    action="update_product_price",
-                    value=f"Failed to update product {product_id} default variant price in store {store_key}: {result.get('error')}"
-                )
-                logger.error(f"Failed to update product {product_id} default variant price in store {store_key}: {result.get('error')}")
-            
-            return result
+            return {"msg": "failure", "error": "Product price updates require variant ID from SAP data"}
             
         except Exception as e:
             await sl_add_log(
@@ -115,60 +67,92 @@ class PriceChangesSync:
             logger.error(f"Error updating product {product_id} price in store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
-    async def update_variant_price(self, store_key: str, variant_id: str, price: float) -> Dict[str, Any]:
+    async def update_variant_price(self, store_key: str, variant_id: str, price: float, sale_price: Optional[float] = None) -> Dict[str, Any]:
         """
-        Update variant price in Shopify
+        Update variant price and compare price in Shopify using the correct mutation directly
         """
-        try:
-            # Log the update
-            await sl_add_log(
-                server="shopify",
-                endpoint=f"/admin/api/graphql_{store_key}",
-                request_data={"variant_id": variant_id, "price": price},
-                action="update_variant_price",
-                value=f"Updating variant {variant_id} price to {price} in store {store_key}"
-            )
-            
-            result = await multi_store_shopify_client.update_variant(
-                store_key, 
-                variant_id, 
-                {"price": str(price)}
-            )
-            
-            if result["msg"] == "success":
+        max_retries = 3
+        retry_delay = 1.0
+        
+        for attempt in range(max_retries):
+            try:
+                # Prepare variant data
+                variant_data = {"price": str(price)}
+                
+                # Add compare price if provided
+                if sale_price is not None and sale_price > 0:
+                    variant_data["compareAtPrice"] = str(sale_price)
+                
+                # Log the update attempt
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"variant_id": variant_id, "price": price},
-                    status="success",
+                    request_data={"variant_id": variant_id, "price": price, "sale_price": sale_price, "attempt": attempt + 1},
                     action="update_variant_price",
-                    value=f"Successfully updated variant {variant_id} price to {price} in store {store_key}"
+                    value=f"Updating variant {variant_id} price to {price}, sale price to {sale_price} in store {store_key} (attempt {attempt + 1})"
                 )
-                logger.info(f"Successfully updated variant {variant_id} price to {price} in store {store_key}")
-            else:
-                await sl_add_log(
-                    server="shopify",
-                    endpoint=f"/admin/api/graphql_{store_key}",
-                    response_data={"error": result.get("error")},
-                    status="failure",
-                    action="update_variant_price",
-                    value=f"Failed to update variant {variant_id} price in store {store_key}: {result.get('error')}"
+                
+                # Use the correct mutation directly - no fallback needed
+                result = await multi_store_shopify_client.update_variant_direct(
+                    store_key, 
+                    variant_id, 
+                    variant_data
                 )
-                logger.error(f"Failed to update variant {variant_id} price in store {store_key}: {result.get('error')}")
-            
-            return result
-            
-        except Exception as e:
-            await sl_add_log(
-                server="shopify",
-                endpoint=f"/admin/api/graphql_{store_key}",
-                response_data={"error": str(e)},
-                status="failure",
-                action="update_variant_price",
-                value=f"Exception updating variant {variant_id} price in store {store_key}: {str(e)}"
-            )
-            logger.error(f"Error updating variant {variant_id} price in store {store_key}: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
+                
+                if result["msg"] == "success":
+                    await sl_add_log(
+                        server="shopify",
+                        endpoint=f"/admin/api/graphql_{store_key}",
+                        response_data={"variant_id": variant_id, "price": price, "sale_price": sale_price, "attempt": attempt + 1},
+                        status="success",
+                        action="update_variant_price",
+                        value=f"Successfully updated variant {variant_id} price to {price}, sale price to {sale_price} in store {store_key}"
+                    )
+                    logger.info(f"✅ Successfully updated variant {variant_id} price to {price}, sale price to {sale_price} in store {store_key}")
+                    return result
+                else:
+                    error_msg = result.get("error", "Unknown error")
+                    logger.warning(f"Attempt {attempt + 1} failed for variant {variant_id}: {error_msg}")
+                    
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        # Final attempt failed
+                        await sl_add_log(
+                            server="shopify",
+                            endpoint=f"/admin/api/graphql_{store_key}",
+                            response_data={"error": error_msg, "attempts": max_retries},
+                            status="failure",
+                            action="update_variant_price",
+                            value=f"Failed to update variant {variant_id} price in store {store_key} after {max_retries} attempts: {error_msg}"
+                        )
+                        logger.error(f"❌ Failed to update variant {variant_id} price in store {store_key} after {max_retries} attempts: {error_msg}")
+                        return result
+                        
+            except Exception as e:
+                error_msg = str(e)
+                logger.warning(f"Exception on attempt {attempt + 1} for variant {variant_id}: {error_msg}")
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    # Final attempt failed
+                    await sl_add_log(
+                        server="shopify",
+                        endpoint=f"/admin/api/graphql_{store_key}",
+                        response_data={"error": error_msg, "attempts": max_retries},
+                        status="failure",
+                        action="update_variant_price",
+                        value=f"Exception updating variant {variant_id} price in store {store_key} after {max_retries} attempts: {error_msg}"
+                    )
+                    logger.error(f"❌ Exception updating variant {variant_id} price in store {store_key} after {max_retries} attempts: {error_msg}")
+                    return {"msg": "failure", "error": error_msg}
+        
+        return {"msg": "failure", "error": "Max retries exceeded"}
 
     async def log_price_change_to_api_log(self, item_code: str, store_key: str, price: float) -> Dict[str, Any]:
         """
@@ -181,14 +165,14 @@ class PriceChangesSync:
                 server="sap",
                 endpoint="price_change",
                 request_data={"item_code": item_code, "store_key": store_key, "price": price},
-                response_data={"reference": reference, "value": str(price)},
+                response_data={"reference": reference, "value": str(price), "status": "shopify_update_successful"},
                 status="success",
                 action="price",
                 reference=reference,
                 value=str(price)
             )
             
-            logger.info(f"Successfully logged price change for {reference}: {price}")
+            logger.info(f"✅ Successfully logged price change to SAP for {reference}: {price} (Shopify update was successful)")
             return {"msg": "success"}
             
         except Exception as e:
@@ -201,40 +185,65 @@ class PriceChangesSync:
         """
         try:
             item_code = sap_item.get('ItemCode', '')
-            price = sap_item.get('Price', 0.0)
+            normal_price = sap_item.get('Price', 0.0)
+            sale_price = sap_item.get('SalePrice', 0.0)
+            
+            # Convert sale price to None if it's negative (0 is a valid sale price)
+            if sale_price < 0:
+                sale_price = None
             
             # Check if this is a product with no variants
             if sap_item.get('Shopify_ProductCode'):
-                # Product with no variants
-                product_id = f"gid://shopify/Product/{sap_item['Shopify_ProductCode']}"
-                logger.info(f"Processing product price change for {item_code} (product ID: {product_id})")
-                
-                # Update product price
-                price_result = await self.update_product_price(store_key, product_id, price)
-                
-                # Log to API_LOG
-                log_result = await self.log_price_change_to_api_log(item_code, store_key, price)
-                
-                return {
-                    "msg": "success",
-                    "item_code": item_code,
-                    "type": "product",
-                    "product_id": product_id,
-                    "price_updated": price_result["msg"] == "success",
-                    "price_logged": log_result["msg"] == "success",
-                    "price": price
-                }
+                # Product with no variants - we need the variant ID from SAP
+                if sap_item.get('Shopify_VariantId'):
+                    # We have the variant ID directly from SAP - use it!
+                    variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
+                    product_id = f"gid://shopify/Product/{sap_item['Shopify_ProductCode']}"
+                    logger.info(f"Processing product price change for {item_code} using SAP variant ID: {variant_id}")
+                    
+                    # Update variant price directly: SalePrice goes to price, normal price goes to compareAtPrice
+                    price_result = await self.update_variant_price(store_key, variant_id, sale_price, normal_price)
+                    
+                    # Only log to SAP API_LOG if the Shopify update was successful
+                    if price_result["msg"] == "success":
+                        log_result = await self.log_price_change_to_api_log(item_code, store_key, sale_price)
+                        price_logged = log_result["msg"] == "success"
+                    else:
+                        price_logged = False
+                    
+                    return {
+                        "msg": "success",
+                        "item_code": item_code,
+                        "type": "product",
+                        "product_id": product_id,
+                        "variant_id": variant_id,
+                        "price_updated": price_result["msg"] == "success",
+                        "price_logged": price_logged,
+                        "price": sale_price,
+                        "compare_at_price": normal_price
+                    }
+                else:
+                    # No variant ID in SAP - this shouldn't happen for products
+                    logger.error(f"No Shopify variant ID found in SAP for product {item_code}")
+                    return {
+                        "msg": "failure",
+                        "error": f"No Shopify variant ID found in SAP for product {item_code}"
+                    }
                 
             elif sap_item.get('Shopify_VariantId'):
                 # Variant of a product
                 variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
                 logger.info(f"Processing variant price change for {item_code} (variant ID: {variant_id})")
                 
-                # Update variant price
-                price_result = await self.update_variant_price(store_key, variant_id, price)
+                # Update variant price: SalePrice goes to price, normal price goes to compareAtPrice
+                price_result = await self.update_variant_price(store_key, variant_id, sale_price, normal_price)
                 
-                # Log to API_LOG
-                log_result = await self.log_price_change_to_api_log(item_code, store_key, price)
+                # Only log to SAP API_LOG if the Shopify update was successful
+                if price_result["msg"] == "success":
+                    log_result = await self.log_price_change_to_api_log(item_code, store_key, sale_price)
+                    price_logged = log_result["msg"] == "success"
+                else:
+                    price_logged = False
                 
                 return {
                     "msg": "success",
@@ -242,8 +251,9 @@ class PriceChangesSync:
                     "type": "variant",
                     "variant_id": variant_id,
                     "price_updated": price_result["msg"] == "success",
-                    "price_logged": log_result["msg"] == "success",
-                    "price": price
+                    "price_logged": price_logged,
+                    "price": sale_price,
+                    "compare_at_price": normal_price
                 }
             else:
                 logger.warning(f"No Shopify ID found for item {item_code}")
@@ -294,18 +304,22 @@ class PriceChangesSync:
                         result = await self.process_price_changes(store_key, sap_item)
                         
                         if result["msg"] == "success":
-                            success += 1
-                            logger.info(f"Successfully processed price change for {result['item_code']} (price: {result['price']})")
+                            if result["price_updated"]:
+                                success += 1
+                                logger.info(f"✅ Successfully processed price change for {result['item_code']} (price: {result['price']})")
+                            else:
+                                errors += 1
+                                logger.error(f"❌ Shopify update failed for {result['item_code']} (price: {result['price']}) - SAP retrieval succeeded but Shopify update failed")
                         else:
                             errors += 1
-                            logger.error(f"Failed to process price change for {sap_item.get('ItemCode', 'unknown')}: {result.get('error')}")
+                            logger.error(f"❌ Failed to process price change for {sap_item.get('ItemCode', 'unknown')}: {result.get('error')}")
                         
                         processed += 1
                         await asyncio.sleep(0.5)  # Rate limiting
                         
                     except Exception as e:
                         errors += 1
-                        logger.error(f"Error processing price change for {sap_item.get('ItemCode', 'unknown')}: {str(e)}")
+                        logger.error(f"❌ Exception processing price change for {sap_item.get('ItemCode', 'unknown')}: {str(e)}")
                         await asyncio.sleep(0.5)
 
             # Log sync event

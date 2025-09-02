@@ -214,16 +214,13 @@ class SAPClient:
     # Custom Query Methods (for your specific endpoints)
     async def get_new_items(self, store_key: str = None) -> Dict[str, Any]:
         """Get new items from the new SAP view endpoint, with optional store filter"""
-        endpoint = 'view.svc/MASHURA_New_ItemsB1SLQuery'
-        # Get all items first, then filter in application code to avoid SQL Server OData issues
-        result = await self._make_request('GET', endpoint)
+        if store_key:
+            # Use OData filter for better performance
+            endpoint = f'view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq \'{store_key}\''
+        else:
+            endpoint = 'view.svc/MASHURA_New_ItemsB1SLQuery'
         
-        if result["msg"] == "success" and store_key:
-            # Filter the results in application code
-            items = result["data"].get("value", [])
-            filtered_items = [item for item in items if item.get("Shopify_Store") == store_key]
-            result["data"]["value"] = filtered_items
-            
+        result = await self._make_request('GET', endpoint)
         return result
 
     async def add_shopify_mapping(self, mapping_data: dict) -> dict:

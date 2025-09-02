@@ -434,8 +434,8 @@ class MultiStoreShopifyClient:
     
     async def update_variant(self, store_key: str, variant_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Update a variant using the new Shopify API 2025-07 approach
-        Note: productVariantUpdate doesn't exist in API 2025-07, so we use productUpdate instead
+        Update a variant using the correct Shopify API 2025-07 approach
+        Use productVariantsBulkUpdate for variant-specific updates
         """
         # First, get the product ID from the variant
         variant_info = await self.get_variant_by_id(store_key, variant_id)
@@ -444,56 +444,75 @@ class MultiStoreShopifyClient:
         
         product_id = variant_info["data"]["productVariant"]["product"]["id"]
         
-        # Get the current product to update the specific variant
-        product_info = await self.get_product_by_id(store_key, product_id)
-        if product_info["msg"] == "failure":
-            return product_info
+        # Prepare the variant update data
+        variant_update_data = {
+            "id": variant_id
+        }
         
-        product = product_info["data"]["product"]
-        variants = product["variants"]["edges"]
+        # Add price if provided
+        if "price" in variant_data:
+            variant_update_data["price"] = variant_data["price"]
         
-        # Find and update the specific variant
-        updated_variants = []
-        for variant_edge in variants:
-            variant = variant_edge["node"]
-            if variant["id"] == variant_id:
-                # Update this variant
-                updated_variant = {
-                    "id": variant["id"],
-                    "sku": variant["sku"],
-                    "price": variant_data.get("price", variant["price"]),
-                    "title": variant_data.get("title", variant["title"])
+        # Add compare price if provided
+        if "compareAtPrice" in variant_data:
+            variant_update_data["compareAtPrice"] = variant_data["compareAtPrice"]
+        
+        # Try the simpler productUpdate mutation first (this was working before)
+        try:
+            mutation = """
+            mutation productUpdate($input: ProductInput!) {
+                productUpdate(input: $input) {
+                    product {
+                        id
+                        title
+                        variants(first: 1) {
+                            edges {
+                                node {
+                                    id
+                                    price
+                                    compareAtPrice
+                                }
+                            }
+                        }
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
                 }
-                updated_variants.append(updated_variant)
+            }
+            """
+            
+            # For product updates, we need to include the variant data
+            product_input = {
+                "id": product_id,
+                "variants": [variant_update_data]
+            }
+            
+            result = await self.execute_query(store_key, mutation, {"input": product_input})
+            
+            if result["msg"] == "success":
+                return result
             else:
-                # Keep other variants unchanged
-                updated_variants.append({
-                    "id": variant["id"],
-                    "sku": variant["sku"],
-                    "price": variant["price"],
-                    "title": variant["title"]
-                })
+                # If that fails, try the bulk update approach
+                logger.info(f"Product update failed, trying bulk variant update for {variant_id}")
+                
+        except Exception as e:
+            logger.info(f"Product update approach failed, trying bulk variant update for {variant_id}")
         
-        # Use productUpdate to update the variants
+        # Fallback to productVariantsBulkUpdate
         mutation = """
-        mutation productUpdate($input: ProductInput!) {
-            productUpdate(input: $input) {
-                product {
-                    id
-                    title
-                    variants(first: 10) {
-                        edges {
-                            node {
+        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                productVariants {
                     id
                     sku
-                                price
+                    price
+                    compareAtPrice
                     title
                     selectedOptions {
                         name
                         value
-                                }
-                            }
-                        }
                     }
                 }
                 userErrors {
@@ -505,11 +524,67 @@ class MultiStoreShopifyClient:
         """
         
         update_data = {
-            "id": product_id,
-            "variants": updated_variants
+            "productId": product_id,
+            "variants": [variant_update_data]
         }
         
-        return await self.execute_query(store_key, mutation, {"input": update_data})
+        return await self.execute_query(store_key, mutation, update_data)
+    
+    async def update_variant_direct(self, store_key: str, variant_id: str, variant_data: Dict[str, Any], product_id: str = None) -> Dict[str, Any]:
+        """
+        Update a variant directly using productVariantsBulkUpdate - no lookups needed
+        """
+        # If product_id not provided, extract it from variant_id
+        if not product_id:
+            variant_parts = variant_id.split('/')
+            if len(variant_parts) >= 2:
+                variant_number = variant_parts[-1]
+                product_id = f"gid://shopify/Product/{variant_number}"
+            else:
+                return {"msg": "failure", "error": f"Invalid variant ID format: {variant_id}"}
+        
+        # Prepare the variant update data
+        variant_update_data = {
+            "id": variant_id
+        }
+        
+        # Add price if provided
+        if "price" in variant_data:
+            variant_update_data["price"] = variant_data["price"]
+        
+        # Add compare price if provided
+        if "compareAtPrice" in variant_data:
+            variant_update_data["compareAtPrice"] = variant_data["compareAtPrice"]
+        
+        # Use productVariantsBulkUpdate directly - this is the correct approach
+        mutation = """
+        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                productVariants {
+                    id
+                    sku
+                    price
+                    compareAtPrice
+                    title
+                    selectedOptions {
+                        name
+                        value
+                    }
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        update_data = {
+            "productId": product_id,
+            "variants": [variant_update_data]
+        }
+        
+        return await self.execute_query(store_key, mutation, update_data)
     
     async def update_product(self, store_key: str, product_id: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -571,6 +646,11 @@ class MultiStoreShopifyClient:
                     "title": variant_data.get("title", variant.get("title", "")),
                     "barcode": variant_data.get("barcode", variant.get("barcode", ""))
                 }
+                
+                # Add compare price if provided
+                if "compareAtPrice" in variant_data:
+                    updated_variant["compareAtPrice"] = variant_data["compareAtPrice"]
+                
                 updated_variants.append(updated_variant)
             else:
                 # Keep other variants unchanged
@@ -598,6 +678,7 @@ class MultiStoreShopifyClient:
                                 title
                                 sku
                                 barcode
+                                compareAtPrice
                                 selectedOptions {
                                     name
                                     value
@@ -631,6 +712,7 @@ class MultiStoreShopifyClient:
                 id
                 sku
                 price
+                compareAtPrice
                 product {
                     id
                     title

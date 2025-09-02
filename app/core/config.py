@@ -48,6 +48,8 @@ class ShopifyStoreConfig:
         self.currency = store_data.get('currency', 'USD')
         self.price_list = store_data.get('price_list', 1)
         self.enabled = store_data.get('enabled', True)
+        # Add location warehouse mapping
+        self.location_warehouse_mapping = config_data['shopify'].get('location_warehouse_mapping', {})
 
 class ConfigSettings(BaseSettings):
     # Test Mode
@@ -93,10 +95,32 @@ class ConfigSettings(BaseSettings):
         # Check if location has specific mapping
         locations = mapping.get('locations', {})
         if location_id in locations:
-            return locations[location_id]
+            location_info = locations[location_id]
+            # Handle both old format (direct warehouse code) and new format (with warehouse field)
+            if isinstance(location_info, str):
+                return location_info  # Old format
+            elif isinstance(location_info, dict):
+                return location_info.get('warehouse', 'SW')  # New format
         
         # Return default warehouse for the store
         return mapping.get('default', 'SW')
+    
+    def get_location_mapping_for_location(self, store_key: str, location_id: str) -> Dict[str, str]:
+        """Get complete location mapping (warehouse + costing codes) for a specific location"""
+        mapping = self.get_location_warehouse_mapping(store_key)
+        if not mapping:
+            return {"warehouse": "SW"}  # Default warehouse
+        
+        locations = mapping.get('locations', {})
+        if location_id in locations:
+            location_info = locations[location_id]
+            if isinstance(location_info, dict):
+                return location_info  # New format with costing codes
+            elif isinstance(location_info, str):
+                return {"warehouse": location_info}  # Old format, convert to new format
+        
+        # Return default mapping
+        return {"warehouse": mapping.get('default', 'SW')}
     
     def get_warehouse_code_for_order(self, store_key: str, order_data: Dict[str, Any]) -> str:
         """Get warehouse code for an order based on its location"""
@@ -122,6 +146,10 @@ class ConfigSettings(BaseSettings):
         """Get bank transfer account for a specific payment type in a store"""
         mapping = self.get_bank_transfer_mapping(store_key)
         return mapping.get(payment_type, "")
+    
+    def get_currency_for_store(self, store_key: str) -> str:
+        """Get currency for a specific store"""
+        return self.shopify_stores[store_key].currency
     
     # Legacy support for backward compatibility
     @property

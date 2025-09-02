@@ -28,26 +28,39 @@ async def run_all_enabled_syncs():
     
     sync_controller = ShopifySAPSync()
     
-    # Check which syncs are enabled
+    # Check which syncs are enabled from configuration
     enabled_syncs = []
     
-    # For now, we'll enable new_items and stock by default since they're not in config
-    # You can add these to configurations.json later
-    enabled_syncs.append("new_items")
-    enabled_syncs.append("stock")
+    if config_settings.new_items_enabled:
+        enabled_syncs.append("new_items")
+        print(f"✅ New Items Sync: Enabled (every {config_settings.new_items_interval} minutes)")
     
-
+    if config_settings.inventory_enabled:
+        enabled_syncs.append("inventory")
+        print(f"✅ Inventory Sync: Enabled (every {config_settings.inventory_interval} minutes)")
     
-    # Gift cards not in config yet, so we'll skip for now
-    # if config_settings.gift_cards_enabled:
-    #     enabled_syncs.append("gift_cards")
+    if config_settings.item_changes_enabled:
+        enabled_syncs.append("item_changes")
+        print(f"✅ Item Changes Sync: Enabled (every {config_settings.item_changes_interval} minutes)")
+    
+    if config_settings.price_changes_enabled:
+        enabled_syncs.append("price_changes")
+        print(f"✅ Price Changes Sync: Enabled (every {config_settings.price_changes_interval} minutes)")
+    
+    if config_settings.sales_orders_enabled:
+        enabled_syncs.append("sales_orders")
+        print(f"✅ Sales Orders Sync: Enabled (every {config_settings.sales_orders_interval} minutes)")
+    
+    if config_settings.payment_recovery_enabled:
+        enabled_syncs.append("payment_recovery")
+        print(f"✅ Payment Recovery Sync: Enabled (every {config_settings.payment_recovery_interval} minutes)")
     
     if not enabled_syncs:
         print("❌ No sync processes are enabled in configuration!")
         print("Please enable at least one sync in configurations.json")
         return
     
-    print(f"🔄 Running {len(enabled_syncs)} enabled sync(s): {', '.join(enabled_syncs)}")
+    print(f"\n🔄 Running {len(enabled_syncs)} enabled sync(s): {', '.join(enabled_syncs)}")
     print()
     
     # Run all enabled syncs

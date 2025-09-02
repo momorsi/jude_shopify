@@ -174,82 +174,93 @@ class InventorySync:
         """
         logger.info("Starting stock change sync using MASHURA_StockChangeB1SLQuery view")
         try:
-            # Fetch all rows from the view (use view.svc explicitly)
-            result = await sap_client.get_entities('view.svc/MASHURA_StockChangeB1SLQuery', top=self.batch_size)
-            if result["msg"] != "success":
-                logger.error(f"Failed to fetch stock changes: {result.get('error')}")
-                return {"msg": "failure", "error": result.get("error")}
-            rows = result["data"].get("value", [])
-            if not rows:
-                logger.info("No stock changes found in the view.")
-                return {"msg": "success", "processed": 0, "success": 0, "errors": 0}
+            # Get enabled stores
+            enabled_stores = config_settings.get_enabled_stores()
+            if not enabled_stores:
+                logger.error("No enabled Shopify stores found")
+                return {"msg": "failure", "error": "No enabled Shopify stores found"}
 
             processed = 0
             success = 0
             errors = 0
-            for row in rows:
-                item_code = row.get("ItemCode")
-                variant_id = row.get("Variant_ID")  # This could be null
-                available = row.get("Available")
-                onhand = row.get("OnHand")
-                location_id = row.get("Location_ID")  # Actual Shopify location ID
-                reference = f"{item_code}-{location_id}"
-                log_status = "success"
-                log_error = None
+
+            for store_key, store_config in enabled_stores.items():
+                logger.info(f"Processing inventory changes for store: {store_key}")
                 
-                try:
-                    # Determine which store to use based on location_id
-                    store_key = self._get_store_for_location(location_id)
-                    if not store_key:
-                        raise Exception(f"No store found for location_id {location_id}")
+                # Fetch rows from the view filtered by store
+                query = f"view.svc/MASHURA_StockChangeB1SLQuery?$filter=Shopify_Store eq '{store_key}'"
+                result = await sap_client._make_request("GET", query)
+                
+                if result["msg"] != "success":
+                    logger.error(f"Failed to fetch stock changes for store {store_key}: {result.get('error')}")
+                    continue
+                
+                rows = result["data"].get("value", [])
+                if not rows:
+                    logger.info(f"No stock changes found for store {store_key}.")
+                    continue
+                
+                logger.info(f"Processing {len(rows)} inventory changes for store {store_key}")
+                
+                for row in rows:
+                    item_code = row.get("ItemCode")
+                    variant_id = row.get("Variant_ID")  # This could be null
+                    available = row.get("Available")
+                    onhand = row.get("OnHand")
+                    location_id = row.get("Location_ID")  # Actual Shopify location ID
+                    reference = f"{item_code}-{location_id}"
+                    log_status = "success"
+                    log_error = None
                     
-                    if variant_id is None or variant_id == "":
-                        # Create inventory item for this variant at this location
-                        logger.info(f"Creating inventory for item {item_code} at location {location_id}")
-                        result = await self.create_inventory_item(store_key, item_code, location_id, available)
-                        if result["msg"] == "success":
-                            # Save the created inventory item ID back to SAP
-                            await self.save_inventory_mapping(item_code, result["inventory_item_id"], "variant_inventory")
-                            await self.update_onhand_metafield(store_key, result["inventory_item_id"], onhand)
-                            success += 1
+                    try:
+                        # Use the current store_key from the loop instead of determining it
+                        if variant_id is None or variant_id == "":
+                            # Create inventory item for this variant at this location
+                            logger.info(f"Creating inventory for item {item_code} at location {location_id}")
+                            result = await self.create_inventory_item(store_key, item_code, location_id, available)
+                            if result["msg"] == "success":
+                                # Save the created inventory item ID back to SAP
+                                await self.save_inventory_mapping(item_code, result["inventory_item_id"], "variant_inventory")
+                                await self.update_onhand_metafield(store_key, result["inventory_item_id"], onhand)
+                                success += 1
+                            else:
+                                log_status = "failure"
+                                log_error = result.get("error")
+                                errors += 1
                         else:
-                            log_status = "failure"
-                            log_error = result.get("error")
-                            errors += 1
-                    else:
-                        # Update existing inventory
-                        logger.info(f"Updating inventory for item {item_code} (variant {variant_id}) at location {location_id}")
-                        update_data = {
-                            "location_id": location_id,
-                            "inventory_item_id": variant_id,
-                            "available": int(available)
-                        }
-                        result = await multi_store_shopify_client.update_inventory_level(store_key, update_data)
-                        if result["msg"] != "success":
-                            log_status = "failure"
-                            log_error = result.get("error")
-                            errors += 1
-                        else:
-                            await self.update_onhand_metafield(store_key, variant_id, onhand)
-                            success += 1
-                            
-                except Exception as e:
-                    log_status = "failure"
-                    log_error = str(e)
-                    errors += 1
-                finally:
-                    await sl_add_log(
-                        server="shopify",
-                        endpoint="inventory_levels",
-                        request_data={"item_code": item_code, "variant_id": variant_id, "location_id": location_id, "available": available},
-                        response_data=log_error if log_status == "failure" else None,
-                        status=log_status,
-                        reference=reference,
-                        action="quantity",
-                        value=str(available)
-                    )
-                    processed += 1
-                    await asyncio.sleep(0.1)
+                            # Update existing inventory
+                            logger.info(f"Updating inventory for item {item_code} (variant {variant_id}) at location {location_id}")
+                            update_data = {
+                                "location_id": location_id,
+                                "inventory_item_id": variant_id,
+                                "available": int(available)
+                            }
+                            result = await multi_store_shopify_client.update_inventory_level(store_key, update_data)
+                            if result["msg"] != "success":
+                                log_status = "failure"
+                                log_error = result.get("error")
+                                errors += 1
+                            else:
+                                await self.update_onhand_metafield(store_key, variant_id, onhand)
+                                success += 1
+                                
+                    except Exception as e:
+                        log_status = "failure"
+                        log_error = str(e)
+                        errors += 1
+                    finally:
+                        await sl_add_log(
+                            server="shopify",
+                            endpoint="inventory_levels",
+                            request_data={"item_code": item_code, "variant_id": variant_id, "location_id": location_id, "available": available},
+                            response_data=log_error if log_status == "failure" else None,
+                            status=log_status,
+                            reference=reference,
+                            action="quantity",
+                            value=str(available)
+                        )
+                        processed += 1
+                        await asyncio.sleep(0.1)
             logger.info(f"Stock change sync completed: {processed} processed, {success} successful, {errors} errors")
             return {"msg": "success", "processed": processed, "success": success, "errors": errors}
         except Exception as e:

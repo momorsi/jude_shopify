@@ -17,46 +17,82 @@
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "EGP",
-                "price_list": 1,
+                "price_list": 1,                
                 "enabled": true
             },
             "international": {
                 "name": "International Store",
-                "shop_url": "placeholder.myshopify.com",
-                "access_token": "placeholder_token",
+                "shop_url": "int-judebenhalim.myshopify.com",
+                "access_token": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "USD",
                 "price_list": 7,
-                "enabled": false
+                "enabled": true
             }
         },
         "webhook_secret": "your_webhook_secret",
         "location_warehouse_mapping": {
             "local": {
-                "default": "SW",
                 "locations": {
-                    "68605345858": "SW",
-                    "70074892354": "5A",
-                    "70074957890": "Arkan",
-                    "70074990658": "ZW"
+                    "web": {
+                        "warehouse": "SW",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    },
+                    "68605345858": {
+                        "warehouse": "SW",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    },
+                    "70074892354": {
+                        "warehouse": "5A",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    },
+                    "70074957890": {
+                        "warehouse": "Arkan",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    },
+                    "70074990658": {
+                        "warehouse": "ZW",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    }
                 }
             },
             "international": {
-                "default": "SW",
                 "locations": {
-                    "gid://shopify/Location/111222333": "ONL",
-                    "gid://shopify/Location/444555666": "PHO"
+                    "web": {
+                        "warehouse": "SW",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    },
+                    "73474179162": {
+                        "warehouse": "SW",
+                        "location_cc": "ONL",
+                        "department_cc": "SAL",
+                        "activity_cc": "OnlineS"
+                    }
                 }
             }
         },
         "bank_transfers": {
             "local": {
                 "Cash on Delivery (COD)": "10801245",
-                "Paymob": "10801236"
+                "Tuyingo": "10801245",
+                "Payfort": "10801236",
+                "Paymob": "10801247"
             },
             "international": {
-                "Network": "10801237"
+                "N-Genius Online by Network": "10801237"
             }
         },
         "freight_config": {
