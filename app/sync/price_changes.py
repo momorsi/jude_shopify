@@ -67,7 +67,7 @@ class PriceChangesSync:
             logger.error(f"Error updating product {product_id} price in store {store_key}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
-    async def update_variant_price(self, store_key: str, variant_id: str, price: float, sale_price: Optional[float] = None) -> Dict[str, Any]:
+    async def update_variant_price(self, store_key: str, variant_id: str, price: float, sale_price: Optional[float] = None, product_id: str = None) -> Dict[str, Any]:
         """
         Update variant price and compare price in Shopify using the correct mutation directly
         """
@@ -93,10 +93,12 @@ class PriceChangesSync:
                 )
                 
                 # Use the correct mutation directly - no fallback needed
+                # Pass product_id to avoid unnecessary API call
                 result = await multi_store_shopify_client.update_variant_direct(
                     store_key, 
                     variant_id, 
-                    variant_data
+                    variant_data,
+                    product_id
                 )
                 
                 if result["msg"] == "success":
@@ -202,7 +204,8 @@ class PriceChangesSync:
                     logger.info(f"Processing product price change for {item_code} using SAP variant ID: {variant_id}")
                     
                     # Update variant price directly: SalePrice goes to price, normal price goes to compareAtPrice
-                    price_result = await self.update_variant_price(store_key, variant_id, sale_price, normal_price)
+                    # Pass product_id to avoid unnecessary API call
+                    price_result = await self.update_variant_price(store_key, variant_id, sale_price, normal_price, product_id)
                     
                     # Only log to SAP API_LOG if the Shopify update was successful
                     if price_result["msg"] == "success":

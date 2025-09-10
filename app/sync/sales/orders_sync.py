@@ -11,7 +11,7 @@ from app.services.shopify.multi_store_client import multi_store_shopify_client
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.sync.sales.customers import CustomerManager
-from datetime import datetime
+from datetime import datetime, date
 from order_location_mapper import OrderLocationMapper
 
 
@@ -33,7 +33,7 @@ class OrdersSalesSync:
             # Filter to exclude orders that already have sap_invoice_* tags
             query = """
             query getOrders($first: Int!, $after: String, $query: String) {
-                orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: true, query: $query) {
+                orders(first: $first, after: $after, sortKey: CREATED_AT, reverse: false, query: $query) {
                     edges {
                     node {
                         id
@@ -224,7 +224,10 @@ class OrdersSalesSync:
             retry_delay = 2  # Start with 2 seconds
             
             # Filter to only include orders with "take" tag and exclude orders that already have sap_invoice_synced or sap_invoice_failed tags
-            query_filter = "tag:take -tag:sap_invoice_synced -tag:sap_invoice_failed"
+            # Also filter to get orders starting from today
+            today = date.today().strftime("%Y-%m-%d")
+            query_filter = f"tag:salestest -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={today}"
+            logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
                 try:
@@ -386,6 +389,7 @@ class OrdersSalesSync:
             payment_info = self._extract_payment_info(order_node)
             gift_card_expenses = []
             if payment_info.get("gift_cards"):
+                logger.info(f"🎁 Processing {len(payment_info['gift_cards'])} gift card redemption(s)")
                 for gift_card in payment_info["gift_cards"]:
                     gift_card_expense = {
                         "ExpenseCode": 2,  # Gift card expense code
@@ -397,6 +401,9 @@ class OrdersSalesSync:
                         "DistributionRule3": sap_codes.get('DistributionRule3', 'OnlineS')   
                     }
                     gift_card_expenses.append(gift_card_expense)
+                    logger.info(f"🎁 Created gift card expense: {gift_card['last_characters']} - Amount: -{gift_card['amount']}")
+            else:
+                logger.info("🎁 No gift card redemptions found in this order")
             
             # Parse date
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
@@ -588,9 +595,22 @@ class OrdersSalesSync:
             variant_sku = (item.get('variant', {}).get('sku') or '').lower()
             name = (item.get('name') or '').lower()
             
+            # Log all line items for debugging
+            logger.info(f"Checking line item for gift card: SKU='{sku}', VariantSKU='{variant_sku}', Name='{name}'")
+            
             # Check for gift card patterns in line item SKU, variant SKU, or name
-            if ('gift' in sku or 'gift' in name or 'card' in sku or 'card' in name or
-                'gift' in variant_sku or 'card' in variant_sku):
+            # Also check for common gift card terms and Shopify's gift card product type
+            is_gift_card = (
+                'gift' in sku or 'gift' in name or 'card' in sku or 'card' in name or
+                'gift' in variant_sku or 'card' in variant_sku or
+                'voucher' in sku or 'voucher' in name or 'voucher' in variant_sku or
+                'credit' in sku or 'credit' in name or 'credit' in variant_sku or
+                'prepaid' in sku or 'prepaid' in name or 'prepaid' in variant_sku or
+                # Check if this is Shopify's built-in gift card product type
+                item.get('variant', {}).get('product', {}).get('productType', '').lower() == 'gift card'
+            )
+            
+            if is_gift_card:
                 # Calculate line total
                 quantity = item["quantity"]
                 if item.get("discountedUnitPriceSet") and item["discountedUnitPriceSet"].get("shopMoney"):
@@ -715,8 +735,9 @@ class OrdersSalesSync:
             shopify_gift_cards = await self._get_gift_cards_for_order(order_id, order_created_at)
         
         if not shopify_gift_cards:
-            logger.warning(f"No gift cards found in Shopify for order {order_id}")
-            return []
+            logger.warning(f"No gift cards found in Shopify for order {order_id} - will create with generated IDs")
+            # Continue processing even if no Shopify gift cards found
+            # This handles cases where gift cards might not be properly linked in Shopify
         
         for gift_card in gift_cards:
             try:
@@ -728,12 +749,13 @@ class OrdersSalesSync:
                         break
                 
                 if not matching_shopify_gift_card:
-                    logger.warning(f"No matching gift card found in Shopify for amount {gift_card['line_total']}")
-                    continue
-                
-                # Use the actual Shopify gift card ID
-                shopify_gift_card_id = matching_shopify_gift_card["id"]
-                numeric_id = shopify_gift_card_id.split("/")[-1] if "/" in shopify_gift_card_id else shopify_gift_card_id
+                    logger.warning(f"No matching gift card found in Shopify for amount {gift_card['line_total']} - creating with generated ID")
+                    # Generate a unique ID for this gift card
+                    numeric_id = f"GC{order_id}_{gift_card['line_total']}_{len(created_gift_cards)}"
+                else:
+                    # Use the actual Shopify gift card ID
+                    shopify_gift_card_id = matching_shopify_gift_card["id"]
+                    numeric_id = shopify_gift_card_id.split("/")[-1] if "/" in shopify_gift_card_id else shopify_gift_card_id
                 
                 # Check if gift card already exists in SAP
                 existing_gift_card = await self._check_gift_card_exists_in_sap(numeric_id)
@@ -762,7 +784,7 @@ class OrdersSalesSync:
                         "U_Active": "Yes",
                         "U_CardBal": gift_card["line_total"],
                         "U_Customer": customer_card_code,
-                        "U_Location": "SRM",
+                        "U_Location": "ONL",
                         "U_Consumed": 0,
                         "U_CardAmount": gift_card["line_total"],
                         "U_Expired": "No"
@@ -1091,8 +1113,8 @@ class OrdersSalesSync:
                     amount = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
                     receipt_json = transaction.get("receiptJson", "{}")
                     
-                    # Handle all payment gateway transactions (Paymob, N-Genius, etc.)
-                    if gateway in ["Paymob", "N-Genius Online by Network", "Cash on Delivery (COD)"] or gateway != "Unknown":
+                    # Handle all payment gateway transactions except gift_card (which has its own processing)
+                    if gateway != "Unknown" and gateway != "gift_card":
                         payment_info["gateway"] = gateway
                         payment_info["amount"] = amount
                         payment_info["status"] = transaction.get("status", "Unknown")
@@ -2265,295 +2287,6 @@ class OrdersSalesSync:
 
             logger.error(f"Error setting metafield for order {order_id}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
-
-    
-
-    async def process_order(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:
-
-        """
-
-        Process a single order from Shopify to SAP
-
-        """
-
-        try:
-
-            order_node = shopify_order["node"]
-
-            order_id = order_node["id"]
-
-            order_name = order_node["name"]
-
-            
-
-            # Check payment and fulfillment status
-
-            financial_status = order_node.get("displayFinancialStatus", "PENDING")
-            fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
-            
-            # Extract payment information
-            payment_info = self._extract_payment_info(order_node)
-            
-            # Extract address information
-            shipping_address = order_node.get("shippingAddress", {})
-            billing_address = order_node.get("billingAddress", {})
-            
-
-            logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
-
-            logger.info(f"Payment Gateway: {payment_info['gateway']} | Card Type: {payment_info['card_type']} | Amount: {payment_info['amount']}")
-            
-            if payment_info['is_online_payment']:
-                logger.info(f"🔑 ONLINE PAYMENT ID: {payment_info['payment_id']}")
-            
-            # Log address information
-            if shipping_address:
-                ship_to = f"{shipping_address.get('firstName', '')} {shipping_address.get('lastName', '')} | {shipping_address.get('address1', '')} | {shipping_address.get('city', '')}, {shipping_address.get('province', '')} | {shipping_address.get('phone', 'No phone')}"
-                logger.info(f"📍 SHIP TO: {ship_to}")
-                
-                # Log generated delivery address for SAP
-                delivery_address = self._generate_address_string(shipping_address)
-                logger.info(f"📍 SAP DELIVERY ADDRESS: {delivery_address}")
-            
-            if billing_address:
-                bill_to = f"{billing_address.get('firstName', '')} {billing_address.get('lastName', '')} | {billing_address.get('address1', '')} | {billing_address.get('city', '')}, {billing_address.get('province', '')} | {billing_address.get('phone', 'No phone')}"
-                logger.info(f"📍 BILL TO: {bill_to}")
-                
-                # Log generated billing address for SAP
-                billing_address_str = self._generate_address_string(billing_address)
-                logger.info(f"📍 SAP BILLING ADDRESS: {billing_address_str}")
-            
-
-            # For now, we'll process all orders regardless of status
-
-            # Later you can add logic to handle different statuses differently
-
-            if financial_status == "PENDING":
-
-                logger.info(f"Order {order_name} is pending payment - will process anyway")
-
-            
-
-            if fulfillment_status == "UNFULFILLED":
-
-                logger.info(f"Order {order_name} is unfulfilled - will process anyway")
-
-            
-
-            # Get or create customer in SAP
-
-            customer = order_node.get("customer")
-
-            if not customer:
-
-                return await self._handle_order_failure(store_key, order_id, order_name, "No customer found")
-
-            
-
-            # Extract phone number from customer, then fall back to shipping/billing addresses
-            phone = self.customer_manager._extract_phone_from_customer(customer)
-
-            if not phone:
-                shipping_phone = (order_node.get("shippingAddress") or {}).get("phone")
-                billing_phone = (order_node.get("billingAddress") or {}).get("phone")
-                phone = shipping_phone or billing_phone
-            if not phone:
-
-                return await self._handle_order_failure(store_key, order_id, order_name, "No phone number found for customer")
-
-            
-
-            # Check if customer exists in SAP by phone
-
-            existing_customer = await self.customer_manager.find_customer_by_phone(phone)
-
-            
-
-            if existing_customer:
-
-                logger.info(f"Found existing customer: {existing_customer.get('CardCode', 'Unknown')}")
-
-                sap_customer = existing_customer
-
-            else:
-
-                # Create new customer in SAP
-
-                logger.info("Creating new customer in SAP")
-
-                sap_customer = await self.customer_manager.create_customer_in_sap(customer, store_key)
-
-            if not sap_customer:
-
-                    return await self._handle_order_failure(store_key, order_id, order_name, "Failed to create customer")
-
-            
-
-            # Map order to SAP format
-
-            sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key)
-            if not sap_invoice_data:
-
-                return await self._handle_order_failure(store_key, order_id, order_name, "Failed to map order to SAP format")
-
-            
-
-            # Extract numeric order ID for logging
-            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
-            
-            # Create invoice in SAP
-            invoice_result = await self.create_invoice_in_sap(sap_invoice_data, order_id_number)
-
-            if invoice_result["msg"] == "failure":
-
-                return await self._handle_order_failure(store_key, order_id, order_name, invoice_result.get("error", "Failed to create invoice in SAP"))
-
-            # Build created invoice data to include DocEntry for payment linkage
-            created_invoice_data = {
-                "DocEntry": invoice_result["sap_doc_entry"],
-                "DocNum": invoice_result["sap_doc_num"]
-            }
-
-            # Check if order is paid and create incoming payment
-
-            sap_payment_number = None
-
-            if financial_status == "PAID":
-
-                logger.info(f"Order {order_name} is paid - creating incoming payment in SAP")
-
-                
-
-                # Prepare incoming payment data
-
-                payment_data = self.prepare_incoming_payment_data(
-
-                    shopify_order, 
-
-                    created_invoice_data, 
-
-                    sap_customer["CardCode"], 
-
-                    store_key
-
-                )
-
-                
-
-                # Create incoming payment in SAP
-                payment_result = await self.create_incoming_payment_in_sap(payment_data, order_id_number)
-
-                if payment_result["msg"] == "success":
-
-                    sap_payment_number = payment_result["sap_payment_number"]
-
-                    logger.info(f"Successfully created incoming payment: {sap_payment_number}")
-                    
-                    # Add payment sync tags
-                    payment_tag = f"sap_payment_{sap_payment_number}"
-                    payment_synced_tag = "sap_payment_synced"
-                    
-                    # Add specific payment tag
-                    payment_tag_result = await self.add_order_tag(
-                        store_key,
-                        order_id,
-                        payment_tag
-                    )
-                    
-                    # Add general payment synced tag
-                    synced_tag_result = await self.add_order_tag(
-                        store_key,
-                        order_id,
-                        payment_synced_tag
-                    )
-                    
-                    if payment_tag_result["msg"] == "failure":
-                        logger.warning(f"Failed to add payment sync tag for {order_name}: {payment_tag_result.get('error')}")
-                    
-                    if synced_tag_result["msg"] == "failure":
-                        logger.warning(f"Failed to add payment synced tag for {order_name}: {synced_tag_result.get('error')}")
-
-                else:
-
-                    logger.warning(f"Failed to create incoming payment for {order_name}: {payment_result.get('error')}")
-                    
-                    # Add payment failed tag
-                    payment_failed_tag = "sap_payment_failed"
-                    payment_tag_result = await self.add_order_tag(
-                        store_key,
-                        order_id,
-                        payment_failed_tag
-                    )
-                    if payment_tag_result["msg"] == "failure":
-                        logger.warning(f"Failed to add payment failed tag for {order_name}: {payment_tag_result.get('error')}")
-
-                    # Don't fail the entire process if payment creation fails
-
-            else:
-
-                logger.info(f"Order {order_name} is not paid (status: {financial_status}) - skipping payment creation")
-
-            
-
-            # Add invoice sync tags to order
-            invoice_tag = f"sap_invoice_{invoice_result['sap_doc_entry']}"
-            invoice_synced_tag = "sap_invoice_synced"
-            
-            # Add specific invoice tag
-            tag_update_result = await self.add_order_tag(
-                store_key,
-                order_id,
-                invoice_tag
-            )
-            
-            # Add general synced tag
-            synced_tag_result = await self.add_order_tag(
-                store_key,
-                order_id,
-                invoice_synced_tag
-            )
-            
-            if tag_update_result["msg"] == "failure":
-                logger.warning(f"Failed to add invoice sync tag for {order_name}: {tag_update_result.get('error')}")
-                # Don't fail the entire process if tag update fails
-            
-            if synced_tag_result["msg"] == "failure":
-                logger.warning(f"Failed to add invoice synced tag for {order_name}: {synced_tag_result.get('error')}")
-                # Don't fail the entire process if tag update fails
-            
-
-            logger.info(f"Successfully processed order {order_name}")
-
-            
-
-            return {
-
-                "msg": "success",
-
-                "order_name": order_name,
-
-                "sap_invoice_number": invoice_result["sap_invoice_number"],
-
-                "sap_payment_number": sap_payment_number,
-
-                "customer_card_code": sap_customer["CardCode"],
-
-                "financial_status": financial_status,
-
-                "fulfillment_status": fulfillment_status,
-                "payment_id": payment_info.get("payment_id", "Unknown"),
-                "payment_gateway": payment_info.get("gateway", "Unknown"),
-                "payment_amount": payment_info.get("amount", 0.0),
-                "is_online_payment": payment_info.get("is_online_payment", False),
-                "shipping_address": shipping_address,
-                "billing_address": billing_address
-            }
-
-            
-
-        except Exception as e:
-
-            return await self._handle_order_failure(store_key, order_id, order_name, str(e))
 
     
 

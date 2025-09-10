@@ -276,23 +276,14 @@ class ItemChangesSync:
             elif sap_item.get('Shopify_VariantId'):
                 # Variant of a product
                 variant_id = f"gid://shopify/ProductVariant/{sap_item['Shopify_VariantId']}"
-                logger.info(f"Processing variant change for {item_code} (variant ID: {variant_id})")
-                
-                # Get the product ID from the variant
-                variant_info = await multi_store_shopify_client.get_variant_by_id(store_key, variant_id)
-                
-                if variant_info["msg"] == "failure":
-                    logger.error(f"Failed to get variant info for {variant_id}: {variant_info.get('error')}")
-                    return variant_info
-                
-                # Extract product ID from variant
-                product_id = variant_info["data"]["productVariant"]["product"]["id"]
+                product_id = f"gid://shopify/Product/{sap_item['Shopify_ProductCode']}"
+                logger.info(f"Processing variant change for {item_code} (variant ID: {variant_id}, product ID: {product_id})")
                 
                 # Update product (status only, since this is a variant change)
                 product_result = await self.update_product_comprehensive(store_key, product_id, sap_item)
                 
-                # Update variant (barcode and color)
-                variant_result = await self.update_variant_comprehensive(store_key, variant_id, sap_item)
+                # Update variant (barcode and color) - pass product_id to avoid unnecessary API call
+                variant_result = await self.update_variant_comprehensive(store_key, variant_id, sap_item, product_id)
                 
                 # Update item change record
                 change_result = await self.update_item_change_record(

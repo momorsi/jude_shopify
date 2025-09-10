@@ -432,17 +432,17 @@ class MultiStoreShopifyClient:
         
         return await self.execute_query(store_key, mutation, variables)
     
-    async def update_variant(self, store_key: str, variant_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_variant(self, store_key: str, variant_id: str, variant_data: Dict[str, Any], product_id: str = None) -> Dict[str, Any]:
         """
         Update a variant using the correct Shopify API 2025-07 approach
         Use productVariantsBulkUpdate for variant-specific updates
         """
-        # First, get the product ID from the variant
-        variant_info = await self.get_variant_by_id(store_key, variant_id)
-        if variant_info["msg"] == "failure":
-            return variant_info
-        
-        product_id = variant_info["data"]["productVariant"]["product"]["id"]
+        # If product_id not provided, get it from the variant (fallback for backward compatibility)
+        if not product_id:
+            variant_info = await self.get_variant_by_id(store_key, variant_id)
+            if variant_info["msg"] == "failure":
+                return variant_info
+            product_id = variant_info["data"]["productVariant"]["product"]["id"]
         
         # Prepare the variant update data
         variant_update_data = {
@@ -457,50 +457,7 @@ class MultiStoreShopifyClient:
         if "compareAtPrice" in variant_data:
             variant_update_data["compareAtPrice"] = variant_data["compareAtPrice"]
         
-        # Try the simpler productUpdate mutation first (this was working before)
-        try:
-            mutation = """
-            mutation productUpdate($input: ProductInput!) {
-                productUpdate(input: $input) {
-                    product {
-                        id
-                        title
-                        variants(first: 1) {
-                            edges {
-                                node {
-                                    id
-                                    price
-                                    compareAtPrice
-                                }
-                            }
-                        }
-                    }
-                    userErrors {
-                        field
-                        message
-                    }
-                }
-            }
-            """
-            
-            # For product updates, we need to include the variant data
-            product_input = {
-                "id": product_id,
-                "variants": [variant_update_data]
-            }
-            
-            result = await self.execute_query(store_key, mutation, {"input": product_input})
-            
-            if result["msg"] == "success":
-                return result
-            else:
-                # If that fails, try the bulk update approach
-                logger.info(f"Product update failed, trying bulk variant update for {variant_id}")
-                
-        except Exception as e:
-            logger.info(f"Product update approach failed, trying bulk variant update for {variant_id}")
-        
-        # Fallback to productVariantsBulkUpdate
+        # Use productVariantsBulkUpdate directly (productUpdate doesn't support variants field)
         mutation = """
         mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
             productVariantsBulkUpdate(productId: $productId, variants: $variants) {
@@ -614,16 +571,16 @@ class MultiStoreShopifyClient:
         
         return await self.execute_query(store_key, mutation, {"input": product_data})
     
-    async def update_variant_comprehensive(self, store_key: str, variant_id: str, variant_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_variant_comprehensive(self, store_key: str, variant_id: str, variant_data: Dict[str, Any], product_id: str = None) -> Dict[str, Any]:
         """
         Update a variant comprehensively using the new Shopify API 2025-07 approach
         """
-        # First, get the product ID from the variant
-        variant_info = await self.get_variant_by_id(store_key, variant_id)
-        if variant_info["msg"] == "failure":
-            return variant_info
-        
-        product_id = variant_info["data"]["productVariant"]["product"]["id"]
+        # If product_id not provided, get it from the variant (fallback for backward compatibility)
+        if not product_id:
+            variant_info = await self.get_variant_by_id(store_key, variant_id)
+            if variant_info["msg"] == "failure":
+                return variant_info
+            product_id = variant_info["data"]["productVariant"]["product"]["id"]
         
         # Get the current product to update the specific variant
         product_info = await self.get_product_by_id(store_key, product_id)
@@ -663,28 +620,19 @@ class MultiStoreShopifyClient:
                 }
                 updated_variants.append(updated_variant)
         
-        # Use productUpdate to update the variants
+        # Use productVariantsBulkUpdate to update the variants (productUpdate doesn't support variants field)
         mutation = """
-        mutation productUpdate($input: ProductInput!) {
-            productUpdate(input: $input) {
-                product {
+        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                productVariants {
                     id
+                    sku
+                    price
+                    compareAtPrice
                     title
-                    status
-                    variants(first: 50) {
-                        edges {
-                            node {
-                                id
-                                title
-                                sku
-                                barcode
-                                compareAtPrice
-                                selectedOptions {
-                                    name
-                                    value
-                                }
-                            }
-                        }
+                    selectedOptions {
+                        name
+                        value
                     }
                 }
                 userErrors {
@@ -696,11 +644,11 @@ class MultiStoreShopifyClient:
         """
         
         update_data = {
-            "id": product_id,
+            "productId": product_id,
             "variants": updated_variants
         }
         
-        return await self.execute_query(store_key, mutation, {"input": update_data})
+        return await self.execute_query(store_key, mutation, update_data)
     
     async def get_variant_by_id(self, store_key: str, variant_id: str) -> Dict[str, Any]:
         """

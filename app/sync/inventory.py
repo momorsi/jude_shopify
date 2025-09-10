@@ -26,34 +26,6 @@ class InventorySync:
     
 
     
-    async def update_onhand_metafield(self, store_key: str, variant_id: str, onhand: float) -> Dict[str, Any]:
-        """
-        Update the OnHand value as a metafield for the given variant in Shopify.
-        """
-        try:
-            metafield_data = {
-                "metafield": {
-                    "namespace": "inventory",
-                    "key": "onhand",
-                    "value": str(onhand),
-                    "type": "number_decimal"
-                }
-            }
-            # Shopify REST API for variant metafields
-            store_config = config_settings.get_store_by_name(store_key)
-            url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/variants/{variant_id}/metafields.json"
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(url, json=metafield_data, headers=headers)
-                if response.status_code == 201:
-                    return {"msg": "success", "data": response.json()}
-                else:
-                    return {"msg": "failure", "error": f"HTTP {response.status_code}: {response.text}"}
-        except Exception as e:
-            return {"msg": "failure", "error": str(e)}
 
     def _get_store_for_location(self, location_id: str) -> str:
         """
@@ -221,7 +193,6 @@ class InventorySync:
                             if result["msg"] == "success":
                                 # Save the created inventory item ID back to SAP
                                 await self.save_inventory_mapping(item_code, result["inventory_item_id"], "variant_inventory")
-                                await self.update_onhand_metafield(store_key, result["inventory_item_id"], onhand)
                                 success += 1
                             else:
                                 log_status = "failure"
@@ -241,7 +212,6 @@ class InventorySync:
                                 log_error = result.get("error")
                                 errors += 1
                             else:
-                                await self.update_onhand_metafield(store_key, variant_id, onhand)
                                 success += 1
                                 
                     except Exception as e:

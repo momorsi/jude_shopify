@@ -113,8 +113,9 @@ class MultiStoreNewItemsSync:
             "tracked": True
         }
         
+        # SalePrice goes to price field, regular Price goes to compareAtPrice field
         variant = {
-            "price": str(price),
+            "price": str(sale_price) if sale_price is not None else str(price),
             "taxable": False,  # Disable tax on this variant
             "optionValues": [
                 {
@@ -125,9 +126,9 @@ class MultiStoreNewItemsSync:
             "inventoryItem": inventory_item
         }
         
-        # Add compare price (sale price) if available
+        # Add compare price (regular price) if sale price is available
         if sale_price is not None:
-            variant["compareAtPrice"] = str(sale_price)
+            variant["compareAtPrice"] = str(price)
         
         # Add barcode directly to the variant if available
         if sap_item.get('Barcode'):
@@ -204,8 +205,9 @@ class MultiStoreNewItemsSync:
                 "tracked": True
             }
             
+            # SalePrice goes to price field, regular Price goes to compareAtPrice field
             variant = {
-                "price": str(price),
+                "price": str(sale_price) if sale_price is not None else str(price),
                 "taxable": False,  # Disable tax on this variant
                 "optionValues": [
                     {
@@ -216,9 +218,9 @@ class MultiStoreNewItemsSync:
                 "inventoryItem": inventory_item
             }
             
-            # Add compare price (sale price) if available
+            # Add compare price (regular price) if sale price is available
             if sale_price is not None:
-                variant["compareAtPrice"] = str(sale_price)
+                variant["compareAtPrice"] = str(price)
             
             # Add barcode directly to the variant if available
             if item.get('Barcode'):
@@ -407,8 +409,8 @@ class MultiStoreNewItemsSync:
     
     def _get_store_sale_price(self, sap_item: Dict[str, Any], price_list: int) -> Optional[float]:
         """
-        Get sale price (compare price) for a specific store based on price list
-        Uses the SalePrice field from SAP and maps to compare_at_price in Shopify
+        Get sale price for a specific store based on price list
+        Uses the SalePrice field from SAP and maps to the main price field in Shopify
         """
         # Get the sale price from SAP
         sale_price = sap_item.get('SalePrice', 0.0)
@@ -429,20 +431,25 @@ class MultiStoreNewItemsSync:
     
 
     
-    def _create_variant(self, sap_item: Dict[str, Any], store_config: Any, price: float, inventory_quantity: int) -> Dict[str, Any]:
+    def _create_variant(self, sap_item: Dict[str, Any], store_config: Any, price: float, sale_price: Optional[float], inventory_quantity: int) -> Dict[str, Any]:
         """
         Create Shopify variant from SAP item for a specific store
-        Enhanced to properly handle color options
+        Enhanced to properly handle color options and pricing
         """
+        # SalePrice goes to price field, regular Price goes to compareAtPrice field
         variant_data = {
             "sku": sap_item.get('itemcode', ''),
-            "price": str(price),
+            "price": str(sale_price) if sale_price is not None else str(price),
             "inventoryPolicy": "DENY",
             "inventoryManagement": "SHOPIFY",
             "weight": sap_item.get('InventoryWeight', 0.0),
             "weightUnit": "KILOGRAMS",
             "taxable": False  # Disable tax on this variant
         }
+        
+        # Add compare price (regular price) if sale price is available
+        if sale_price is not None:
+            variant_data["compareAtPrice"] = str(price)
         
         # Store color for potential later use (not sent to GraphQL)
         color = sap_item.get('Color', '')
@@ -847,12 +854,8 @@ class MultiStoreNewItemsSync:
                                 # We have the product ID directly from Shopify_ProductCode
                                 product_id = existing_product_result["product_id"]
                                 shopify_product_id = existing_product_result["product_id"].split("/")[-1]
-                                # Get existing variants for this product
-                                product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
-                                if product_info["msg"] == "success" and product_info["data"].get("product"):
-                                    existing_variants = product_info["data"]["product"]["variants"]["edges"]
-                                else:
-                                    existing_variants = []
+                                # Skip fetching existing variants - let Shopify handle duplicates
+                                existing_variants = []
                             else:
                                 # We got the product from handle lookup
                                 existing_product = existing_product_result["product"]
@@ -865,19 +868,20 @@ class MultiStoreNewItemsSync:
                             # Process each item as a variant
                             variant_results = []
                             for sap_item in group_items:
-                                # Check if this variant already exists (only if we have existing variants info)
+                                # Check if this variant already exists (only if we have existing variants info from handle lookup)
                                 if existing_variants:
                                     variant_exists = any(variant["node"]["sku"] == sap_item.get("itemcode") for variant in existing_variants)
                                     if variant_exists:
                                         logger.info(f"Variant {sap_item.get('itemcode')} already exists, skipping")
                                         continue
                                 
-                                # If we don't have existing variants info, try to create the variant anyway
-                                # Shopify will return an error if it already exists, which we'll handle
+                                # If we don't have existing variants info (optimized path), try to create the variant anyway
+                                # Shopify will return an error if it already exists, which we'll handle gracefully
                                 
                                 # Create variant data
                                 price = self._get_store_price(sap_item, store_config.price_list)
-                                variant_data = self._create_variant(sap_item, store_config, price, 0)  # Inventory will be handled by inventory sync
+                                sale_price = self._get_store_sale_price(sap_item, store_config.price_list)
+                                variant_data = self._create_variant(sap_item, store_config, price, sale_price, 0)  # Inventory will be handled by inventory sync
                                 
                                 # Store color for later use and remove it from variant data
                                 color = variant_data.pop("_color", None)
