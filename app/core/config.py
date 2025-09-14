@@ -137,15 +137,6 @@ class ConfigSettings(BaseSettings):
         mapping = self.get_location_warehouse_mapping(store_key)
         return mapping.get('default', 'SW') if mapping else 'SW'
     
-    def get_bank_transfer_mapping(self, store_key: str) -> Dict[str, str]:
-        """Get bank transfer account mappings for a specific store"""
-        bank_transfers = config_data['shopify'].get('bank_transfers', {})
-        return bank_transfers.get(store_key, {})
-    
-    def get_bank_transfer_account(self, store_key: str, payment_type: str) -> str:
-        """Get bank transfer account for a specific payment type in a store"""
-        mapping = self.get_bank_transfer_mapping(store_key)
-        return mapping.get(payment_type, "")
     
     def get_currency_for_store(self, store_key: str) -> str:
         """Get currency for a specific store"""
@@ -184,6 +175,112 @@ class ConfigSettings(BaseSettings):
             # Log error and return default
             print(f"Error getting series for location: {str(e)}")
             return getattr(self, f'sales_series_{series_type}', 82)
+    
+    def get_group_code_for_location(self, location_mapping: Dict[str, Any]) -> int:
+        """
+        Get group code for customer creation based on location mapping
+        
+        Args:
+            location_mapping: Location mapping from OrderLocationMapper
+            
+        Returns:
+            Group code for the location, or default fallback
+        """
+        try:
+            if location_mapping and 'group_code' in location_mapping:
+                return location_mapping['group_code']
+            
+            # Fallback to default group code (110 for online customers)
+            return 110
+            
+        except Exception as e:
+            print(f"Error getting group code for location: {str(e)}")
+            return 110
+    
+    def get_location_type(self, location_mapping: Dict[str, Any]) -> str:
+        """
+        Get location type (online or store) from location mapping
+        
+        Args:
+            location_mapping: Location mapping from OrderLocationMapper
+            
+        Returns:
+            Location type ('online' or 'store'), defaults to 'online'
+        """
+        try:
+            if location_mapping and 'type' in location_mapping:
+                return location_mapping['type']
+            
+            # Default to online for backward compatibility
+            return 'online'
+            
+        except Exception as e:
+            print(f"Error getting location type: {str(e)}")
+            return 'online'
+    
+    def get_cash_account_for_location(self, location_mapping: Dict[str, Any]) -> str:
+        """
+        Get cash account for store locations
+        
+        Args:
+            location_mapping: Location mapping from OrderLocationMapper
+            
+        Returns:
+            Cash account code, or empty string if not available
+        """
+        try:
+            if location_mapping and 'cash' in location_mapping:
+                return location_mapping['cash']
+            
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting cash account for location: {str(e)}")
+            return ""
+    
+    def get_bank_transfer_for_location(self, store_key: str, location_mapping: Dict[str, Any], payment_gateway: str, courier_name: str = None) -> str:
+        """
+        Get bank transfer account for a specific location and payment gateway
+        
+        Args:
+            store_key: Store key (local/international)
+            location_mapping: Location mapping from OrderLocationMapper
+            payment_gateway: Payment gateway name
+            courier_name: Courier name for COD payments (optional)
+            
+        Returns:
+            Bank transfer account code, or empty string if not found
+        """
+        try:
+            location_type = self.get_location_type(location_mapping)
+            
+            # For online locations, check location-specific bank_transfers first
+            if location_type == "online" and location_mapping and 'bank_transfers' in location_mapping:
+                bank_transfers = location_mapping['bank_transfers']
+                
+                # Check if it's a COD payment with courier
+                if payment_gateway == "Cash on Delivery (COD)" and courier_name:
+                    if store_key in bank_transfers:
+                        cod_mappings = bank_transfers[store_key]
+                        if courier_name in cod_mappings:
+                            return cod_mappings[courier_name]
+                
+                # Check direct gateway mapping
+                if store_key in bank_transfers and payment_gateway in bank_transfers[store_key]:
+                    return bank_transfers[store_key][payment_gateway]
+            
+            # For store locations, check location-specific bank_transfers
+            elif location_type == "store" and location_mapping and 'bank_transfers' in location_mapping:
+                bank_transfers = location_mapping['bank_transfers']
+                if payment_gateway in bank_transfers:
+                    return bank_transfers[payment_gateway]
+            
+            # No fallback - return empty string if not found
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting bank transfer for location: {str(e)}")
+            return ""
     
     # Legacy support for backward compatibility
     @property

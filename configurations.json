@@ -36,54 +36,110 @@
             "local": {
                 "locations": {
                     "web": {
+                        "type": "online",
                         "warehouse": "SW",
                         "location_cc": "ONL",
                         "department_cc": "SAL",
                         "activity_cc": "OnlineS",
                         "bin_location": 24,
-                        "GroupCode": 110,
+                        "group_code": 110,
                         "series": {
                             "invoices": 82,
                             "credit_notes": 85,
                             "incoming_payments": 15
+                        },
+                        "bank_transfers": {   
+                            "local":{                                                 
+                                "Tuyingo": "10801245",
+                                "Loadbugs": "10801238",
+                                "Payfort": "10801236",
+                                "Paymob": "10801247"
+                            },
+                            "international": {
+                                "N-Genius Online by Network": "10801237"
+                            }
                         }
                     },
                     "68605345858": {
+                        "type": "store",
                         "warehouse": "SW",
-                        "location_cc": "ONL",
+                        "location_cc": "SRM",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS",
-                        "bin_location": 24,
-                        "GroupCode": 110,
-                        "series": {
-                            "invoices": 82,
-                            "credit_notes": 85,
-                            "incoming_payments": 15
-                        }
-                    },
-                    "70074892354": {
-                        "warehouse": "5A",
-                        "location_cc": "ONL",
-                        "department_cc": "SAL",
-                        "activity_cc": "OnlineS",
-                        "GroupCode": 100,
+                        "activity_cc": "General",
+                        "group_code": 100,
                         "series": {
                             "invoices": 80,
-                            "credit_notes": 85,
+                            "credit_notes": 84,
                             "incoming_payments": 15
-                        }
+                        },
+                        "bank_transfers": {                                                    
+                            "Geidea": "10801235",
+                            "Valu": "10801231",
+                            "Fawry": "10801246",
+                            "Paymob POS": "10801247"
+                        },
+                        "cash": "10801226"
+                        
+                    },
+                    "70074892354": {
+                        "type": "store",
+                        "warehouse": "5A",
+                        "location_cc": "WAT",
+                        "department_cc": "SAL",
+                        "activity_cc": "General",
+                        "group_code": 100,
+                        "series": {
+                            "invoices": 80,
+                            "credit_notes": 84,
+                            "incoming_payments": 15
+                        },
+                        "bank_transfers": {                                                    
+                            "Geidea": "10801235",
+                            "Valu": "10801231",
+                            "Fawry": "10801246",
+                            "Paymob POS": "10801247"
+                        },
+                        "cash": "10801228"
                     },
                     "70074957890": {
+                        "type": "store",
                         "warehouse": "Arkan",
-                        "location_cc": "ONL",
+                        "location_cc": "Arkan",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "General",
+                        "group_code": 100,
+                        "series": {
+                            "invoices": 80,
+                            "credit_notes": 84,
+                            "incoming_payments": 15
+                        },
+                        "bank_transfers": {                                                    
+                            "Geidea": "10801235",
+                            "Valu": "10801231",
+                            "Fawry": "10801246",
+                            "Paymob POS": "10801247"
+                        },
+                        "cash": "10801239"
                     },
                     "70074990658": {
+                        "type": "store",
                         "warehouse": "ZW",
-                        "location_cc": "ONL",
+                        "location_cc": "ZAM",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "General",
+                        "group_code": 100,
+                        "series": {
+                            "invoices": 80,
+                            "credit_notes": 84,
+                            "incoming_payments": 15
+                        },
+                        "bank_transfers": {                                                    
+                            "Geidea": "10801235",
+                            "Valu": "10801231",
+                            "Fawry": "10801246",
+                            "Paymob POS": "10801247"
+                        },
+                        "cash": "10801227"
                     }
                 }
             },
@@ -102,17 +158,6 @@
                         "activity_cc": "OnlineS"
                     }
                 }
-            }
-        },
-        "bank_transfers": {
-            "local": {
-                "Cash on Delivery (COD)": "10801245",
-                "Tuyingo": "10801245",
-                "Payfort": "10801236",
-                "Paymob": "10801247"
-            },
-            "international": {
-                "N-Genius Online by Network": "10801237"
             }
         },
         "freight_config": {

@@ -34,7 +34,13 @@ class OrderLocationMapper:
         
         if match:
             location_id = match.group(1)
-            receipt_number = match.group(2)
+            receipt_full = match.group(2)
+            
+            # Extract just the last part of the receipt number
+            # Example: "1-1005" -> "1005", "2-1003" -> "1003"
+            receipt_parts = receipt_full.split('-')
+            receipt_number = receipt_parts[-1] if receipt_parts else receipt_full
+            
             return location_id, receipt_number
         
         return None, None

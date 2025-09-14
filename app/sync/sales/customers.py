@@ -49,13 +49,13 @@ class CustomerManager:
             logger.error(f"Error finding customer by phone: {str(e)}")
             return None
     
-    async def create_customer_in_sap(self, customer_data: Dict[str, Any], store_key: str = "local") -> Optional[Dict[str, Any]]:
+    async def create_customer_in_sap(self, customer_data: Dict[str, Any], store_key: str = "local", location_analysis: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
         """
         Create new customer in SAP
         """
         try:
             # Prepare customer data for SAP
-            sap_customer_data = self._map_shopify_customer_to_sap(customer_data, store_key)
+            sap_customer_data = self._map_shopify_customer_to_sap(customer_data, store_key, location_analysis)
             
             # Create customer in SAP
             result = await sap_client._make_request(
@@ -148,7 +148,7 @@ class CustomerManager:
         
         return None
     
-    def _map_shopify_customer_to_sap(self, shopify_customer: Dict[str, Any], store_key: str = "local") -> Dict[str, Any]:
+    def _map_shopify_customer_to_sap(self, shopify_customer: Dict[str, Any], store_key: str = "local", location_analysis: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Map Shopify customer data to SAP Business Partner format
         """
@@ -170,7 +170,7 @@ class CustomerManager:
             "CardName": f"{first_name} {last_name}".strip(),
             "CardType": "C",
             "Series": 87,
-            "GroupCode": 110,
+            "GroupCode": config_settings.get_group_code_for_location(location_analysis.get('location_mapping', {}) if location_analysis else {}),
             "Phone1": phone,
             "Cellular": phone,
             "Currency": store_currency

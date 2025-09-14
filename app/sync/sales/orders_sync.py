@@ -1037,8 +1037,9 @@ class OrdersSalesSync:
             source_name = (order_node.get("sourceName") or "").lower()
             source_identifier = (order_node.get("sourceIdentifier") or "").lower()
             
-            # Determine payment type based on channel and payment method
-            payment_type = self._determine_payment_type(source_name, source_identifier, payment_info)
+            # Get location type and determine payment type
+            location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
+            payment_type = self._determine_payment_type(source_name, source_identifier, payment_info, location_type, location_analysis.get('location_mapping', {}))
             
             # Get invoice document entry from SAP invoice data
             invoice_doc_entry = sap_invoice_data.get("DocEntry", "")
@@ -1057,48 +1058,86 @@ class OrdersSalesSync:
                 "U_Shopify_Order_ID": order_id_number  # Add Shopify Order ID (numeric)
             }
             
-            # Set payment method based on type
+            # Set payment method based on type and location
             if payment_type == "PaidOnline":
-                # Online store payments - use the actual gateway account
+                # Online payments - use location-based bank transfer account
                 payment_data["TransferSum"] = total_amount
                 
                 # Get the actual gateway from payment info
-                gateway = payment_info.get('gateway', 'Paymob')  # Default to Paymob for local store
+                gateway = payment_info.get('gateway', 'Paymob')
                 
-                # For international store, use the actual gateway
-                if store_key == "international":
-                    # Use the actual gateway from the transaction
-                    transfer_account = config_settings.get_bank_transfer_account(store_key, gateway)
-                    logger.info(f"International store payment - using {gateway} account: {transfer_account}")
-                else:
-                    # For local store, use Paymob as default
-                    transfer_account = config_settings.get_bank_transfer_account(store_key, "Paymob")
-                    logger.info(f"Local store payment - using Paymob account: {transfer_account}")
+                # Get bank transfer account using new location-based method
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    gateway
+                )
                 
                 payment_data["TransferAccount"] = transfer_account
+                logger.info(f"Online payment - using {gateway} account: {transfer_account}")
                 
             elif payment_type == "COD":
-                # Cash on delivery - use COD account
+                # Cash on delivery - handle courier-specific accounts for online locations
                 payment_data["TransferSum"] = total_amount
-                transfer_account = config_settings.get_bank_transfer_account(store_key, "Cash on Delivery (COD)")
+                
+                # Extract courier name from metafields for COD payments
+                courier_name = ""
+                if location_type == "online":
+                    courier_name = self._extract_courier_from_metafields(order_node)
+                
+                # Get bank transfer account using new location-based method with courier
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    "Cash on Delivery (COD)",
+                    courier_name
+                )
+                
                 payment_data["TransferAccount"] = transfer_account
-                logger.info(f"COD payment - using COD account: {transfer_account}")
+                logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
                 
             elif payment_type == "Cash":
-                # Cash payment at store
+                # Cash payment at store - use cash account from location mapping
                 payment_data["TransferSum"] = total_amount
-                # For cash payments, we might need a different account or handle differently
-                logger.info(f"Cash payment at store - using transfer sum")
+                
+                # Get cash account from location mapping
+                cash_account = config_settings.get_cash_account_for_location(location_analysis.get('location_mapping', {}))
+                if cash_account:
+                    payment_data["TransferAccount"] = cash_account
+                    logger.info(f"Cash payment at store - using cash account: {cash_account}")
+                else:
+                    logger.warning(f"No cash account configured for location, using transfer sum only")
                 
             elif payment_type == "CreditCard":
-                # Credit card payment at store
+                # Credit card payment at store - use location-based bank transfer
                 payment_data["TransferSum"] = total_amount
-                logger.info(f"Credit card payment at store - using transfer sum")
+                
+                # Get the actual gateway from payment info
+                gateway = payment_info.get('gateway', 'Geidea')
+                
+                # Get bank transfer account using new location-based method
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    gateway
+                )
+                
+                payment_data["TransferAccount"] = transfer_account
+                logger.info(f"Credit card payment at store - using {gateway} account: {transfer_account}")
                 
             else:
-                # Default to transfer for unknown payment types
+                # Default case - treat as online payment
                 payment_data["TransferSum"] = total_amount
-                logger.warning(f"Unknown payment type '{payment_type}' - defaulting to transfer")
+                gateway = payment_info.get('gateway', 'Paymob')
+                
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    gateway
+                )
+                
+                payment_data["TransferAccount"] = transfer_account
+                logger.info(f"Default payment - using {gateway} account: {transfer_account}")
             
             # Create invoice object for payment
             inv_obj = {
@@ -1354,14 +1393,103 @@ class OrdersSalesSync:
         
         return discount_info
 
-    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any]) -> str:
+    def _extract_courier_from_metafields(self, order_node: Dict[str, Any]) -> str:
         """
-        Determine payment type based on order channel and payment information
+        Extract courier name from order metafields for COD payments
+        
+        Args:
+            order_node: Order node from Shopify GraphQL response
+            
+        Returns:
+            Courier name or empty string if not found
+        """
+        try:
+            metafields = order_node.get("metafields", {}).get("edges", [])
+            for metafield_edge in metafields:
+                metafield = metafield_edge.get("node", {})
+                namespace = metafield.get("namespace", "")
+                key = metafield.get("key", "")
+                value = metafield.get("value", "")
+                
+                # Check for courier metafield
+                if namespace == "custom" and key == "courier" and value:
+                    # Handle JSON array format like '["4 - Tuyingo"]'
+                    import json
+                    try:
+                        if value.startswith('[') and value.endswith(']'):
+                            # Parse JSON array and take first element
+                            courier_list = json.loads(value)
+                            if courier_list and len(courier_list) > 0:
+                                value = courier_list[0]
+                    except (json.JSONDecodeError, IndexError):
+                        pass  # Use original value if JSON parsing fails
+                    
+                    # Split by "-" and get the second part (courier name)
+                    parts = value.split("-")
+                    if len(parts) >= 2:
+                        courier_name = parts[1].strip()
+                        logger.info(f"Extracted courier name: '{courier_name}' from metafield value: '{value}'")
+                        return courier_name
+            
+            return ""
+            
+        except Exception as e:
+            logger.error(f"Error extracting courier from metafields: {str(e)}")
+            return ""
+    
+    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any], location_type: str = "online", location_mapping: Dict[str, Any] = None) -> str:
+        """
+        Determine payment type based on order channel, payment information, and location type
+        
+        Args:
+            source_name: Source name from order
+            source_identifier: Source identifier from order
+            payment_info: Payment information dictionary
+            location_type: Location type ('online' or 'store')
         """
         # Convert to lowercase for case-insensitive matching
         source_name_lower = (source_name or "").lower()
         source_identifier_lower = (source_identifier or "").lower()
+        gateway = payment_info.get('gateway', '').lower()
+        card_type = payment_info.get('card_type', '').lower()
         
+        # For online locations
+        if location_type == "online":
+            # Check for COD (Cash on Delivery)
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+                return "COD"
+            
+            # All other online payments are considered online payments
+            return "PaidOnline"
+        
+        # For store locations
+        elif location_type == "store":
+            # Check for COD (Cash on Delivery)
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+                return "COD"
+            
+            # Check for cash payments
+            if "cash" in gateway or "cash" in card_type:
+                return "Cash"
+            
+            # Check if gateway exists in configured bank transfers (credit card payments)
+            if location_mapping and 'bank_transfers' in location_mapping:
+                bank_transfers = location_mapping['bank_transfers']
+                
+                # Case-insensitive comparison
+                gateway_lower = gateway.lower()
+                for config_gateway in bank_transfers.keys():
+                    if gateway_lower == config_gateway.lower():
+                        return "CreditCard"
+            
+            # Check for credit card payments (fallback to hardcoded patterns)
+            if any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
+                return "CreditCard"
+            
+            # Default for store orders
+            return "Cash"
+        
+        # Legacy logic for backward compatibility
         # Check if it's an online store order
         if ("online store" in source_name_lower or 
             "web" in source_name_lower or 
@@ -1726,7 +1854,7 @@ class OrdersSalesSync:
             else:
                 # Create new customer in SAP
                 logger.info("Creating new customer in SAP")
-                sap_customer = await self.customer_manager.create_customer_in_sap(customer, store_key)
+                sap_customer = await self.customer_manager.create_customer_in_sap(customer, store_key, location_analysis)
             if not sap_customer:
                     logger.error(f"Failed to create customer for order {order_name}")
                     return {"msg": "failure", "error": "Failed to create customer"}
@@ -2059,193 +2187,9 @@ class OrdersSalesSync:
 
 
 
-    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any]) -> str:
 
-        """
 
-        Determine payment type based on order channel and payment information
 
-        """
-
-        # Convert to lowercase for case-insensitive matching
-
-        source_name_lower = source_name.lower()
-
-        source_identifier_lower = source_identifier.lower()
-
-        
-
-        # Check if it's an online store order
-
-        if ("online store" in source_name_lower or 
-
-            "web" in source_name_lower or 
-
-            "shopify" in source_name_lower or
-
-            "online" in source_name_lower):
-
-            return "PaidOnline"
-
-        
-
-        # Check if it's a mobile app order
-
-        if ("mobile" in source_name_lower or 
-
-            "app" in source_name_lower or
-
-            "mobile app" in source_name_lower):
-
-            return "PaidOnline"
-
-        
-
-        # Check if it's a POS order (store location)
-
-        if ("pos" in source_name_lower or 
-
-            "point of sale" in source_name_lower or
-
-            "point of sale" in source_identifier_lower):
-
-            # For POS orders, check the payment method
-
-            gateway = payment_info.get('gateway', '').lower()
-
-            card_type = payment_info.get('card_type', '').lower()
-
-            
-
-            # Check for COD (Cash on Delivery)
-
-            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
-
-                return "COD"
-
-            
-
-            # Check for cash payments
-
-            if "cash" in gateway or "cash" in card_type:
-
-                return "Cash"
-
-            
-
-            # Check for credit card payments
-
-            if any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
-
-                return "CreditCard"
-
-            
-
-            # Default for POS orders
-
-            return "Cash"
-
-        
-
-        # Check for other channels (like phone, email, etc.)
-
-        if ("phone" in source_name_lower or 
-
-            "email" in source_name_lower or
-
-            "phone" in source_identifier_lower):
-
-            # For phone/email orders, check payment method
-
-            gateway = payment_info.get('gateway', '').lower()
-
-            card_type = payment_info.get('card_type', '').lower()
-
-            
-
-            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
-
-                return "COD"
-
-            elif any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
-
-                return "CreditCard"
-
-            else:
-
-                return "PaidOnline"  # Default to online payment for phone/email orders
-
-        
-
-        # Default case - assume online store if we can't determine
-
-        logger.warning(f"Could not determine payment type for source: {source_name}, identifier: {source_identifier}")
-
-        return "PaidOnline"
-
-
-
-    async def create_incoming_payment_in_sap(self, payment_data: Dict[str, Any], order_id: str = "") -> Dict[str, Any]:
-
-        """
-
-        Create incoming payment in SAP
-
-        """
-
-        try:
-
-            result = await sap_client._make_request(
-
-                method='POST',
-
-                endpoint='IncomingPayments',
-
-                data=payment_data,
-
-                order_id=order_id
-
-            )
-
-            
-
-            if result["msg"] == "failure":
-
-                logger.error(f"Failed to create incoming payment in SAP: {result.get('error')}")
-
-                return result
-
-            
-
-            created_payment = result["data"]
-
-            payment_number = created_payment.get('DocEntry', '')
-
-            
-
-            logger.info(f"Created incoming payment in SAP: {payment_number}")
-
-            
-
-            return {
-
-                "msg": "success",
-
-                "sap_payment_number": payment_number,
-
-                "sap_doc_entry": created_payment.get('DocEntry', ''),
-
-                "sap_doc_num": created_payment.get('DocNum', '')
-
-            }
-
-            
-
-        except Exception as e:
-
-            logger.error(f"Error creating incoming payment in SAP: {str(e)}")
-
-            return {"msg": "failure", "error": str(e)}
 
 
 

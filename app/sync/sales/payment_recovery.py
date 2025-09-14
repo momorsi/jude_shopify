@@ -12,6 +12,7 @@ from app.services.shopify.multi_store_client import multi_store_shopify_client
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from datetime import datetime
+from order_location_mapper import OrderLocationMapper
 
 
 class PaymentRecoverySync:
@@ -254,7 +255,7 @@ class PaymentRecoverySync:
             logger.error(f"Error getting SAP invoice for DocEntry {doc_entry}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
     
-    def prepare_payment_data(self, sap_invoice: Dict[str, Any], shopify_order: Dict[str, Any], store_key: str) -> Dict[str, Any]:
+    def prepare_payment_data(self, sap_invoice: Dict[str, Any], shopify_order: Dict[str, Any], store_key: str, location_analysis: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Prepare incoming payment data for SAP
         """
@@ -265,14 +266,15 @@ class PaymentRecoverySync:
             order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
             
             # Get payment information from transactions
-            payment_info = self._extract_payment_info_from_transactions(shopify_order["transactions"])
+            payment_info = self._extract_payment_info_from_transactions(shopify_order.get("transactions", []))
             
             # Get order channel information
             source_name = (shopify_order.get("sourceName") or "").lower()
             source_identifier = (shopify_order.get("sourceIdentifier") or "").lower()
             
             # Determine payment type based on channel and payment method
-            payment_type = self._determine_payment_type(source_name, source_identifier, payment_info)
+            location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {})) if location_analysis else "online"
+            payment_type = self._determine_payment_type(source_name, source_identifier, payment_info, location_type)
             
             # Initialize payment data
             payment_data = {
@@ -285,26 +287,83 @@ class PaymentRecoverySync:
                 "U_Shopify_Order_ID": order_id_number  # Add Shopify Order ID (numeric)
             }
             
-            # Set payment method based on type
+            # Add POS receipt number if this is a POS order
+            if location_analysis and location_analysis.get('is_pos_order') and location_analysis.get('extracted_receipt_number'):
+                payment_data["U_POS_Receipt_Number"] = location_analysis['extracted_receipt_number']
+                logger.info(f"Added POS receipt number to payment: {location_analysis['extracted_receipt_number']}")
+            
+            # Set payment method based on type and location
             if payment_type == "PaidOnline":
-                # Online store payments - use Paymob account
-                transfer_account = config_settings.get_bank_transfer_account(store_key, "Paymob")
+                # Online payments - use location-based bank transfer account
+                gateway = payment_info.get('gateway', 'Paymob')
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    gateway
+                )
                 payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Online store payment - using Paymob account: {transfer_account}")
+                logger.info(f"Online payment - using {gateway} account: {transfer_account}")
                 
             elif payment_type == "COD":
-                # Cash on delivery - use COD account
-                transfer_account = config_settings.get_bank_transfer_account(store_key, "Cash on Delivery (COD)")
+                # Cash on delivery - handle courier-specific accounts for online locations
+                location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
+                
+                # Extract courier name from metafields for COD payments
+                courier_name = ""
+                if location_type == "online":
+                    # Extract courier name from metafields
+                    metafields = shopify_order.get("metafields", {}).get("edges", [])
+                    for metafield_edge in metafields:
+                        metafield = metafield_edge.get("node", {})
+                        namespace = metafield.get("namespace", "")
+                        key = metafield.get("key", "")
+                        value = metafield.get("value", "")
+                        
+                        if namespace == "custom" and key == "courier" and value:
+                            # Handle JSON array format like '["4 - Tuyingo"]'
+                            import json
+                            try:
+                                if value.startswith('[') and value.endswith(']'):
+                                    # Parse JSON array and take first element
+                                    courier_list = json.loads(value)
+                                    if courier_list and len(courier_list) > 0:
+                                        value = courier_list[0]
+                            except (json.JSONDecodeError, IndexError):
+                                pass  # Use original value if JSON parsing fails
+                            
+                            parts = value.split("-")
+                            if len(parts) >= 2:
+                                courier_name = parts[1].strip()
+                                break
+                
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    "Cash on Delivery (COD)",
+                    courier_name
+                )
                 payment_data["TransferAccount"] = transfer_account
-                logger.info(f"COD payment - using COD account: {transfer_account}")
+                logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
                 
             elif payment_type == "Cash":
-                # Cash payment at store
-                logger.info(f"Cash payment at store - using transfer sum")
+                # Cash payment at store - use cash account from location mapping
+                cash_account = config_settings.get_cash_account_for_location(location_analysis.get('location_mapping', {}))
+                if cash_account:
+                    payment_data["TransferAccount"] = cash_account
+                    logger.info(f"Cash payment at store - using cash account: {cash_account}")
+                else:
+                    logger.warning(f"No cash account configured for location, using transfer sum only")
                 
             elif payment_type == "CreditCard":
-                # Credit card payment at store
-                logger.info(f"Credit card payment at store - using transfer sum")
+                # Credit card payment at store - use location-based bank transfer
+                gateway = payment_info.get('gateway', 'Geidea')
+                transfer_account = config_settings.get_bank_transfer_for_location(
+                    store_key, 
+                    location_analysis.get('location_mapping', {}), 
+                    gateway
+                )
+                payment_data["TransferAccount"] = transfer_account
+                logger.info(f"Credit card payment at store - using {gateway} account: {transfer_account}")
                 
             else:
                 # Default to transfer for unknown payment types
@@ -371,14 +430,43 @@ class PaymentRecoverySync:
         
         return payment_info
     
-    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any]) -> str:
+    def _determine_payment_type(self, source_name: str, source_identifier: str, payment_info: Dict[str, Any], location_type: str = "online") -> str:
         """
         Determine payment type based on order channel and payment information
         """
         # Convert to lowercase for case-insensitive matching
         source_name_lower = (source_name or "").lower()
         source_identifier_lower = (source_identifier or "").lower()
+        gateway = payment_info.get('gateway', '').lower()
+        card_type = payment_info.get('card_type', '').lower()
         
+        # For online locations
+        if location_type == "online":
+            # Check for COD (Cash on Delivery)
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+                return "COD"
+            
+            # All other online payments are considered online payments
+            return "PaidOnline"
+        
+        # For store locations
+        elif location_type == "store":
+            # Check for COD (Cash on Delivery)
+            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+                return "COD"
+            
+            # Check for cash payments
+            if "cash" in gateway or "cash" in card_type:
+                return "Cash"
+            
+            # Check for credit card payments
+            if any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
+                return "CreditCard"
+            
+            # Default for store orders
+            return "Cash"
+        
+        # Legacy logic for backward compatibility
         # Check if it's an online store order
         if ("online store" in source_name_lower or 
             "web" in source_name_lower or 
@@ -397,15 +485,14 @@ class PaymentRecoverySync:
             "point of sale" in source_name_lower or
             "point of sale" in source_identifier_lower):
             # For POS orders, check the payment method
-            gateway = payment_info.get('gateway', '').lower()
-            card_type = payment_info.get('card_type', '').lower()
-            
             # Check for COD (Cash on Delivery)
-            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
+            if ("cod" in gateway or 
+                "cash on delivery" in gateway or 
+                "cash on delivery" in card_type):
                 return "COD"
             
             # Check for cash payments
-            if "cash" in gateway or "cash" in card_type:
+            if ("cash" in gateway or "cash" in card_type):
                 return "Cash"
             
             # Check for credit card payments
@@ -414,21 +501,6 @@ class PaymentRecoverySync:
             
             # Default for POS orders
             return "Cash"
-        
-        # Check for other channels (like phone, email, etc.)
-        if ("phone" in source_name_lower or 
-            "email" in source_name_lower or
-            "phone" in source_identifier_lower):
-            # For phone/email orders, check payment method
-            gateway = payment_info.get('gateway', '').lower()
-            card_type = payment_info.get('card_type', '').lower()
-            
-            if "cod" in gateway or "cash on delivery" in gateway or "cash on delivery" in card_type:
-                return "COD"
-            elif any(card in card_type for card in ["visa", "mastercard", "amex", "american express", "discover"]):
-                return "CreditCard"
-            else:
-                return "PaidOnline"  # Default to online payment for phone/email orders
         
         # Default case - assume online store if we can't determine
         logger.warning(f"Could not determine payment type for source: {source_name}, identifier: {source_identifier}")
@@ -468,63 +540,85 @@ class PaymentRecoverySync:
     
     async def add_order_tag(self, store_key: str, order_id: str, tag: str) -> Dict[str, Any]:
         """
-        Add tag to order to track payment sync status
+        Add tag to order to track payment sync status with retry logic
         """
-        try:
-            import httpx
-            
-            # Get store configuration
-            enabled_stores = config_settings.get_enabled_stores()
-            store_config = enabled_stores.get(store_key)
-            
-            if not store_config:
-                logger.error(f"Store configuration not found for {store_key}")
-                return {"msg": "failure", "error": "Store configuration not found"}
-            
-            # Extract order ID number from GraphQL ID
-            order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
-            
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
-            
-            async with httpx.AsyncClient() as client:
-                # Get current order to see existing tags
-                order_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}.json"
-                order_response = await client.get(order_url, headers=headers)
-                order_response.raise_for_status()
-                order_data = order_response.json()
-                
-                # Get existing tags
-                existing_tags = order_data.get('order', {}).get('tags', '').split(',') if order_data.get('order', {}).get('tags') else []
-                existing_tags = [tag.strip() for tag in existing_tags if tag.strip()]
-                
-                # Add new tag if not already present
-                if tag not in existing_tags:
-                    existing_tags.append(tag)
-                
-                # Update order with new tags
-                update_data = {
-                    "order": {
-                        "id": order_id_number,
-                        "tags": ", ".join(existing_tags)
+        import httpx
+        import asyncio
+        
+        # Get store configuration
+        enabled_stores = config_settings.get_enabled_stores()
+        store_config = enabled_stores.get(store_key)
+        
+        if not store_config:
+            logger.error(f"Store configuration not found for {store_key}")
+            return {"msg": "failure", "error": "Store configuration not found"}
+        
+        # Extract order ID number from GraphQL ID
+        order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
+        
+        headers = {
+            'X-Shopify-Access-Token': store_config.access_token,
+            'Content-Type': 'application/json',
+        }
+        
+        # Retry logic for tag addition
+        max_retries = 3
+        retry_delay = 2  # Start with 2 seconds
+        
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient() as client:
+                    # Get current order to see existing tags
+                    order_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}.json"
+                    order_response = await client.get(order_url, headers=headers)
+                    order_response.raise_for_status()
+                    order_data = order_response.json()
+                    
+                    # Get existing tags
+                    existing_tags = order_data.get('order', {}).get('tags', '').split(',') if order_data.get('order', {}).get('tags') else []
+                    existing_tags = [tag.strip() for tag in existing_tags if tag.strip()]
+                    
+                    # Add new tag if not already present
+                    if tag not in existing_tags:
+                        existing_tags.append(tag)
+                    
+                    # Update order with new tags
+                    update_data = {
+                        "order": {
+                            "id": order_id_number,
+                            "tags": ", ".join(existing_tags)
+                        }
                     }
-                }
-                
-                update_response = await client.put(order_url, headers=headers, json=update_data)
-                update_response.raise_for_status()
-                
-                logger.info(f"Added tag '{tag}' to order {order_id}")
-                
-            return {"msg": "success"}
-            
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error adding tag to order {order_id}: {e.response.status_code} - {e.response.text}")
-            return {"msg": "failure", "error": f"HTTP error: {e.response.status_code}"}
-        except Exception as e:
-            logger.error(f"Error adding tag to order {order_id}: {str(e)}")
-            return {"msg": "failure", "error": str(e)}
+                    
+                    update_response = await client.put(order_url, headers=headers, json=update_data)
+                    update_response.raise_for_status()
+                    
+                    logger.info(f"Added tag '{tag}' to order {order_id}")
+                    return {"msg": "success"}
+                    
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:  # Rate limited
+                    logger.warning(f"Rate limited adding tag to order {order_id}, attempt {attempt + 1}/{max_retries}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                else:
+                    logger.error(f"HTTP error adding tag to order {order_id}: {e.response.status_code} - {e.response.text}")
+                    return {"msg": "failure", "error": f"HTTP error: {e.response.status_code}"}
+            except Exception as e:
+                logger.warning(f"Error adding tag to order {order_id}, attempt {attempt + 1}/{max_retries}: {str(e)}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    continue
+                else:
+                    logger.error(f"Failed to add tag to order {order_id} after {max_retries} attempts: {str(e)}")
+                    return {"msg": "failure", "error": str(e)}
+        
+        # If we get here, all retries failed
+        logger.error(f"Failed to add tag '{tag}' to order {order_id} after {max_retries} attempts")
+        return {"msg": "failure", "error": "Max retries exceeded"}
     
     async def process_order_payment_recovery(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -539,6 +633,9 @@ class PaymentRecoverySync:
             # Check payment and fulfillment status
             financial_status = order_node.get("displayFinancialStatus", "PENDING")
             fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
+            
+            # Get location mapping for this order
+            location_analysis = OrderLocationMapper.analyze_order_source(order_node, store_key)
             
             logger.info(f"Processing payment recovery for order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
             
@@ -603,7 +700,9 @@ class PaymentRecoverySync:
                     payment_tag
                 )
                 # Also add the general payment synced tag
-                await self.add_order_tag(store_key, order_id, "sap_payment_synced")
+                synced_tag_result = await self.add_order_tag(store_key, order_id, "sap_payment_synced")
+                if synced_tag_result["msg"] == "failure":
+                    logger.warning(f"Failed to add sap_payment_synced tag for {order_name}: {synced_tag_result.get('error')}")
                 
                 if tag_update_result["msg"] == "failure":
                     logger.warning(f"Failed to add payment sync tag for {order_name}: {tag_update_result.get('error')}")
@@ -618,7 +717,7 @@ class PaymentRecoverySync:
                 }
             
             # Prepare payment data
-            payment_data = self.prepare_payment_data(sap_invoice, order_node, store_key)
+            payment_data = self.prepare_payment_data(sap_invoice, order_node, store_key, location_analysis)
             
             # Create incoming payment in SAP
             payment_result = await self.create_incoming_payment_in_sap(payment_data, order_id_number)
@@ -634,7 +733,9 @@ class PaymentRecoverySync:
                     logger.warning(f"Failed to add payment sync tag for {order_name}: {metafield_result.get('error')}")
                 
                 # Also add the general payment synced tag
-                await self.add_order_tag(store_key, order_id, "sap_payment_synced")
+                synced_tag_result = await self.add_order_tag(store_key, order_id, "sap_payment_synced")
+                if synced_tag_result["msg"] == "failure":
+                    logger.warning(f"Failed to add sap_payment_synced tag for {order_name}: {synced_tag_result.get('error')}")
                 
                 return {
                     "msg": "success",
