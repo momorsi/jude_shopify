@@ -13,6 +13,7 @@ from app.sync.inventory import sync_stock_change_view
 
 from app.sync.sales.orders_sync import OrdersSalesSync
 from app.sync.sales.payment_recovery import PaymentRecoverySync
+from app.sync.sales.returns_sync import ReturnsSync
 from app.sync.item_changes import item_changes_sync
 from app.sync.price_changes import price_changes_sync
 from app.utils.logging import logger
@@ -28,6 +29,7 @@ class ShopifySAPSync:
 
         self.sales_orders_sync = OrdersSalesSync()
         self.payment_recovery_sync = PaymentRecoverySync()
+        self.returns_sync = ReturnsSync()
         self.running = False
     
     async def run_new_items_sync(self) -> Dict[str, Any]:
@@ -61,6 +63,13 @@ class ShopifySAPSync:
         """
         logger.info("Starting payment recovery sync...")
         return await self.payment_recovery_sync.sync_payment_recovery()
+    
+    async def run_returns_sync(self) -> Dict[str, Any]:
+        """
+        Run returns sync (Shopify → SAP)
+        """
+        logger.info("Starting returns sync...")
+        return await self.returns_sync.sync_returns()
     
     async def run_item_changes_sync(self) -> Dict[str, Any]:
         """
@@ -106,6 +115,12 @@ class ShopifySAPSync:
         if config_settings.sales_orders_enabled:
             results["sales_orders"] = await self.run_sales_orders_sync()
         
+        if config_settings.payment_recovery_enabled:
+            results["payment_recovery"] = await self.run_payment_recovery_sync()
+        
+        if config_settings.returns_enabled:
+            results["returns"] = await self.run_returns_sync()
+        
         return {
             "msg": "success",
             "results": results,
@@ -143,6 +158,7 @@ class ShopifySAPSync:
     
             "sales_orders": self.run_sales_orders_sync,
             "payment_recovery": self.run_payment_recovery_sync,
+            "returns": self.run_returns_sync,
             "all": self.run_all_syncs
         }
         
@@ -203,6 +219,20 @@ class ShopifySAPSync:
             tasks.append(sales_orders_task)
             logger.info(f"Sales orders sync scheduled to run every {config_settings.sales_orders_interval} minutes")
         
+        if config_settings.payment_recovery_enabled:
+            payment_recovery_task = asyncio.create_task(
+                self._run_sync_with_interval("payment_recovery", config_settings.payment_recovery_interval)
+            )
+            tasks.append(payment_recovery_task)
+            logger.info(f"Payment recovery sync scheduled to run every {config_settings.payment_recovery_interval} minutes")
+        
+        if config_settings.returns_enabled:
+            returns_task = asyncio.create_task(
+                self._run_sync_with_interval("returns", config_settings.returns_interval)
+            )
+            tasks.append(returns_task)
+            logger.info(f"Returns sync scheduled to run every {config_settings.returns_interval} minutes")
+        
         if not tasks:
             logger.warning("No syncs are enabled in configuration")
             return
@@ -256,7 +286,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "item_changes", "price_changes", "sales_orders", "payment_recovery", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "sales_orders", "payment_recovery", "returns", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(
@@ -296,6 +326,12 @@ async def main():
                 print(f"🔄 Item Changes: Every {config_settings.item_changes_interval} minutes")
             if config_settings.price_changes_enabled:
                 print(f"💰 Price Changes: Every {config_settings.price_changes_interval} minutes")
+            if config_settings.sales_orders_enabled:
+                print(f"🛒 Sales Orders: Every {config_settings.sales_orders_interval} minutes")
+            if config_settings.payment_recovery_enabled:
+                print(f"💳 Payment Recovery: Every {config_settings.payment_recovery_interval} minutes")
+            if config_settings.returns_enabled:
+                print(f"🔄 Returns: Every {config_settings.returns_interval} minutes")
 
             
             print()

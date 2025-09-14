@@ -39,19 +39,39 @@
                         "warehouse": "SW",
                         "location_cc": "ONL",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "OnlineS",
+                        "bin_location": 24,
+                        "GroupCode": 110,
+                        "series": {
+                            "invoices": 82,
+                            "credit_notes": 85,
+                            "incoming_payments": 15
+                        }
                     },
                     "68605345858": {
                         "warehouse": "SW",
                         "location_cc": "ONL",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "OnlineS",
+                        "bin_location": 24,
+                        "GroupCode": 110,
+                        "series": {
+                            "invoices": 82,
+                            "credit_notes": 85,
+                            "incoming_payments": 15
+                        }
                     },
                     "70074892354": {
                         "warehouse": "5A",
                         "location_cc": "ONL",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "OnlineS",
+                        "GroupCode": 100,
+                        "series": {
+                            "invoices": 80,
+                            "credit_notes": 85,
+                            "incoming_payments": 15
+                        }
                     },
                     "70074957890": {
                         "warehouse": "Arkan",
@@ -145,12 +165,20 @@
             "orders": {
                 "enabled": true,
                 "interval_minutes": 5,
-                "batch_size": 10
+                "batch_size": 10,
+                "from_date": "2025-09-10"
             },
             "payment_recovery": {
                 "enabled": true,
                 "interval_minutes": 15,
-                "batch_size": 50
+                "batch_size": 50,
+                "from_date": "2025-09-10"
+            },
+            "returns": {
+                "enabled": true,
+                "interval_minutes": 10,
+                "batch_size": 10,
+                "from_date": "2025-09-10"
             }
         }
     },

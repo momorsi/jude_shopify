@@ -55,6 +55,10 @@ async def run_all_enabled_syncs():
         enabled_syncs.append("payment_recovery")
         print(f"✅ Payment Recovery Sync: Enabled (every {config_settings.payment_recovery_interval} minutes)")
     
+    if config_settings.returns_enabled:
+        enabled_syncs.append("returns")
+        print(f"✅ Returns Sync: Enabled (every {config_settings.returns_interval} minutes)")
+    
     if not enabled_syncs:
         print("❌ No sync processes are enabled in configuration!")
         print("Please enable at least one sync in configurations.json")

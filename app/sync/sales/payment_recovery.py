@@ -110,7 +110,8 @@ class PaymentRecoverySync:
             # 1. Have sap_invoice_synced tag (successfully synced invoices)
             # 2. Don't have sap_payment_synced or sap_payment_failed tags
             # 3. Are PAID
-            query_filter = "financial_status:paid AND tag:sap_invoice_synced AND -tag:sap_payment_synced AND -tag:sap_payment_failed"
+            from_date = config_settings.payment_recovery_from_date
+            query_filter = f"(financial_status:paid OR financial_status:partially_refunded) AND tag:sap_invoice_synced AND -tag:sap_payment_synced AND -tag:sap_payment_failed created_at:>={from_date}"
             
             # Add retry logic for GraphQL queries to handle rate limiting
             max_retries = 3
@@ -541,18 +542,22 @@ class PaymentRecoverySync:
             
             logger.info(f"Processing payment recovery for order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
             
-            # Check if order is PAID
-            if financial_status != "PAID":
-                logger.info(f"Order {order_name} is not PAID (status: {financial_status}) - skipping payment recovery")
+            # Check if order is PAID or PARTIALLY_REFUNDED (treat PARTIALLY_REFUNDED as PAID for payment recovery)
+            if financial_status not in ["PAID", "PARTIALLY_REFUNDED"]:
+                logger.info(f"Order {order_name} is not PAID or PARTIALLY_REFUNDED (status: {financial_status}) - skipping payment recovery")
                 return {
                     "msg": "skipped",
                     "order_id": order_id_number,
                     "order_name": order_name,
-                    "reason": f"Order not PAID (status: {financial_status})"
+                    "reason": f"Order not PAID or PARTIALLY_REFUNDED (status: {financial_status})"
                 }
             
             # Extract tags and get SAP invoice DocEntry
-            tags = order_node.get("tags", "").split(",") if order_node.get("tags") else []
+            tags_raw = order_node.get("tags", [])
+            if isinstance(tags_raw, str):
+                tags = tags_raw.split(",") if tags_raw else []
+            else:
+                tags = tags_raw if tags_raw else []
             tags = [tag.strip() for tag in tags if tag.strip()]
             
             doc_entry = self.extract_sap_invoice_doc_entry(tags)
@@ -590,13 +595,15 @@ class PaymentRecoverySync:
                 # Payment already exists in SAP, add payment sync tag and skip processing
                 logger.info(f"Payment for order {order_name} already exists in SAP with DocEntry: {payment_exists_result['doc_entry']}")
                 
-                # Add payment sync tag to order
+                # Add payment sync tags to order
                 payment_tag = f"sap_payment_{payment_exists_result['doc_entry']}"
                 tag_update_result = await self.add_order_tag(
                     store_key,
                     order_id,
                     payment_tag
                 )
+                # Also add the general payment synced tag
+                await self.add_order_tag(store_key, order_id, "sap_payment_synced")
                 
                 if tag_update_result["msg"] == "failure":
                     logger.warning(f"Failed to add payment sync tag for {order_name}: {tag_update_result.get('error')}")
@@ -620,11 +627,14 @@ class PaymentRecoverySync:
                 sap_payment_number = payment_result["sap_payment_number"]
                 logger.info(f"✅ Successfully created payment for order {order_name} -> SAP Invoice: {doc_entry} -> Payment: {sap_payment_number}")
                 
-                # Add payment sync tag
+                # Add payment sync tags
                 payment_tag = f"sap_payment_{sap_payment_number}"
                 metafield_result = await self.add_order_tag(store_key, order_id, payment_tag)
                 if metafield_result["msg"] == "failure":
                     logger.warning(f"Failed to add payment sync tag for {order_name}: {metafield_result.get('error')}")
+                
+                # Also add the general payment synced tag
+                await self.add_order_tag(store_key, order_id, "sap_payment_synced")
                 
                 return {
                     "msg": "success",

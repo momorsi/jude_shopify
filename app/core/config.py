@@ -151,6 +151,40 @@ class ConfigSettings(BaseSettings):
         """Get currency for a specific store"""
         return self.shopify_stores[store_key].currency
     
+    def get_series_for_location(self, store_key: str, location_mapping: Dict[str, Any], series_type: str) -> int:
+        """
+        Get series number for a specific location and series type
+        
+        Args:
+            store_key: Store key (local/international)
+            location_mapping: Location mapping from OrderLocationMapper
+            series_type: Type of series ('invoices', 'credit_notes', 'incoming_payments')
+            
+        Returns:
+            Series number for the location, or default fallback
+        """
+        try:
+            # Get series from location mapping if available
+            if location_mapping and 'series' in location_mapping:
+                series_config = location_mapping['series']
+                if series_type in series_config:
+                    return series_config[series_type]
+            
+            # Fallback to default series for the store
+            mapping = self.get_location_warehouse_mapping(store_key)
+            if mapping:
+                locations = mapping.get('locations', {})
+                if 'web' in locations and 'series' in locations['web']:
+                    return locations['web']['series'].get(series_type, getattr(self, f'sales_series_{series_type}', 82))
+            
+            # Final fallback to config defaults
+            return getattr(self, f'sales_series_{series_type}', 82)
+            
+        except Exception as e:
+            # Log error and return default
+            print(f"Error getting series for location: {str(e)}")
+            return getattr(self, f'sales_series_{series_type}', 82)
+    
     # Legacy support for backward compatibility
     @property
     def shopify_shop_url(self) -> str:
@@ -211,11 +245,20 @@ class ConfigSettings(BaseSettings):
     sales_orders_enabled: bool = config_data['sync']['sales']['orders']['enabled']
     sales_orders_interval: int = config_data['sync']['sales']['orders']['interval_minutes']
     sales_orders_batch_size: int = config_data['sync']['sales']['orders']['batch_size']
-    
+    sales_orders_from_date: str = config_data['sync']['sales']['orders']['from_date']
     payment_recovery_enabled: bool = config_data['sync']['sales']['payment_recovery']['enabled']
     payment_recovery_interval: int = config_data['sync']['sales']['payment_recovery']['interval_minutes']
     payment_recovery_batch_size: int = config_data['sync']['sales']['payment_recovery']['batch_size']
-    
+    payment_recovery_from_date: str = config_data['sync']['sales']['payment_recovery']['from_date']
+    returns_enabled: bool = config_data['sync']['sales']['returns']['enabled']
+    returns_interval: int = config_data['sync']['sales']['returns']['interval_minutes']
+    returns_batch_size: int = config_data['sync']['sales']['returns']['batch_size']
+    returns_from_date: str = config_data['sync']['sales']['returns']['from_date']
+    # Series configuration will be determined dynamically based on location mapping
+    # Default fallback values (can be overridden by location-specific series)
+    sales_series_invoices: int = config_data['shopify']['location_warehouse_mapping']['local']['locations']['web']['series']['invoices']
+    sales_series_credit_notes: int = config_data['shopify']['location_warehouse_mapping']['local']['locations']['web']['series']['credit_notes']
+    sales_series_incoming_payments: int = config_data['shopify']['location_warehouse_mapping']['local']['locations']['web']['series']['incoming_payments']
     # Logging Settings
     log_level: str = config_data['logging']['level']
     log_file: str = config_data['logging']['file']

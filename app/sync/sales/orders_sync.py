@@ -184,6 +184,7 @@ class OrdersSalesSync:
                                 id
                                 sku
                                 price
+                                compareAtPrice
                                 product {
                                 id
                                 title
@@ -225,8 +226,8 @@ class OrdersSalesSync:
             
             # Filter to only include orders with "take" tag and exclude orders that already have sap_invoice_synced or sap_invoice_failed tags
             # Also filter to get orders starting from today
-            today = date.today().strftime("%Y-%m-%d")
-            query_filter = f"tag:salestest -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={today}"
+            from_date = config_settings.sales_orders_from_date
+            query_filter = f"tag:salestest -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -323,15 +324,28 @@ class OrdersSalesSync:
                 sku = item.get("sku")
                 quantity = item["quantity"]
                 
-                # Get original price from original unit price set
+                # Get pricing information with priority: compareAtPrice > originalUnitPriceSet > variant price
                 original_price = Decimal("0.00")
-                if item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
+                sale_price = Decimal("0.00")
+                
+                # First, try to get compareAtPrice (original price before sale)
+                if item.get("variant") and item["variant"].get("compareAtPrice"):
+                    original_price = Decimal(item["variant"]["compareAtPrice"])
+                    # Get the current sale price
+                    if item.get("variant") and item["variant"].get("price"):
+                        sale_price = Decimal(item["variant"]["price"])
+                # Fallback to original unit price set
+                elif item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
                     original_price = Decimal(item["originalUnitPriceSet"]["shopMoney"]["amount"])
+                    sale_price = original_price  # No sale, so sale price = original price
+                # Final fallback to variant price
                 elif item.get("variant") and item["variant"].get("price"):
                     original_price = Decimal(item["variant"]["price"])
+                    sale_price = original_price  # No sale, so sale price = original price
                 else:
                     # Fallback to a default price if variant price is not available
                     original_price = Decimal("0.00")
+                    sale_price = Decimal("0.00")
                 
                 # Use the actual SKU as item code, or a default if not available
                 # Check line item SKU first, then variant SKU
@@ -348,7 +362,7 @@ class OrdersSalesSync:
                 line_item = {
                     "ItemCode": item_code,
                     "Quantity": quantity,
-                    "UnitPrice": float(original_price),  # Always use original price
+                    "UnitPrice": float(original_price),  # Always use original price (compareAtPrice)
                     "WarehouseCode": warehouse_code,
                     "COGSCostingCode": costing_codes['COGSCostingCode'],
                     "COGSCostingCode2": costing_codes['COGSCostingCode2'],
@@ -358,17 +372,34 @@ class OrdersSalesSync:
                     "CostingCode3": costing_codes['CostingCode3']                    
                 }
                 
-                # Add discount information if available
+                # Calculate discount percentage based on compareAtPrice vs sale price
+                if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                    # Calculate discount percentage: (original - sale) / original * 100
+                    discount_amount = original_price - sale_price
+                    discount_percentage = (discount_amount / original_price) * 100
+                    line_item["DiscountPercent"] = float(discount_percentage)
+                    line_item["U_ItemDiscountAmount"] = float(discount_amount)
+                    logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
+                
+                # Also check for additional discount allocations (coupons, etc.)
                 discount_allocations = item.get("discountAllocations", [])
                 if discount_allocations:
                     total_item_discount = sum(
                         float(allocation.get("allocatedAmount", {}).get("amount", 0))
                         for allocation in discount_allocations
                     )
-                    if total_item_discount > 0 and original_price > 0:
-                        # Calculate discount percentage based on original price
-                        line_item["DiscountPercent"] = (total_item_discount / float(original_price)) * 100
-                        line_item["U_ItemDiscountAmount"] = total_item_discount
+                    if total_item_discount > 0:
+                        # Add additional discount amount to existing discount
+                        if "U_ItemDiscountAmount" in line_item:
+                            line_item["U_ItemDiscountAmount"] += total_item_discount
+                        else:
+                            line_item["U_ItemDiscountAmount"] = total_item_discount
+                        
+                        # Recalculate total discount percentage
+                        if original_price > 0:
+                            total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
+                            line_item["DiscountPercent"] = total_discount_percentage
+                            logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
                 
                 # Check if this is a gift card line item and add U_GiftCard field
                 if created_gift_cards:
@@ -426,14 +457,14 @@ class OrdersSalesSync:
                 "DocDate": doc_date,
                 "CardCode": customer_card_code,
                 "NumAtCard": order_name.replace("#", ""),
-                "Series": 82,
+                "Series": config_settings.get_series_for_location(store_key, location_analysis.get('location_mapping', {}), 'invoices'),
                 "Comments": f"Shopify Order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}",
                 #"U_Shopify_Order_ID": order_name,
                 #"U_Shopify_Financial_Status": financial_status,
                 #"U_Shopify_Fulfillment_Status": fulfillment_status,
                 "SalesPersonCode": 28,
                 "DocumentLines": line_items,
-                "U_Pay_type": 1 if financial_status == "PAID" else 2 if store_key == "local" else 3,
+                "U_Pay_type": 1 if financial_status in ["PAID", "PARTIALLY_REFUNDED"] else 2 if store_key == "local" else 3,
                 "U_Shopify_Order_ID": order_id_number,
                 "U_DeliveryAddress": delivery_address,
                 "U_BillingAddress": billing_address_str,
@@ -565,7 +596,8 @@ class OrdersSalesSync:
             item = item_edge["node"]
             # Check SKU from line item first, then from variant
             sku = (item.get('sku') or '').lower()
-            variant_sku = (item.get('variant', {}).get('sku') or '').lower()
+            variant = item.get('variant') or {}
+            variant_sku = (variant.get('sku') or '').lower()
             name = (item.get('name') or '').lower()
             
             # Check for gift card patterns in line item SKU, variant SKU, or name
@@ -592,7 +624,8 @@ class OrdersSalesSync:
             item = item_edge["node"]
             # Check SKU from line item first, then from variant
             sku = (item.get('sku') or '').lower()
-            variant_sku = (item.get('variant', {}).get('sku') or '').lower()
+            variant = item.get('variant') or {}
+            variant_sku = (variant.get('sku') or '').lower()
             name = (item.get('name') or '').lower()
             
             # Log all line items for debugging
@@ -623,7 +656,8 @@ class OrdersSalesSync:
                 line_total = float(price * quantity)
                 
                 # Use variant SKU if line item SKU is empty
-                final_sku = item.get("sku") or item.get("variant", {}).get("sku", "")
+                variant = item.get("variant") or {}
+                final_sku = item.get("sku") or variant.get("sku", "")
                 
                 gift_card_info = {
                     "sku": final_sku,
@@ -631,8 +665,8 @@ class OrdersSalesSync:
                     "quantity": quantity,
                     "unit_price": float(price),
                     "line_total": line_total,
-                    "variant_id": item.get("variant", {}).get("id", ""),
-                    "product_id": item.get("variant", {}).get("product", {}).get("id", "")
+                    "variant_id": variant.get("id", ""),
+                    "product_id": variant.get("product", {}).get("id", "")
                 }
                 gift_cards.append(gift_card_info)
         
@@ -984,7 +1018,7 @@ class OrdersSalesSync:
             return {"msg": "failure", "error": str(e)}
 
     def prepare_incoming_payment_data(self, shopify_order: Dict[str, Any], sap_invoice_data: Dict[str, Any], 
-                                    customer_card_code: str, store_key: str) -> Dict[str, Any]:
+                                    customer_card_code: str, store_key: str, location_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """
         Prepare incoming payment data for SAP based on Shopify order payment information
         """
@@ -1017,7 +1051,7 @@ class OrdersSalesSync:
                 "DocDate": datetime.now().strftime("%Y-%m-%d"),
                 "CardCode": customer_card_code,
                 "DocType": "rCustomer",
-                "Series": 15,  # Series for incoming payments
+                "Series": config_settings.get_series_for_location(store_key, location_analysis.get('location_mapping', {}), 'incoming_payments'),  # Series for incoming payments
                 "TransferSum": 0.0,
                 "TransferAccount": "",
                 "U_Shopify_Order_ID": order_id_number  # Add Shopify Order ID (numeric)
@@ -1606,6 +1640,10 @@ class OrdersSalesSync:
             shipping_address = order_node.get("shippingAddress", {})
             billing_address = order_node.get("billingAddress", {})
             
+            # Get location mapping for this order
+            location_analysis = OrderLocationMapper.analyze_order_source(order_node, store_key)
+            sap_codes = location_analysis.get('sap_codes', {})
+            
             logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
             logger.info(f"Payment Gateway: {payment_info['gateway']} | Card Type: {payment_info['card_type']} | Amount: {payment_info['amount']}")
             
@@ -1787,16 +1825,23 @@ class OrdersSalesSync:
             logger.info(f"Created invoice data: {created_invoice_data}")
             
             # Check if order is paid and create incoming payment
+            # Treat PARTIALLY_REFUNDED as PAID for payment processing (order was paid, then partially refunded)
             sap_payment_number = None
-            if financial_status == "PAID":
-                logger.info(f"Order {order_name} is paid - creating incoming payment in SAP")
+            is_paid_for_payment_processing = financial_status in ["PAID", "PARTIALLY_REFUNDED"]
+            
+            if is_paid_for_payment_processing:
+                if financial_status == "PARTIALLY_REFUNDED":
+                    logger.info(f"Order {order_name} is PARTIALLY_REFUNDED - treating as PAID for payment processing (order was paid, then partially refunded)")
+                else:
+                    logger.info(f"Order {order_name} is paid - creating incoming payment in SAP")
                 
                 # Prepare incoming payment data
                 payment_data = self.prepare_incoming_payment_data(
                     shopify_order, 
                     created_invoice_data, 
                     sap_customer["CardCode"], 
-                    store_key
+                    store_key,
+                    location_analysis
                 )
                 
                 # Create incoming payment in SAP
