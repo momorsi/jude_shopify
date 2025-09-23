@@ -26,9 +26,12 @@ class CustomerManager:
         try:
             # Clean phone number (remove spaces, dashes, etc.)
             clean_phone = self._clean_phone_number(phone)
+            logger.info(f"🔍 SEARCHING CUSTOMER: Original phone: '{phone}' -> Cleaned: '{clean_phone}'")
             
             # Search in SAP Business Partners
             filter_query = f"Phone1 eq '{clean_phone}' or Phone2 eq '{clean_phone}' or Cellular eq '{clean_phone}'"
+            logger.info(f"🔍 SAP QUERY: {filter_query}")
+            
             result = await sap_client.get_entities(
                 entity_type='BusinessPartners',
                 filter_query=filter_query,
@@ -40,9 +43,14 @@ class CustomerManager:
                 return None
             
             customers = result["data"].get("value", [])
-            if customers:
-                return customers[0]
+            logger.info(f"🔍 CUSTOMER SEARCH RESULT: Found {len(customers)} customers")
             
+            if customers:
+                customer = customers[0]
+                logger.info(f"✅ FOUND EXISTING CUSTOMER: {customer.get('CardCode', 'Unknown')} - {customer.get('CardName', 'Unknown')}")
+                return customer
+            
+            logger.info(f"❌ NO EXISTING CUSTOMER FOUND for phone: {clean_phone}")
             return None
             
         except Exception as e:
@@ -114,17 +122,17 @@ class CustomerManager:
     def _clean_phone_number(self, phone: str) -> str:
         """
         Clean phone number by removing spaces, dashes, and other characters
+        Keep +20 prefix as is
         """
         if not phone:
             return ""
         
-        # Remove common separators
+        # Remove common separators but keep +20 prefix
         cleaned = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
         
-        # Remove country code if present (assuming +20 for Egypt)
-        if cleaned.startswith("+20"):
-            cleaned = cleaned[3:]
-        elif cleaned.startswith("20"):
+        # Keep +20 prefix as is - don't remove it
+        # Only remove 20 prefix if it's not preceded by +
+        if cleaned.startswith("20") and not cleaned.startswith("+20"):
             cleaned = cleaned[2:]
         
         return cleaned

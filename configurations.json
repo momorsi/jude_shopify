@@ -72,10 +72,12 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                    
-                            "Geidea": "10801235",
-                            "Valu": "10801231",
-                            "Fawry": "10801246",
+                        "bank_transfers": {                                                                                
+                            "Valu POS": "10801231",
+                            "Fawry POS": "10801246"
+                        },
+                        "credit": {
+                            "Geidea POS": "10801235",
                             "Paymob POS": "10801247"
                         },
                         "cash": "10801226"
@@ -93,10 +95,12 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                    
-                            "Geidea": "10801235",
-                            "Valu": "10801231",
-                            "Fawry": "10801246",
+                        "bank_transfers": {                                                                                
+                            "Valu POS": "10801231",
+                            "Fawry POS": "10801246"
+                        },
+                        "credit": {
+                            "Geidea POS": "10801235",
                             "Paymob POS": "10801247"
                         },
                         "cash": "10801228"
@@ -113,10 +117,12 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                    
-                            "Geidea": "10801235",
-                            "Valu": "10801231",
-                            "Fawry": "10801246",
+                        "bank_transfers": {                                                                                
+                            "Valu POS": "10801231",
+                            "Fawry POS": "10801246"
+                        },
+                        "credit": {
+                            "Geidea POS": "10801235",
                             "Paymob POS": "10801247"
                         },
                         "cash": "10801239"
@@ -133,13 +139,59 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                    
-                            "Geidea": "10801235",
-                            "Valu": "10801231",
-                            "Fawry": "10801246",
+                        "bank_transfers": {                                                                                
+                            "Valu POS": "10801231",
+                            "Fawry POS": "10801246"
+                        },
+                        "credit": {
+                            "Geidea POS": "10801235",
                             "Paymob POS": "10801247"
                         },
                         "cash": "10801227"
+                    },
+                    "72406990914": {
+                        "type": "store",
+                        "warehouse": "DIP",
+                        "location_cc": "DIP",
+                        "department_cc": "SAL",
+                        "activity_cc": "General",
+                        "group_code": 100,
+                        "series": {
+                            "invoices": 80,
+                            "credit_notes": 84,
+                            "incoming_payments": 15
+                        },
+                        "bank_transfers": {                                                                                
+                            "Valu POS": "10801231",
+                            "Fawry POS": "10801246"
+                        },
+                        "credit": {
+                            "Geidea POS": "10801235",
+                            "Paymob POS": "10801247"
+                        },
+                        "cash": "10801229"
+                    },
+                    "72407023682": {
+                        "type": "store",
+                        "warehouse": "LTW",
+                        "location_cc": "LakeTown",
+                        "department_cc": "SAL",
+                        "activity_cc": "General",
+                        "group_code": 100,
+                        "series": {
+                            "invoices": 80,
+                            "credit_notes": 84,
+                            "incoming_payments": 15
+                        },
+                        "bank_transfers": {                                                                                
+                            "Valu POS": "10801231",
+                            "Fawry POS": "10801246"
+                        },
+                        "credit": {
+                            "Geidea POS": "10801235",
+                            "Paymob POS": "10801247"
+                        },
+                        "cash": "10801248"
                     }
                 }
             },

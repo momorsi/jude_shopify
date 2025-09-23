@@ -281,6 +281,89 @@ class ConfigSettings(BaseSettings):
         except Exception as e:
             print(f"Error getting bank transfer for location: {str(e)}")
             return ""
+        
+    def get_bank_transfers_for_location(self, store_key: str, location_mapping: Dict[str, Any]) -> str:
+        """
+        Get bank transfer account for a specific location and payment gateway
+        
+        Args:
+            store_key: Store key (local/international)
+            location_mapping: Location mapping from OrderLocationMapper
+            payment_gateway: Payment gateway name (e.g., "Paymob POS", "Geidea POS")
+            
+        Returns:
+            Bank transfer account code, or empty string if not found
+        """
+        try:
+            location_type = self.get_location_type(location_mapping)
+            
+            # For store locations, check location-specific bank transfers
+            if location_type == "store" and location_mapping and 'bank_transfers' in location_mapping:
+                bank_transfers = location_mapping['bank_transfers']
+                return bank_transfers
+                
+            # No fallback - return empty string if not found
+            return []
+            
+        except Exception as e:
+            print(f"Error getting bank transfers for location: {str(e)}")
+            return []
+    
+    def get_credits_for_location(self, store_key: str, location_mapping: Dict[str, Any]) -> str:
+        """
+        Get credit account for a specific location and payment gateway
+        
+        Args:
+            store_key: Store key (local/international)
+            location_mapping: Location mapping from OrderLocationMapper
+            payment_gateway: Payment gateway name (e.g., "Paymob POS", "Geidea POS")
+            
+        Returns:
+            Credit account code, or empty string if not found
+        """
+        try:
+            location_type = self.get_location_type(location_mapping)
+            
+            # For store locations, check location-specific credit accounts
+            if location_type == "store" and location_mapping and 'credit' in location_mapping:
+                credit_accounts = location_mapping['credit']
+                
+                return credit_accounts
+            
+            # No fallback - return empty string if not found
+            return []
+            
+        except Exception as e:
+            print(f"Error getting credits for location: {str(e)}")
+            return []
+    
+    def get_credit_account_for_location(self, store_key: str, location_mapping: Dict[str, Any], payment_gateway: str) -> str:
+        """
+        Get credit account for a specific location and payment gateway
+        
+        Args:
+            store_key: Store key (local/international)
+            location_mapping: Location mapping from OrderLocationMapper
+            payment_gateway: Payment gateway name (e.g., "Paymob POS", "Geidea POS")
+            
+        Returns:
+            Credit account code, or empty string if not found
+        """
+        try:
+            location_type = self.get_location_type(location_mapping)
+            
+            # For store locations, check location-specific credit accounts
+            if location_type == "store" and location_mapping and 'credit' in location_mapping:
+                credit_accounts = location_mapping['credit']
+                if payment_gateway in credit_accounts:
+                    return credit_accounts[payment_gateway]
+            
+            # No fallback - return empty string if not found
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting credit account for location: {str(e)}")
+            return ""
     
     # Legacy support for backward compatibility
     @property

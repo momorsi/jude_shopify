@@ -1010,7 +1010,9 @@ class OrdersSalesSync:
                 "msg": "success",
                 "sap_invoice_number": invoice_number,
                 "sap_doc_entry": created_invoice.get('DocEntry', ''),
-                "sap_doc_num": created_invoice.get('DocNum', '')
+                "sap_doc_num": created_invoice.get('DocNum', ''),
+                "sap_trans_num": created_invoice.get('TransNum', ''),
+                "sap_doc_total": created_invoice.get('DocTotal', 0.0)
             }
             
         except Exception as e:
@@ -1021,6 +1023,7 @@ class OrdersSalesSync:
                                     customer_card_code: str, store_key: str, location_analysis: Dict[str, Any]) -> Dict[str, Any]:
         """
         Prepare incoming payment data for SAP based on Shopify order payment information
+        Handles POS-specific payment logic with multiple transaction types
         """
         try:
             order_node = shopify_order["node"]
@@ -1052,16 +1055,153 @@ class OrdersSalesSync:
                 "DocDate": datetime.now().strftime("%Y-%m-%d"),
                 "CardCode": customer_card_code,
                 "DocType": "rCustomer",
-                "Series": config_settings.get_series_for_location(store_key, location_analysis.get('location_mapping', {}), 'incoming_payments'),  # Series for incoming payments
+                "Series": config_settings.get_series_for_location(store_key, location_analysis.get('location_mapping', {}), 'incoming_payments'),
                 "TransferSum": 0.0,
                 "TransferAccount": "",
-                "U_Shopify_Order_ID": order_id_number  # Add Shopify Order ID (numeric)
+                "U_Shopify_Order_ID": order_id_number
             }
+            
+            # Check if this is a POS order (store location)
+            if location_type == "store":
+                logger.info(f"🏪 POS ORDER DETECTED - Processing multiple payment types")
+                return self._prepare_pos_payment_data(
+                    payment_data, payment_info, location_analysis, store_key, invoice_doc_entry, total_amount
+                )
+            else:
+                # Handle online orders with existing logic
+                return self._prepare_online_payment_data(
+                    payment_data, payment_info, location_analysis, store_key, invoice_doc_entry, payment_type, order_node, location_type
+                )
+            
+        except Exception as e:
+            logger.error(f"Error preparing incoming payment data: {str(e)}")
+            raise
+
+    def _prepare_pos_payment_data(self, payment_data: Dict[str, Any], payment_info: Dict[str, Any], 
+                                 location_analysis: Dict[str, Any], store_key: str, 
+                                 invoice_doc_entry: str, total_amount: float) -> Dict[str, Any]:
+        """
+        Prepare payment data specifically for POS orders with multiple transaction types
+        """
+        try:
+            from datetime import datetime, timedelta
+            
+            # Initialize variables
+            calc_amount = 0.0
+            cred_array = []
+            
+            # Get location mapping for credit accounts
+            location_mapping = location_analysis.get('location_mapping', {})
+            
+            # Process each payment gateway transaction
+            payment_gateways = payment_info.get("payment_gateways", [])
+            
+            for gateway_info in payment_gateways:
+                gateway = gateway_info["gateway"]
+                amount = gateway_info["amount"]
+                
+                if gateway.lower() == "cash":
+                    # Handle cash transactions
+                    cash_account = config_settings.get_cash_account_for_location(location_mapping)
+                    if cash_account:
+                        payment_data["CashSum"] = amount
+                        payment_data["CashAccount"] = cash_account
+                        calc_amount += amount
+                        logger.info(f"💰 CASH TRANSACTION: {amount} EGP - Account: {cash_account}")
+                    else:
+                        logger.warning(f"No cash account configured for location")
+                        
+                elif gateway in config_settings.get_credits_for_location(store_key, location_mapping):
+                    # Handle credit card transactions
+                    cred_obj = {}
+                    cred_obj['CreditCard'] = 1
+                    
+                    # Get credit account from configuration
+                    credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
+                    if credit_account:
+                        cred_obj['CreditAcct'] = credit_account
+                    else:
+                        logger.warning(f"No credit account found for gateway: {gateway}")
+                        continue
+                    
+                    cred_obj['CreditCardNumber'] = "1234"
+                    
+                    # Calculate next month date
+                    next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                    res = next_month - timedelta(days=next_month.day)
+                    cred_obj['CardValidUntil'] = str(res.date())
+                    
+                    cred_obj['VoucherNum'] = gateway
+                    cred_obj['PaymentMethodCode'] = 1
+                    cred_obj['CreditSum'] = amount
+                    cred_obj['CreditCur'] = "EGP"
+                    cred_obj['CreditType'] = "cr_Regular"
+                    cred_obj['SplitPayments'] = "tNO"
+                    
+                    calc_amount += amount
+                    cred_array.append(cred_obj)
+                    logger.info(f"💳 CREDIT CARD TRANSACTION: {gateway} - {amount} EGP - Account: {credit_account}")
+                    
+                elif gateway in config_settings.get_bank_transfers_for_location(store_key, location_mapping):
+                    # Handle other payment gateways as bank transfers
+                    transfer_account = config_settings.get_bank_transfer_for_location(
+                        store_key, location_mapping, gateway
+                    )
+                    if transfer_account:
+                        payment_data["TransferSum"] = amount
+                        payment_data["TransferAccount"] = transfer_account
+                        calc_amount += amount
+                        logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
+                else:
+                    logger.warning(f"No bank transfer account found for gateway: {gateway}")
+
+            # Add credit cards array if we have any
+            if cred_array:
+                payment_data["PaymentCreditCards"] = cred_array
+            
+            # Create invoice object for payment
+            inv_obj = {
+                "DocEntry": invoice_doc_entry,
+                "SumApplied": calc_amount,
+                "InvoiceType": "it_Invoice"
+            }
+            
+            # Add invoice to payment data
+            payment_data["PaymentInvoices"] = [inv_obj]
+            
+            logger.info(f"🏪 POS PAYMENT SUMMARY: Total Calculated Amount: {calc_amount} EGP")
+            
+            return payment_data
+            
+        except Exception as e:
+            logger.error(f"Error preparing POS payment data: {str(e)}")
+            raise
+
+    def _prepare_online_payment_data(self, payment_data: Dict[str, Any], payment_info: Dict[str, Any], 
+                                   location_analysis: Dict[str, Any], store_key: str, 
+                                   invoice_doc_entry: str, payment_type: str, 
+                                   order_node: Dict[str, Any], location_type: str) -> Dict[str, Any]:
+        """
+        Prepare payment data for online orders using existing logic
+        """
+        try:
+            # Calculate payment amount excluding store credit
+            store_credit_amount = payment_info.get("store_credit", {}).get("amount", 0.0)
+            total_payment_amount = payment_info.get("total_payment_amount", 0.0)
+            
+            # Use total_payment_amount if available (multiple gateways), otherwise fall back to calculation
+            if total_payment_amount > 0:
+                payment_amount = total_payment_amount
+            else:
+                total_amount = float(order_node["totalPriceSet"]["shopMoney"]["amount"])
+                payment_amount = total_amount - store_credit_amount
+            
+            logger.info(f"💰 ONLINE PAYMENT CALCULATION: Payment Amount: {payment_amount} EGP | Store Credit: {store_credit_amount} EGP")
             
             # Set payment method based on type and location
             if payment_type == "PaidOnline":
                 # Online payments - use location-based bank transfer account
-                payment_data["TransferSum"] = total_amount
+                payment_data["TransferSum"] = payment_amount
                 
                 # Get the actual gateway from payment info
                 gateway = payment_info.get('gateway', 'Paymob')
@@ -1078,7 +1218,7 @@ class OrdersSalesSync:
                 
             elif payment_type == "COD":
                 # Cash on delivery - handle courier-specific accounts for online locations
-                payment_data["TransferSum"] = total_amount
+                payment_data["TransferSum"] = payment_amount
                 
                 # Extract courier name from metafields for COD payments
                 courier_name = ""
@@ -1096,38 +1236,9 @@ class OrdersSalesSync:
                 payment_data["TransferAccount"] = transfer_account
                 logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
                 
-            elif payment_type == "Cash":
-                # Cash payment at store - use cash account from location mapping
-                payment_data["TransferSum"] = total_amount
-                
-                # Get cash account from location mapping
-                cash_account = config_settings.get_cash_account_for_location(location_analysis.get('location_mapping', {}))
-                if cash_account:
-                    payment_data["TransferAccount"] = cash_account
-                    logger.info(f"Cash payment at store - using cash account: {cash_account}")
-                else:
-                    logger.warning(f"No cash account configured for location, using transfer sum only")
-                
-            elif payment_type == "CreditCard":
-                # Credit card payment at store - use location-based bank transfer
-                payment_data["TransferSum"] = total_amount
-                
-                # Get the actual gateway from payment info
-                gateway = payment_info.get('gateway', 'Geidea')
-                
-                # Get bank transfer account using new location-based method
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Credit card payment at store - using {gateway} account: {transfer_account}")
-                
             else:
                 # Default case - treat as online payment
-                payment_data["TransferSum"] = total_amount
+                payment_data["TransferSum"] = payment_amount
                 gateway = payment_info.get('gateway', 'Paymob')
                 
                 transfer_account = config_settings.get_bank_transfer_for_location(
@@ -1142,7 +1253,7 @@ class OrdersSalesSync:
             # Create invoice object for payment
             inv_obj = {
                 "DocEntry": invoice_doc_entry,
-                "SumApplied": total_amount,
+                "SumApplied": payment_amount,
                 "InvoiceType": "it_Invoice"
             }
             
@@ -1152,12 +1263,12 @@ class OrdersSalesSync:
             return payment_data
             
         except Exception as e:
-            logger.error(f"Error preparing incoming payment data: {str(e)}")
+            logger.error(f"Error preparing online payment data: {str(e)}")
             raise
 
     def _extract_payment_info(self, order_node: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Extract payment information from Shopify order transactions including gift cards
+        Extract payment information from Shopify order transactions including gift cards and store credit
         """
         payment_info = {
             "gateway": "Unknown",
@@ -1170,7 +1281,13 @@ class OrdersSalesSync:
             "processed_at": "Unknown",
             "is_online_payment": False,
             "gift_cards": [],
-            "total_gift_card_amount": 0.0
+            "total_gift_card_amount": 0.0,
+            "store_credit": {
+                "amount": 0.0,
+                "transactions": []
+            },
+            "payment_gateways": [],
+            "total_payment_amount": 0.0
         }
         
         try:
@@ -1186,20 +1303,50 @@ class OrdersSalesSync:
                     amount = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
                     receipt_json = transaction.get("receiptJson", "{}")
                     
-                    # Handle all payment gateway transactions except gift_card (which has its own processing)
-                    if gateway != "Unknown" and gateway != "gift_card":
-                        payment_info["gateway"] = gateway
-                        payment_info["amount"] = amount
-                        payment_info["status"] = transaction.get("status", "Unknown")
-                        payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                    # Handle store credit transactions
+                    if gateway == "shopify_store_credit":
+                        store_credit_info = {
+                            "transaction_id": transaction.get("id", "Unknown"),
+                            "amount": amount,
+                            "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                            "processed_at": transaction.get("processedAt", "Unknown"),
+                            "receipt_json": receipt_json
+                        }
+                        payment_info["store_credit"]["transactions"].append(store_credit_info)
+                        payment_info["store_credit"]["amount"] += amount
+                        logger.info(f"🏪 STORE CREDIT DETECTED: {amount} {store_credit_info['currency']} - Transaction ID: {store_credit_info['transaction_id']}")
+                    
+                    # Handle all payment gateway transactions except gift_card and store_credit (which have their own processing)
+                    elif gateway != "Unknown" and gateway != "gift_card" and gateway != "shopify_store_credit":
+                        # Create payment gateway info
+                        gateway_info = {
+                            "gateway": gateway,
+                            "amount": amount,
+                            "status": transaction.get("status", "Unknown"),
+                            "processed_at": transaction.get("processedAt", "Unknown"),
+                            "transaction_id": transaction.get("id", "Unknown"),
+                            "receipt_json": receipt_json
+                        }
                         
                         # Extract payment_id from receiptJson (for supported gateways)
                         try:
                             import json
                             receipt_data = json.loads(receipt_json)
-                            payment_info["payment_id"] = receipt_data.get("payment_id", transaction.get("id", "Unknown"))
+                            gateway_info["payment_id"] = receipt_data.get("payment_id", transaction.get("id", "Unknown"))
                         except (json.JSONDecodeError, KeyError):
-                            payment_info["payment_id"] = transaction.get("id", "Unknown")
+                            gateway_info["payment_id"] = transaction.get("id", "Unknown")
+                        
+                        # Add to payment gateways list
+                        payment_info["payment_gateways"].append(gateway_info)
+                        payment_info["total_payment_amount"] += amount
+                        
+                        # Set primary gateway info (for backward compatibility - use the first non-store-credit gateway)
+                        if payment_info["gateway"] == "Unknown":
+                            payment_info["gateway"] = gateway
+                            payment_info["amount"] = amount
+                            payment_info["status"] = transaction.get("status", "Unknown")
+                            payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                            payment_info["payment_id"] = gateway_info["payment_id"]
                         
                         # Check if this is an online payment
                         source_name = order_node.get("sourceName", "")
@@ -1622,6 +1769,171 @@ class OrdersSalesSync:
             logger.error(f"Error creating incoming payment in SAP: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
+    async def get_open_credit_notes_for_customer(self, customer_card_code: str) -> Dict[str, Any]:
+        """
+        Get all open credit notes for a customer from SAP
+        """
+        try:
+            # Query SAP for open credit notes
+            query = f"CreditNotes?$select=DocEntry,DocTotal,TransNum&$filter=CardCode eq '{customer_card_code}' and DocumentStatus eq 'bost_Open'&$orderby=DocEntry"
+            
+            result = await sap_client._make_request(
+                "GET",
+                query
+            )
+            
+            if result["msg"] == "failure":
+                logger.error(f"Failed to get open credit notes for customer {customer_card_code}: {result.get('error')}")
+                return result
+            
+            credit_notes = result["data"].get("value", [])
+            logger.info(f"Found {len(credit_notes)} open credit notes for customer {customer_card_code}")
+            
+            return {
+                "msg": "success",
+                "data": credit_notes
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting open credit notes for customer {customer_card_code}: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def create_reconciliation_in_sap(self, reconciliation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create reconciliation in SAP
+        """
+        try:
+            result = await sap_client._make_request(
+                "POST",
+                "InternalReconciliations",
+                reconciliation_data
+            )
+            
+            if result["msg"] == "failure":
+                logger.error(f"Failed to create reconciliation in SAP: {result.get('error')}")
+                return result
+            
+            created_reconciliation = result["data"]
+            reconciliation_id = created_reconciliation.get('ReconNum', '')
+            
+            logger.info(f"Created reconciliation in SAP: {reconciliation_id}")
+            
+            return {
+                "msg": "success",
+                "reconciliation_id": reconciliation_id,
+                "data": created_reconciliation
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating reconciliation in SAP: {str(e)}")
+            return {"msg": "failure", "error": str(e)}
+
+    async def _add_order_tag_with_retry(self, store_key: str, order_id: str, tag: str, tag_description: str, max_retries: int = 3) -> None:
+        """
+        Add order tag with retry logic
+        """
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"🏷️ TAG ATTEMPT {attempt + 1}/{max_retries}: Adding {tag_description}")
+                
+                result = await self.add_order_tag(store_key, order_id, tag)
+                
+                if result["msg"] == "success":
+                    logger.info(f"✅ TAG SUCCESS on attempt {attempt + 1}: {tag}")
+                    return
+                else:
+                    error_msg = result.get('error', 'Unknown error')
+                    logger.warning(f"⚠️ TAG ATTEMPT {attempt + 1} FAILED: {error_msg}")
+                    
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                        logger.info(f"⏳ Retrying tag addition in {wait_time} seconds...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.error(f"❌ TAG FAILED after {max_retries} attempts: {tag}")
+                        
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"❌ TAG EXCEPTION on attempt {attempt + 1}: {error_msg}")
+                
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.info(f"⏳ Retrying tag addition in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(f"❌ TAG FAILED after {max_retries} attempts due to exception: {tag}")
+
+    def prepare_reconciliation_data(self, store_credit_amount: float, customer_card_code: str, 
+                                  invoice_doc_entry: int, invoice_trans_num: int, credit_notes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Prepare reconciliation data for SAP
+        """
+        try:
+            from datetime import datetime
+            
+            # Calculate total amount to reconcile
+            total_amount = store_credit_amount
+            
+            # Prepare reconciliation rows
+            reconciliation_rows = []
+            
+            # Add invoice row (debit)
+            invoice_row = {
+                "ShortName": customer_card_code,
+                "TransId": invoice_trans_num,  # Use TransNum from invoice
+                "TransRowId": 0,
+                "SrcObjTyp": "13",  # Invoice
+                "SrcObjAbs": invoice_doc_entry,
+                "CreditOrDebit": "codDebit",
+                "ReconcileAmount": total_amount,
+                "Selected": "tYES"
+            }
+            reconciliation_rows.append(invoice_row)
+            
+            # Add credit note rows (credit)
+            remaining_amount = total_amount
+            for credit_note in credit_notes:
+                if remaining_amount <= 0:
+                    break
+                    
+                doc_entry = credit_note.get("DocEntry")
+                doc_total = float(credit_note.get("DocTotal", 0))
+                trans_num = credit_note.get("TransNum")
+                
+                # Use the smaller of remaining amount or credit note total
+                reconcile_amount = min(remaining_amount, doc_total)
+                
+                credit_row = {
+                    "ShortName": customer_card_code,
+                    "TransId": trans_num,
+                    "TransRowId": 0,
+                    "SrcObjTyp": "14",  # Credit Note
+                    "SrcObjAbs": doc_entry,
+                    "CreditOrDebit": "codCredit",
+                    "ReconcileAmount": reconcile_amount,
+                    "Selected": "tYES"
+                }
+                reconciliation_rows.append(credit_row)
+                
+                remaining_amount -= reconcile_amount
+                
+                logger.info(f"📋 RECONCILIATION ROW: Credit Note {doc_entry} - Amount: {reconcile_amount} EGP")
+            
+            # Prepare reconciliation data
+            reconciliation_data = {
+                "ReconDate": datetime.now().strftime("%Y-%m-%d"),
+                "CardOrAccount": "coaCard",
+                "InternalReconciliationOpenTransRows": reconciliation_rows
+            }
+            
+            logger.info(f"📋 RECONCILIATION PREPARED: Total Amount: {total_amount} EGP, Rows: {len(reconciliation_rows)}")
+            
+            return reconciliation_data
+            
+        except Exception as e:
+            logger.error(f"Error preparing reconciliation data: {str(e)}")
+            raise
+
 
 
     async def _handle_order_failure(self, store_key: str, order_id: str, order_name: str, error_msg: str) -> Dict[str, Any]:
@@ -1784,6 +2096,22 @@ class OrdersSalesSync:
                 for i, gift_card in enumerate(payment_info["gift_cards"], 1):
                     logger.info(f"   🎁 Gift Card {i}: {gift_card['last_characters']} - {gift_card['amount']} {gift_card['currency']}")
             
+            # Log store credit information
+            if payment_info.get("store_credit", {}).get("amount", 0) > 0:
+                store_credit_amount = payment_info["store_credit"]["amount"]
+                store_credit_transactions = payment_info["store_credit"]["transactions"]
+                logger.info(f"🏪 STORE CREDIT USED: {len(store_credit_transactions)} transactions, Total Amount: {store_credit_amount} EGP")
+                for i, store_credit in enumerate(store_credit_transactions, 1):
+                    logger.info(f"   🏪 Store Credit {i}: {store_credit['amount']} {store_credit['currency']} - Transaction ID: {store_credit['transaction_id']}")
+            
+            # Log multiple payment gateways information
+            if payment_info.get("payment_gateways"):
+                payment_gateways = payment_info["payment_gateways"]
+                total_payment_amount = payment_info.get("total_payment_amount", 0.0)
+                logger.info(f"💳 PAYMENT GATEWAYS USED: {len(payment_gateways)} gateways, Total Amount: {total_payment_amount} EGP")
+                for i, gateway in enumerate(payment_gateways, 1):
+                    logger.info(f"   💳 Gateway {i}: {gateway['gateway']} - {gateway['amount']} EGP - Transaction ID: {gateway['transaction_id']}")
+            
             # Log discount information
             if discount_info["order_level_discounts"]:
                 logger.info(f"💰 ORDER-LEVEL DISCOUNTS: {len(discount_info['order_level_discounts'])} discounts")
@@ -1944,10 +2272,12 @@ class OrdersSalesSync:
             if invoice_result["msg"] == "failure":
                 return invoice_result
             
-            # Get the created invoice data with DocEntry
+            # Get the created invoice data with DocEntry, DocTotal, and TransNum
             created_invoice_data = {
                 "DocEntry": invoice_result["sap_doc_entry"],
-                "DocNum": invoice_result["sap_doc_num"]
+                "DocNum": invoice_result["sap_doc_num"],
+                "DocTotal": invoice_result["sap_doc_total"],
+                "TransNum": invoice_result["sap_trans_num"]
             }
             
             logger.info(f"Created invoice data: {created_invoice_data}")
@@ -1977,6 +2307,58 @@ class OrdersSalesSync:
                 if payment_result["msg"] == "success":
                     sap_payment_number = payment_result["sap_payment_number"]
                     logger.info(f"Successfully created incoming payment: {sap_payment_number}")
+                    
+                    # Handle store credit reconciliation if store credit was used
+                    store_credit_amount = payment_info.get("store_credit", {}).get("amount", 0.0)
+                    if store_credit_amount > 0:
+                        logger.info(f"🏪 STORE CREDIT RECONCILIATION: Processing {store_credit_amount} EGP store credit")
+                        
+                        # Get open credit notes for the customer
+                        credit_notes_result = await self.get_open_credit_notes_for_customer(sap_customer["CardCode"])
+                        if credit_notes_result["msg"] == "success":
+                            credit_notes = credit_notes_result["data"]
+                            
+                            if credit_notes:
+                                # Prepare reconciliation data
+                                reconciliation_data = self.prepare_reconciliation_data(
+                                    store_credit_amount,
+                                    sap_customer["CardCode"],
+                                    created_invoice_data["DocEntry"],
+                                    created_invoice_data["TransNum"],
+                                    credit_notes
+                                )
+                                
+                                # Create reconciliation in SAP
+                                reconciliation_result = await self.create_reconciliation_in_sap(reconciliation_data)
+                                if reconciliation_result["msg"] == "success":
+                                    reconciliation_id = reconciliation_result["reconciliation_id"]
+                                    logger.info(f"✅ STORE CREDIT RECONCILIATION SUCCESS: {reconciliation_id}")
+                                    
+                                    # Add reconciliation success tags with retry logic
+                                    recon_tag = f"sap_recon_{reconciliation_id}"
+                                    recon_synced_tag = "sap_recon_synced"
+                                    
+                                    # Add reconciliation tag with retry
+                                    await self._add_order_tag_with_retry(store_key, order_id, recon_tag, "reconciliation tag")
+                                    
+                                    # Add reconciliation synced tag with retry
+                                    await self._add_order_tag_with_retry(store_key, order_id, recon_synced_tag, "reconciliation synced tag")
+                                        
+                                else:
+                                    logger.warning(f"⚠️ STORE CREDIT RECONCILIATION FAILED: {reconciliation_result.get('error')}")
+                                    
+                                    # Add reconciliation failure tag with retry
+                                    await self._add_order_tag_with_retry(store_key, order_id, "sap_recon_failed", "reconciliation failed tag")
+                            else:
+                                logger.warning(f"⚠️ NO OPEN CREDIT NOTES FOUND for customer {sap_customer['CardCode']} - Store credit {store_credit_amount} EGP cannot be reconciled")
+                                
+                                # Add reconciliation failure tag when no credit notes found with retry
+                                await self._add_order_tag_with_retry(store_key, order_id, "sap_recon_failed", "reconciliation failed tag (no credit notes)")
+                        else:
+                            logger.warning(f"⚠️ FAILED TO GET CREDIT NOTES for customer {sap_customer['CardCode']}: {credit_notes_result.get('error')}")
+                            
+                            # Add reconciliation failure tag when credit notes query fails with retry
+                            await self._add_order_tag_with_retry(store_key, order_id, "sap_recon_failed", "reconciliation failed tag (query failed)")
                     
                     # Add payment sync tags
                     payment_tag = f"sap_payment_{sap_payment_number}"
