@@ -162,7 +162,7 @@ class ReturnsSync:
             # 3. Don't have sap_return_synced or sap_return_failed tags
             from_date = config_settings.returns_from_date
             
-            query_filter = f"tag:returntest tag:sap_payment_synced financial_status:partially_refunded -tag:sap_return_synced created_at:>={from_date}"
+            query_filter = f"tag:returntest tag:sap_payment_synced financial_status:partially_refunded financial_status:refunded -tag:sap_return_synced created_at:>={from_date}"
             
             logger.info(f"Fetching returned orders with filter: {query_filter}")
             

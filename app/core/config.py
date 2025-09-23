@@ -448,5 +448,14 @@ class ConfigSettings(BaseSettings):
     # Retry Settings
     retry_max_attempts: int = config_data['retry']['max_attempts']
     retry_delay: int = config_data['retry']['delay_seconds']
+    
+    def get_sap_config(self) -> Dict[str, Any]:
+        """Get SAP configuration"""
+        return config_data.get('sap', {})
+    
+    def get_gift_card_item_code(self) -> str:
+        """Get the gift card item code from SAP configuration"""
+        sap_config = self.get_sap_config()
+        return sap_config.get('custom_giftcard', '')
 
 config_settings = ConfigSettings() 

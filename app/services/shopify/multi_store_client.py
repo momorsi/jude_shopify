@@ -806,6 +806,67 @@ class MultiStoreShopifyClient:
         Get all enabled stores
         """
         return config_settings.get_enabled_stores()
+    
+    async def add_order_tag(self, store_key: str, order_id: str, tag: str) -> Dict[str, Any]:
+        """
+        Add a tag to an order (appends to existing tags)
+        """
+        # First, get the current order with its tags
+        get_order_query = """
+        query getOrder($id: ID!) {
+            order(id: $id) {
+                id
+                name
+                tags
+            }
+        }
+        """
+        
+        try:
+            # Get current order data
+            get_result = await self.execute_query(store_key, get_order_query, {"id": order_id})
+            
+            if get_result.get("msg") != "success":
+                return {"msg": "failure", "error": f"Failed to get order: {get_result.get('error')}"}
+            
+            order_data = get_result.get("data", {}).get("order", {})
+            current_tags = order_data.get("tags", [])
+            
+            # Check if tag already exists
+            if tag in current_tags:
+                return {"msg": "success", "note": f"Tag '{tag}' already exists on order"}
+            
+            # Add the new tag to existing tags
+            updated_tags = current_tags + [tag]
+            
+            # Update the order with all tags
+            update_mutation = """
+            mutation orderUpdate($input: OrderInput!) {
+                orderUpdate(input: $input) {
+                    order {
+                        id
+                        name
+                        tags
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            variables = {
+                "input": {
+                    "id": order_id,
+                    "tags": updated_tags
+                }
+            }
+            
+            return await self.execute_query(store_key, update_mutation, variables)
+            
+        except Exception as e:
+            return {"msg": "failure", "error": str(e)}
 
 # Create singleton instance
 multi_store_shopify_client = MultiStoreShopifyClient() 

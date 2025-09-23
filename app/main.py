@@ -13,7 +13,7 @@ from app.sync.inventory import sync_stock_change_view
 
 from app.sync.sales.orders_sync import OrdersSalesSync
 from app.sync.sales.payment_recovery import PaymentRecoverySync
-from app.sync.sales.returns_sync import ReturnsSync
+from app.sync.sales.returns_sync_v2 import ReturnsSyncV2
 from app.sync.item_changes import item_changes_sync
 from app.sync.price_changes import price_changes_sync
 from app.utils.logging import logger
@@ -29,7 +29,7 @@ class ShopifySAPSync:
 
         self.sales_orders_sync = OrdersSalesSync()
         self.payment_recovery_sync = PaymentRecoverySync()
-        self.returns_sync = ReturnsSync()
+        self.returns_sync_v2 = ReturnsSyncV2()
         self.running = False
     
     async def run_new_items_sync(self) -> Dict[str, Any]:
@@ -69,7 +69,7 @@ class ShopifySAPSync:
         Run returns sync (Shopify → SAP)
         """
         logger.info("Starting returns sync...")
-        return await self.returns_sync.sync_returns()
+        return await self.returns_sync_v2.sync_returns()
     
     async def run_item_changes_sync(self) -> Dict[str, Any]:
         """
@@ -142,12 +142,30 @@ class ShopifySAPSync:
                 "msg": "failure",
                 "error": "Stock change sync is disabled in configuration"
             }
-
-
+        elif sync_type == "item_changes" and not config_settings.item_changes_enabled:
+            return {
+                "msg": "failure",
+                "error": "Item changes sync is disabled in configuration"
+            }
+        elif sync_type == "price_changes" and not config_settings.price_changes_enabled:
+            return {
+                "msg": "failure",
+                "error": "Price changes sync is disabled in configuration"
+            }
         elif sync_type == "sales_orders" and not config_settings.sales_orders_enabled:
             return {
                 "msg": "failure",
                 "error": "Sales orders sync is disabled in configuration"
+            }
+        elif sync_type == "payment_recovery" and not config_settings.payment_recovery_enabled:
+            return {
+                "msg": "failure",
+                "error": "Payment recovery sync is disabled in configuration"
+            }
+        elif sync_type == "returns" and not config_settings.returns_enabled:
+            return {
+                "msg": "failure",
+                "error": "Returns sync is disabled in configuration"
             }
         
         sync_functions = {

@@ -6,7 +6,8 @@
         "user": "manager",
         "password": "Azmjude$1",
         "language": "en_US",
-        "timeout": 30
+        "timeout": 30,
+        "custom_giftcard": "SR-0000073" 
     },
     "shopify": {
         "stores": {
