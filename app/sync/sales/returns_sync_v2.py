@@ -31,26 +31,33 @@ class ReturnsSyncV2:
             
             # Get all stores from configuration
             stores = self.config.get_enabled_stores()
+            if not stores:
+                logger.warning("No stores found in configuration")
+                return {"msg": "failure", "error": "No stores found"}
             
             total_processed = 0
             total_successful = 0
             total_errors = 0
             
             for store_key, store_config in stores.items():
-                logger.info(f"Processing returns for store: {store_key}")
-                # Convert store_config to dict format for compatibility
-                store_config_dict = {
-                    "name": store_config.name,
-                    "shop_url": store_config.shop_url,
-                    "access_token": store_config.access_token,
-                    "api_version": store_config.api_version,
-                    "timeout": store_config.timeout,
-                    "currency": store_config.currency,
-                    "price_list": store_config.price_list,
-                    "enabled": store_config.enabled
-                }
-                
-                result = await self._process_store_returns(store_key, store_config_dict)
+                try:
+                    logger.info(f"Processing returns for store: {store_key}")
+                    # Convert store_config to dict format for compatibility
+                    store_config_dict = {
+                        "name": store_config.name,
+                        "shop_url": store_config.shop_url,
+                        "access_token": store_config.access_token,
+                        "api_version": store_config.api_version,
+                        "timeout": store_config.timeout,
+                        "currency": store_config.currency,
+                        "price_list": store_config.price_list,
+                        "enabled": store_config.enabled
+                    }
+                    
+                    result = await self._process_store_returns(store_key, store_config_dict)
+                except Exception as e:
+                    logger.error(f"ERROR in store processing loop for {store_key}: {str(e)}")
+                    continue
                 if result:
                     total_processed += result.get("processed", 0)
                     total_successful += result.get("successful", 0)
@@ -86,12 +93,10 @@ class ReturnsSyncV2:
                 # Query for refunded orders that need processing
                 filter_query = (
                     f"""tag:returntest 
-                    financial_status:refunded OR financial_status:partially_refunded 
+                    financial_status:refunded OR financial_status:partially_refunded OR return_status:RETURNED
                     tag:sap_invoice_synced 
                     tag:sap_payment_synced 
                     -tag:sap_return_synced 
-                    -tag:sap_giftcard_invoice_failed 
-                    -tag:sap_giftcard_payment_failed 
                     created_at:>={self._get_date_filter()}"""
                 )
                 
@@ -108,6 +113,7 @@ class ReturnsSyncV2:
                                 createdAt
                                 displayFinancialStatus
                                 displayFulfillmentStatus
+                                returnStatus
                                 sourceName
                                 sourceIdentifier
                                 totalPriceSet {
@@ -241,6 +247,9 @@ class ReturnsSyncV2:
                     variables={"first": 10, "after": None, "query": filter_query}
                 )
                 
+                logger.info(f"DEBUG: GraphQL result msg: {result.get('msg')}")
+                logger.info(f"DEBUG: GraphQL result keys: {list(result.keys())}")
+                
                 if result.get("msg") == "success":
                     orders_data = result.get("data", {}).get("orders", {}).get("edges", [])
                     orders = [edge["node"] for edge in orders_data]
@@ -297,11 +306,16 @@ class ReturnsSyncV2:
                 
             logger.info(f"Found {len(orders)} refunded orders for store {store_key}")
             
+            # BREAKPOINT: Check orders retrieved
+            # import pdb; pdb.set_trace()
+            
             processed = 0
             successful = 0
             errors = 0
             
             for order in orders:
+                #BREAKPOINT: Check each order being processed
+                #import pdb; pdb.set_trace()
                 try:
                     await self._process_refunded_order(order, store_key, store_config)
                     successful += 1
@@ -326,8 +340,30 @@ class ReturnsSyncV2:
             
             logger.info(f"Processing refunded order: {order_name} (ID: {order_id})")
             
-            # Check if order has store credit refunds
-            store_credit_refunds = self._extract_store_credit_refunds(order)
+            # Get warehouse code once at the beginning for reuse throughout processing
+            warehouse_code = "ONL"  # Default for online
+            source_identifier = order.get('sourceIdentifier', '')
+            if source_identifier:
+                # Extract location ID from sourceIdentifier (e.g., "70074892354-1-1007" -> "70074892354")
+                location_id = source_identifier.split('-')[0] if '-' in source_identifier else source_identifier
+                # Get location mapping to get the location_cc (not warehouse code)
+                location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                warehouse_code = location_mapping.get('location_cc', 'ONL')  # Use location_cc for U_Location field
+                logger.info(f"Using location code '{warehouse_code}' for location '{location_id}'")
+            else:
+                logger.warning("No source identifier provided, using default location code 'ONL'")
+            
+            # Determine if this is a POS order or online order
+            is_pos_order = self._is_pos_order(order, store_key)
+            
+            if is_pos_order:
+                logger.info(f"Processing POS order {order_name} - checking for gift card line items")
+                # For POS orders, look for gift card line items (sku: null, variant: null)
+                store_credit_refunds = self._extract_pos_gift_card_refunds(order)
+            else:
+                logger.info(f"Processing online order {order_name} - checking for store credit transactions")
+                # For online orders, look for store credit transactions
+                store_credit_refunds = self._extract_store_credit_refunds(order)
             
             if not store_credit_refunds:
                 logger.info(f"No store credit refunds found for order {order_name}")
@@ -342,22 +378,48 @@ class ReturnsSyncV2:
                 logger.warning(f"No SAP document entries found in tags for order {order_name}")
                 return
             
-            # Check if gift card already exists for this order
-            existing_gift_card_id = self._get_existing_gift_card_id(order)
-            
-            if existing_gift_card_id:
-                logger.info(f"Found existing gift card {existing_gift_card_id} for order {order_name}")
-                gift_card_id = existing_gift_card_id
-            else:
-                # Create gift card in Shopify
-                gift_card_id = await self._create_shopify_gift_card(order, store_credit_refunds, store_key)
+            if is_pos_order:
+                logger.info(f"Processing POS order {order_name} - looking for existing gift cards")
+                # For POS orders, find existing gift cards created after order date
+                gift_cards = await self._get_gift_cards_for_order(order_id.split("/")[-1], order.get("createdAt", ""))
                 
-                if not gift_card_id:
-                    logger.error(f"Failed to create gift card for order {order_name}")
+                if not gift_cards:
+                    logger.error(f"No gift cards found for POS order {order_name}")
                     return
                 
-                # Add gift card tag to prevent duplicate creation
-                await self._add_order_tag_with_retry(order_id, f"giftcard_{gift_card_id}", store_key)
+                # Match gift card by amount (store credit refund amount)
+                total_refund_amount = sum(refund["amount"] for refund in store_credit_refunds)
+                matching_gift_card = None
+                
+                for gift_card in gift_cards:
+                    if abs(gift_card["initial_value"] - total_refund_amount) < 0.01:
+                        matching_gift_card = gift_card
+                        break
+                
+                if not matching_gift_card:
+                    logger.error(f"No matching gift card found for POS order {order_name} with amount {total_refund_amount}")
+                    return
+                
+                gift_card_id = matching_gift_card["id"]
+                logger.info(f"Found matching gift card {gift_card_id} for POS order {order_name}")
+            else:
+                logger.info(f"Processing online order {order_name} - checking for existing gift card")
+                # For online orders, check if gift card already exists
+                existing_gift_card_id = self._get_existing_gift_card_id(order)
+                
+                if existing_gift_card_id:
+                    logger.info(f"Found existing gift card {existing_gift_card_id} for order {order_name}")
+                    gift_card_id = existing_gift_card_id
+                else:
+                    # Create gift card in Shopify
+                    gift_card_id = await self._create_shopify_gift_card(order, store_credit_refunds, store_key)
+                    
+                    if not gift_card_id:
+                        logger.error(f"Failed to create gift card for order {order_name}")
+                        return
+                    
+                    # Add gift card tag to prevent duplicate creation
+                    await self._add_order_tag_with_retry(order_id, f"giftcard_{gift_card_id}", store_key)
             
             # Always check and cancel original SAP documents if needed
             original_payment_details = await self._check_and_cancel_original_documents(sap_doc_entries, order_name)
@@ -379,7 +441,7 @@ class ReturnsSyncV2:
                 }
             else:
                 # Create new invoice in SAP for gift card
-                new_invoice_result = await self._create_gift_card_invoice(order, gift_card_id, original_payment_details, store_key, store_config)
+                new_invoice_result = await self._create_gift_card_invoice(order, gift_card_id, original_payment_details, store_key, store_config, store_credit_refunds, warehouse_code)
             
             if new_invoice_result["msg"] == "success":
                 # Add invoice success tags immediately (only if not already tagged)
@@ -450,6 +512,33 @@ class ReturnsSyncV2:
                 })
                 
         return store_credit_refunds
+    
+    def _extract_pos_gift_card_refunds(self, order: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extract gift card refunds from POS order line items (sku: null, variant: null)
+        """
+        store_credit_refunds = []
+        line_items = order.get("lineItems", {}).get("edges", [])
+        
+        for item_edge in line_items:
+            item = item_edge.get("node", {})
+            
+            # Check if this is a gift card line item (POS refund)
+            if (item.get("name") == "Gift Card" and 
+                item.get("sku") is None and 
+                item.get("variant") is None):
+                
+                amount = float(item.get("originalUnitPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                if amount > 0:
+                    store_credit_refunds.append({
+                        "amount": amount,
+                        "currency": item.get("originalUnitPriceSet", {}).get("shopMoney", {}).get("currencyCode", "EGP"),
+                        "line_item_id": item.get("id"),
+                        "quantity": item.get("quantity", 1)
+                    })
+                    logger.info(f"Found POS gift card refund: {amount} {item.get('originalUnitPriceSet', {}).get('shopMoney', {}).get('currencyCode', 'EGP')}")
+        
+        return store_credit_refunds
 
     def _extract_sap_doc_entries(self, order: Dict[str, Any]) -> Dict[str, str]:
         """
@@ -500,8 +589,108 @@ class ReturnsSyncV2:
             if tag.startswith("sap_giftcard_payment_") and tag != "sap_giftcard_payment_synced":
                 return tag.replace("sap_giftcard_payment_", "")
         return None
+    
+    def _is_pos_order(self, order: Dict[str, Any], store_key: str) -> bool:
+        """
+        Check if order is from a POS/store location
+        """
+        try:
+            from order_location_mapper import OrderLocationMapper
+            location_analysis = OrderLocationMapper.analyze_order_source(order, store_key)
+            
+            # Check if the order is from a POS location
+            return location_analysis.get("is_pos_order", False)
+        except Exception as e:
+            logger.error(f"Error determining order location type: {str(e)}")
+            return False
 
-    async def _create_or_get_gift_card_in_sap(self, gift_card_id: str, amount: float, customer_card_code: str) -> Optional[str]:
+    async def _get_gift_cards_for_order(self, order_id: str, order_created_at: str) -> List[Dict[str, Any]]:
+        """
+        Query Shopify Gift Cards API to get gift cards created for this order (for POS orders)
+        """
+        try:
+            order_date = order_created_at.split("T")[0] if "T" in order_created_at else order_created_at
+            query = """
+            query getGiftCards($query: String!) {
+                giftCards(first: 50, query: $query) {
+                    edges {
+                        node {
+                            id   
+                            order {
+                                id
+                            }     
+                            initialValue {
+                                amount
+                                currencyCode
+                            }
+                            createdAt
+                            expiresOn
+                            customer {
+                                id
+                                email
+                            }
+                        }
+                    }
+                }
+            }
+            """
+            query_string = f"createdAt:>={order_date}"
+            
+            # Add retry logic for GraphQL queries
+            max_retries = 3
+            retry_delay = 2
+            
+            for attempt in range(max_retries):
+                try:
+                    result = await self.shopify_client.execute_query("local", query, {"query": query_string})
+                    
+                    if result["msg"] == "success":
+                        break  # Success, exit retry loop
+                    else:
+                        logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
+                        
+                        if attempt < max_retries - 1:  # Don't sleep on last attempt
+                            logger.info(f"Retrying in {retry_delay} seconds...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            
+                except Exception as e:
+                    logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
+            
+            if result["msg"] == "failure":
+                logger.error(f"Failed to query gift cards: {result.get('error')}")
+                return []
+            
+            gift_cards = []
+            for edge in result["data"]["giftCards"]["edges"]:
+                gift_card = edge["node"]
+                # Check if this gift card belongs to our order
+                order_info = gift_card.get("order")
+                if order_info and order_info.get("id") == f"gid://shopify/Order/{order_id}":
+                    gift_cards.append({
+                        "id": gift_card["id"],
+                        "order_id": order_id,
+                        "initial_value": float(gift_card["initialValue"]["amount"]),
+                        "currency": gift_card["initialValue"]["currencyCode"],
+                        "created_at": gift_card["createdAt"],
+                        "expires_on": gift_card.get("expiresOn"),
+                        "customer_email": gift_card.get("customer", {}).get("email", "")
+                    })
+            
+            logger.info(f"Found {len(gift_cards)} gift cards for order {order_id}")
+            return gift_cards
+            
+        except Exception as e:
+            logger.error(f"Error querying gift cards: {str(e)}")
+            return []
+
+    async def _create_or_get_gift_card_in_sap(self, gift_card_id: str, amount: float, customer_card_code: str, warehouse_code: str = "ONL") -> Optional[str]:
         """
         Create or get gift card in SAP GiftCards entity
         """
@@ -525,6 +714,9 @@ class ReturnsSyncV2:
             expiration_date = order_datetime + timedelta(days=365)
             expiration_date_str = expiration_date.strftime("%Y-%m-%d")
             
+            # Use the provided warehouse code (already determined at order processing start)
+            logger.info(f"Using warehouse code '{warehouse_code}' for gift card creation")
+            
             gift_card_data = {
                 "Code": numeric_id,  # Use the actual gift card ID
                 "U_ActiveDate": order_date,
@@ -532,7 +724,7 @@ class ReturnsSyncV2:
                 "U_Active": "Yes",
                 "U_CardBal": amount,
                 "U_Customer": customer_card_code,
-                "U_Location": "ONL",
+                "U_Location": warehouse_code,  # Use warehouse code from configuration
                 "U_Consumed": 0,
                 "U_CardAmount": amount,
                 "U_Expired": "No"
@@ -596,7 +788,7 @@ class ReturnsSyncV2:
                     method='GET',
                     endpoint=f'IncomingPayments({payment_entry})',
                     params={
-                        "$select": "TransferAccount, CashAccount, CardCode, Cancelled "
+                        "$select": "TransferAccount,CashAccount,CardCode,Cancelled "
                     }
                 )
                 
@@ -795,7 +987,7 @@ class ReturnsSyncV2:
             logger.error(f"Error creating Shopify gift card: {str(e)}")
             return None
 
-    async def _create_gift_card_invoice(self, order: Dict[str, Any], gift_card_id: str, original_payment_details: Dict[str, Any], store_key: str, store_config: Dict[str, Any]) -> Dict[str, Any]:
+    async def _create_gift_card_invoice(self, order: Dict[str, Any], gift_card_id: str, original_payment_details: Dict[str, Any], store_key: str, store_config: Dict[str, Any], store_credit_refunds: List[Dict[str, Any]], warehouse_code: str) -> Dict[str, Any]:
         """
         Create new invoice in SAP for the gift card purchase
         """
@@ -807,12 +999,11 @@ class ReturnsSyncV2:
                 logger.error(f"No CardCode found in original payment details for order {order.get('name', '')}")
                 return {"msg": "failure", "error": "No CardCode found in original payment details"}
                 
-            # Calculate total store credit amount
-            store_credit_refunds = self._extract_store_credit_refunds(order)
+            # Calculate total store credit amount from the passed parameter
             total_amount = sum(refund["amount"] for refund in store_credit_refunds)
             
             # First, create or get the gift card in SAP GiftCards entity
-            sap_gift_card_id = await self._create_or_get_gift_card_in_sap(gift_card_id, total_amount, customer_card_code)
+            sap_gift_card_id = await self._create_or_get_gift_card_in_sap(gift_card_id, total_amount, customer_card_code, warehouse_code)
             
             if not sap_gift_card_id:
                 logger.error(f"Failed to create gift card in SAP GiftCards entity")
@@ -850,7 +1041,7 @@ class ReturnsSyncV2:
                 "Quantity": 1,
                 "UnitPrice": total_amount,
                 "LineTotal": total_amount,
-                "U_GiftCard": gift_card_id,  # Add gift card ID to specify this is a gift card line
+                "U_GiftCard": sap_gift_card_id,  # Add gift card ID to specify this is a gift card line
                 "COGSCostingCode": costing_codes['COGSCostingCode'],
                 "COGSCostingCode2": costing_codes['COGSCostingCode2'],
                 "COGSCostingCode3": costing_codes['COGSCostingCode3'],
@@ -910,6 +1101,14 @@ class ReturnsSyncV2:
             from order_location_mapper import OrderLocationMapper
             location_analysis = OrderLocationMapper.analyze_order_source({"id": order.get("id", ""), "name": order.get("name", "")}, store_key)
             
+            # Get the actual gateway from the order transactions
+            gateway = "cash"  # Default for POS orders
+            if order.get("transactions") and len(order["transactions"]) > 0:
+                gateway = order["transactions"][0].get("gateway", "cash")
+            
+            # Determine payment type based on gateway
+            payment_type = "PaidOnline" if gateway.lower() != "cash" else "Cash"
+            
             # Use centralized payment preparation
             payment_data = self.sap_operations.prepare_payment_data(
                 order_data={"id": order.get("id", ""), "name": order.get("name", "")},
@@ -918,11 +1117,12 @@ class ReturnsSyncV2:
                 location_analysis=location_analysis,
                 invoice_doc_entry=invoice_result.get("sap_doc_entry"),
                 payment_amount=invoice_result.get("sap_doc_total"),
-                payment_type="PaidOnline",
-                gateway="Paymob",
+                payment_type=payment_type,
+                gateway=gateway,
                 custom_fields={
                     "TransferAccount": original_payment_details.get("TransferAccount"),
-                    "TransferDate": datetime.now().strftime("%Y-%m-%d")
+                    "CashAccount": original_payment_details.get("CashAccount"),
+                    "PaymentCreditCards": original_payment_details.get("PaymentCreditCards"),
                 }
             )
             
@@ -942,6 +1142,7 @@ class ReturnsSyncV2:
         except Exception as e:
             logger.error(f"Error creating gift card payment: {str(e)}")
             return {"msg": "failure", "error": str(e)}
+    
 
     async def _get_original_payment_method(self, payment_entry: str) -> Optional[Dict[str, Any]]:
         """
@@ -954,14 +1155,17 @@ class ReturnsSyncV2:
             # Get the cancelled payment details
             result = await self.sap_client._make_request(
                 method='GET',
-                endpoint=f'IncomingPayments({payment_entry})'
+                endpoint=f'IncomingPayments({payment_entry})',
+                params={
+                    "$select": "TransferAccount,CashAccount"
+                }
             )
             
             if result["msg"] == "success":
                 payment_data = result["data"]
                 return {
                     "TransferAccount": payment_data.get("TransferAccount"),
-                    "TransferSum": payment_data.get("TransferSum")
+                    "CashAccount": payment_data.get("CashAccount")
                 }
             else:
                 logger.error(f"Failed to get original payment method: {result.get('error')}")

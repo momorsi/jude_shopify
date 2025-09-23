@@ -324,6 +324,13 @@ class OrdersSalesSync:
                 sku = item.get("sku")
                 quantity = item["quantity"]
                 
+                # Skip gift card line items (POS refunds) - these have sku: null and variant: null
+                if (item.get("name") == "Gift Card" and 
+                    sku is None and 
+                    item.get("variant") is None):
+                    logger.info(f"Skipping gift card line item for POS refund: {item.get('name')} - Amount: {item.get('originalUnitPriceSet', {}).get('shopMoney', {}).get('amount', 0)}")
+                    continue
+                
                 # Get pricing information with priority: compareAtPrice > originalUnitPriceSet > variant price
                 original_price = Decimal("0.00")
                 sale_price = Decimal("0.00")
@@ -2282,6 +2289,32 @@ class OrdersSalesSync:
             
             logger.info(f"Created invoice data: {created_invoice_data}")
             
+            # Add invoice tags immediately after successful invoice creation
+            invoice_tag = f"sap_invoice_{invoice_result['sap_doc_entry']}"
+            invoice_synced_tag = "sap_invoice_synced"
+            
+            # Add specific invoice tag
+            tag_update_result = await self.add_order_tag(
+                store_key,
+                order_id,
+                invoice_tag
+            )
+            
+            # Add general synced tag
+            synced_tag_result = await self.add_order_tag(
+                store_key,
+                order_id,
+                invoice_synced_tag
+            )
+            
+            if tag_update_result["msg"] == "failure":
+                logger.warning(f"Failed to add invoice sync tag for {order_name}: {tag_update_result.get('error')}")
+            
+            if synced_tag_result["msg"] == "failure":
+                logger.warning(f"Failed to add invoice synced tag for {order_name}: {synced_tag_result.get('error')}")
+            
+            logger.info(f"✅ Invoice created and tagged for order {order_name}")
+            
             # Check if order is paid and create incoming payment
             # Treat PARTIALLY_REFUNDED as PAID for payment processing (order was paid, then partially refunded)
             sap_payment_number = None
@@ -2400,34 +2433,7 @@ class OrdersSalesSync:
             else:
                 logger.info(f"Order {order_name} is not paid (status: {financial_status}) - skipping payment creation")
             
-            # Add small delay before adding invoice tag to avoid rate limiting
-            await asyncio.sleep(1)
-            
-            # Add invoice sync tags to order
-            invoice_tag = f"sap_invoice_{invoice_result['sap_doc_entry']}"
-            invoice_synced_tag = "sap_invoice_synced"
-            
-            # Add specific invoice tag
-            tag_update_result = await self.add_order_tag(
-                store_key,
-                order_id,
-                invoice_tag
-            )
-            
-            # Add general synced tag
-            synced_tag_result = await self.add_order_tag(
-                store_key,
-                order_id,
-                invoice_synced_tag
-            )
-            
-            if tag_update_result["msg"] == "failure":
-                logger.warning(f"Failed to add invoice sync tag for {order_name}: {tag_update_result.get('error')}")
-                # Don't fail the entire process if tag update fails
-            
-            if synced_tag_result["msg"] == "failure":
-                logger.warning(f"Failed to add invoice synced tag for {order_name}: {synced_tag_result.get('error')}")
-                # Don't fail the entire process if tag update fails
+            # Invoice tags already added immediately after invoice creation
             
             logger.info(f"Successfully processed order {order_name}")
             

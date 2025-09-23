@@ -2,7 +2,7 @@
 Shared SAP operations for invoice and payment creation
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from app.services.sap.client import SAPClient
 from app.core.config import config_settings
@@ -172,6 +172,8 @@ class SAPOperations:
         Prepare payment data with all required fields including series, transfer accounts, etc.
         """
         try:
+            # Debug logging
+            
             # Get series for incoming payments
             series = config_settings.get_series_for_location(
                 store_key, 
@@ -188,45 +190,90 @@ class SAPOperations:
                 "CardCode": customer_card_code,
                 "DocType": "rCustomer",
                 "Series": series,
-                "TransferSum": payment_amount,
-                "TransferAccount": "",
                 "U_Shopify_Order_ID": order_id_number
             }
             
             # Get location type
             location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
             
-            # Set payment method based on type and location
-            if payment_type == "PaidOnline":
-                # Online payments - use location-based bank transfer account
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Online payment - using {gateway} account: {transfer_account}")
-                
-            elif payment_type == "COD":
-                # Cash on delivery - handle courier-specific accounts for online locations
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    "Cash on Delivery (COD)",
-                    courier_name
-                )
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
+            # Handle different payment types based on gateway (copying logic from orders_sync)
+            location_mapping = location_analysis.get('location_mapping', {})
+            
+            
+            if gateway.lower() == "cash":
+                # Cash transactions - use cash account from custom_fields (original payment details)
+                cash_account = custom_fields.get("CashAccount") if custom_fields else None
+                if cash_account:
+                    payment_data["CashSum"] = payment_amount
+                    payment_data["CashAccount"] = cash_account
+                    logger.info(f"💰 CASH TRANSACTION: {payment_amount} EGP - Account: {cash_account}")
+                else:
+                    # Fallback to location configuration
+                    cash_account = config_settings.get_cash_account_for_location(location_mapping)
+                    if cash_account:
+                        payment_data["CashSum"] = payment_amount
+                        payment_data["CashAccount"] = cash_account
+                        logger.info(f"💰 CASH TRANSACTION (fallback): {payment_amount} EGP - Account: {cash_account}")
+                    else:
+                        logger.warning(f"No cash account configured for location")
+                    
+            elif gateway in config_settings.get_credits_for_location(store_key, location_mapping):
+                # Handle credit card transactions - use original payment details
+                original_credit_cards = custom_fields.get("PaymentCreditCards") if custom_fields else None
+                if original_credit_cards:
+                    # Use original credit card details but update the amount
+                    for card in original_credit_cards:
+                        card['CreditSum'] = payment_amount
+                    payment_data["PaymentCreditCards"] = original_credit_cards
+                    logger.info(f"💳 CREDIT CARD TRANSACTION (original): {gateway} - {payment_amount} EGP")
+                else:
+                    # Fallback to creating new credit card details
+                    cred_obj = {}
+                    cred_obj['CreditCard'] = 1
+                    
+                    # Get credit account from configuration
+                    credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
+                    if credit_account:
+                        cred_obj['CreditAcct'] = credit_account
+                    else:
+                        logger.warning(f"No credit account found for gateway: {gateway}")
+                        return payment_data
+                    
+                    cred_obj['CreditCardNumber'] = "1234"
+                    
+                    # Calculate next month date
+                    next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                    res = next_month - timedelta(days=next_month.day)
+                    cred_obj['CardValidUntil'] = str(res.date())
+                    
+                    cred_obj['VoucherNum'] = gateway
+                    cred_obj['PaymentMethodCode'] = 1
+                    cred_obj['CreditSum'] = payment_amount
+                    cred_obj['CreditCur'] = "EGP"
+                    cred_obj['CreditType'] = "cr_Regular"
+                    cred_obj['SplitPayments'] = "tNO"
+                    
+                    payment_data["PaymentCreditCards"] = [cred_obj]
+                    logger.info(f"💳 CREDIT CARD TRANSACTION (fallback): {gateway} - {payment_amount} EGP - Account: {credit_account}")
                 
             else:
-                # Default case - treat as online payment
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Default payment - using {gateway} account: {transfer_account}")
+                # Bank transfer transactions - use original payment details
+                transfer_account = custom_fields.get("TransferAccount") if custom_fields else None
+                if transfer_account:
+                    payment_data["TransferSum"] = payment_amount
+                    payment_data["TransferAccount"] = transfer_account
+                    logger.info(f"🏦 BANK TRANSFER TRANSACTION (original): {gateway} - {payment_amount} EGP - Account: {transfer_account}")
+                else:
+                    # Fallback to location configuration
+                    transfer_account = config_settings.get_bank_transfer_for_location(
+                        store_key, location_mapping, gateway
+                    )
+                    if transfer_account:
+                        payment_data["TransferSum"] = payment_amount
+                        payment_data["TransferAccount"] = transfer_account
+                        logger.info(f"🏦 BANK TRANSFER TRANSACTION (fallback): {gateway} - {payment_amount} EGP - Account: {transfer_account}")
+                    else:
+                        logger.warning(f"No bank transfer account found for gateway: {gateway}")
             
             # Create invoice object for payment
             inv_obj = {
