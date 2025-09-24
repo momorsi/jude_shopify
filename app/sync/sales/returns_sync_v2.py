@@ -191,6 +191,8 @@ class ReturnsSyncV2:
                                             name
                                             quantity
                                             sku
+                                            isGiftCard
+                                            currentQuantity
                                             originalUnitPriceSet {
                                                 shopMoney {
                                                     amount
@@ -475,13 +477,14 @@ class ReturnsSyncV2:
                     else:
                         logger.info(f"✅ Using existing payment {existing_payment_entry} for order {order_name}")
                     
-                    # Tag order as processed
+                    # Tag order as processed ONLY if payment was successful
                     await self._add_order_tag_with_retry(order_id, "sap_return_synced", store_key)
                     logger.info(f"✅ Successfully processed return for order {order_name}")
                 else:
-                    # Add payment failure tag immediately
+                    # Add payment failure tag immediately - DO NOT add sap_return_synced tag
                     await self._add_order_tag_with_retry(order_id, "sap_giftcard_payment_failed", store_key)
                     logger.error(f"Failed to create gift card payment for order {order_name}")
+                    logger.error(f"Return processing failed for order {order_name} - payment creation failed")
             else:
                 # Add invoice failure tag immediately
                 await self._add_order_tag_with_retry(order_id, "sap_giftcard_invoice_failed", store_key)
@@ -523,8 +526,8 @@ class ReturnsSyncV2:
         for item_edge in line_items:
             item = item_edge.get("node", {})
             
-            # Check if this is a gift card line item (POS refund)
-            if (item.get("name") == "Gift Card" and 
+            # Check if this is a gift card line item using the isGiftCard field
+            if (item.get("isGiftCard", False) and 
                 item.get("sku") is None and 
                 item.get("variant") is None):
                 
@@ -788,7 +791,7 @@ class ReturnsSyncV2:
                     method='GET',
                     endpoint=f'IncomingPayments({payment_entry})',
                     params={
-                        "$select": "TransferAccount,CashAccount,CardCode,Cancelled "
+                        "$select": "TransferAccount,CashAccount,CardCode,CashSum,TransferSum,Series,Cancelled,PaymentCreditCards "
                     }
                 )
                 
@@ -817,7 +820,10 @@ class ReturnsSyncV2:
                     payment_details = {
                         "TransferAccount": payment_data.get("TransferAccount"),
                         "CashAccount": payment_data.get("CashAccount"),
-                        "CardCode": payment_data.get("CardCode")
+                        "CardCode": payment_data.get("CardCode"),
+                        "CashSum": payment_data.get("CashSum", 0),
+                        "TransferSum": payment_data.get("TransferSum", 0),
+                        "Series": payment_data.get("Series")
                     }
                 else:
                     logger.error(f"Failed to get payment details: {payment_result.get('error')}")
@@ -846,7 +852,7 @@ class ReturnsSyncV2:
                         
                         cancel_result = await self.sap_client._make_request(
                             method='POST',
-                            endpoint=f'Invoices({invoice_entry})/CreateCancellationDocument',
+                            endpoint=f'Invoices({invoice_entry})/Cancel',
                             data={}
                         )
                         
@@ -896,7 +902,7 @@ class ReturnsSyncV2:
                 
                 cancel_invoice_result = await self.sap_client._make_request(
                     method='POST',
-                    endpoint=f'Invoices({invoice_entry})/CreateCancellationDocument',
+                    endpoint=f'Invoices({invoice_entry})/Cancel',
                     data={}
                 )
                 
@@ -921,6 +927,11 @@ class ReturnsSyncV2:
             if not customer_id:
                 logger.error("No customer ID found for gift card creation")
                 return None
+            
+            # Add note with order reference
+            order_name = order.get("name", "")
+            order_id = order.get("id", "")
+            note = f"Refund for order {order_name.replace('#', '')} (ID: {order_id.split('/')[-1]})"
                 
             # Calculate total store credit amount
             total_amount = sum(refund["amount"] for refund in store_credit_refunds)
@@ -931,6 +942,7 @@ class ReturnsSyncV2:
                 giftCardCreate(input: $input) {
                     giftCard {
                         id
+                        expiresOn
                         initialValue {
                             amount
                         }
@@ -951,14 +963,13 @@ class ReturnsSyncV2:
                 "input": {
                     "initialValue": str(total_amount),
                     "customerId": customer_id,
-                    "recipientAttributes": None
+                    "recipientAttributes": None,
+                    "note": note,
+                    "expiresOn": (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
                 }
             }
             
-            # Add note with order reference
-            order_name = order.get("name", "")
-            order_id = order.get("id", "")
-            note = f"Refund for order {order_name} (ID: {order_id})"
+            
             
             # Execute GraphQL mutation
             result = await self.shopify_client.execute_query(
@@ -987,9 +998,136 @@ class ReturnsSyncV2:
             logger.error(f"Error creating Shopify gift card: {str(e)}")
             return None
 
+    def _extract_non_returned_items(self, order: Dict[str, Any], sap_codes: Dict[str, str], warehouse_code: str = "ONL") -> List[Dict[str, Any]]:
+        """
+        Extract non-returned items (currentQuantity > 0) that are not gift cards
+        """
+        non_returned_items = []
+        line_items = order.get("lineItems", {}).get("edges", [])
+        
+        for item_edge in line_items:
+            item = item_edge.get("node", {})
+            
+            # Skip gift card items using the isGiftCard field
+            if item.get("isGiftCard", False):
+                logger.info(f"Skipping gift card item: {item.get('name', '')}")
+                continue
+            
+            # Check if item has currentQuantity > 0 (not fully returned)
+            current_quantity = item.get("currentQuantity", 0)
+            if current_quantity <= 0:
+                logger.info(f"Skipping fully returned item: {item.get('name', '')} (currentQuantity: {current_quantity})")
+                continue
+            
+            # Get item details
+            sku = item.get("sku", "")
+            name = item.get("name", "")
+            unit_price = float(item.get("originalUnitPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+            
+            if not sku:
+                logger.warning(f"Skipping item without SKU: {name}")
+                continue
+            
+            # Use location-based costing codes
+            default_codes = {
+                'COGSCostingCode': 'ONL',
+                'COGSCostingCode2': 'SAL', 
+                'COGSCostingCode3': 'OnlineS',
+                'CostingCode': 'ONL',
+                'CostingCode2': 'SAL',
+                'CostingCode3': 'OnlineS'
+            }
+            
+            # Override with location-specific codes if available
+            costing_codes = {key: sap_codes.get(key, default_codes[key]) for key in default_codes.keys()}
+            
+            line_total = unit_price * current_quantity
+            
+            line_item = {
+                "ItemCode": sku,
+                "Quantity": current_quantity,
+                "UnitPrice": unit_price,
+                "LineTotal": line_total,
+                "WarehouseCode": warehouse_code,  # Use warehouse from location analysis
+                "COGSCostingCode": costing_codes['COGSCostingCode'],
+                "COGSCostingCode2": costing_codes['COGSCostingCode2'],
+                "COGSCostingCode3": costing_codes['COGSCostingCode3'],
+                "CostingCode": costing_codes['CostingCode'],
+                "CostingCode2": costing_codes['CostingCode2'],
+                "CostingCode3": costing_codes['CostingCode3']
+            }
+            
+            non_returned_items.append(line_item)
+            logger.info(f"Added non-returned item: {name} (SKU: {sku}, Qty: {current_quantity}, Price: {unit_price})")
+        
+        logger.info(f"Found {len(non_returned_items)} non-returned items")
+        return non_returned_items
+
+    def _calculate_freight_expenses(self, order: Dict[str, Any], store_key: str, sap_codes: Dict[str, str] = None) -> List[Dict[str, Any]]:
+        """
+        Calculate freight expenses based on shipping fee and store configuration
+        """
+        try:
+            # Get shipping price from order
+            shipping_price = float(order.get("totalShippingPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+            
+            if shipping_price == 0:
+                return []
+            
+            # Get freight configuration from config_data
+            from app.core.config import config_data
+            freight_config = config_data['shopify'].get("freight_config", {})
+            store_freight_config = freight_config.get(store_key, {})
+            
+            expenses = []
+            
+            if store_key == "local":
+                # Local store logic based on shipping fee
+                shipping_price_str = str(int(shipping_price))
+                
+                if shipping_price_str in store_freight_config:
+                    config = store_freight_config[shipping_price_str]
+                    
+                    # Add revenue expense
+                    if "revenue" in config: 
+                        config["revenue"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
+                        config["revenue"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
+                        config["revenue"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"                                               
+                        expenses.append(config["revenue"])
+                    
+                    # Add cost expense
+                    if "cost" in config:
+                        config["cost"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
+                        config["cost"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
+                        config["cost"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"  
+                        expenses.append(config["cost"])
+                        
+                    logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
+                else:
+                    logger.warning(f"No freight configuration found for shipping fee {shipping_price} in local store")
+                    
+            elif store_key == "international":
+                # International store logic - always add DHL expense
+                dhl_config = store_freight_config.get("dhl", {})
+                if dhl_config:
+                    # Set the actual shipping price as the line total
+                    dhl_expense = dhl_config.copy()
+                    dhl_expense["LineTotal"] = shipping_price
+                    expenses.append(dhl_expense)
+                    
+                    logger.info(f"Applied DHL freight expense for international order: {dhl_expense}")
+                else:
+                    logger.warning("No DHL configuration found for international store")
+            
+            return expenses
+            
+        except Exception as e:
+            logger.error(f"Error calculating freight expenses: {str(e)}")
+            return []
+
     async def _create_gift_card_invoice(self, order: Dict[str, Any], gift_card_id: str, original_payment_details: Dict[str, Any], store_key: str, store_config: Dict[str, Any], store_credit_refunds: List[Dict[str, Any]], warehouse_code: str) -> Dict[str, Any]:
         """
-        Create new invoice in SAP for the gift card purchase
+        Create new invoice in SAP for the gift card purchase and non-returned items
         """
         try:
             # Use CardCode from original payment details
@@ -1035,12 +1173,23 @@ class ReturnsSyncV2:
             # Override with location-specific codes if available
             costing_codes = {key: sap_codes.get(key, default_codes[key]) for key in default_codes.keys()}
             
-            # Prepare line items
-            line_items = [{
+            # Get warehouse code based on order location (same as orders_sync)
+            warehouse_code_from_location = self.config.get_warehouse_code_for_order(store_key, order)
+            logger.info(f"Using warehouse code '{warehouse_code_from_location}' for gift card invoice")
+            
+            # Extract non-returned items (currentQuantity > 0) and non-gift card items
+            non_returned_items = self._extract_non_returned_items(order, sap_codes, warehouse_code_from_location)
+            
+            # Prepare line items - start with non-returned items
+            line_items = non_returned_items.copy()
+            
+            # Add gift card line item
+            gift_card_line = {
                 "ItemCode": gift_card_item_code,  # Use the configured gift card item code
                 "Quantity": 1,
                 "UnitPrice": total_amount,
                 "LineTotal": total_amount,
+                "WarehouseCode": warehouse_code_from_location,  # Use warehouse from location analysis
                 "U_GiftCard": sap_gift_card_id,  # Add gift card ID to specify this is a gift card line
                 "COGSCostingCode": costing_codes['COGSCostingCode'],
                 "COGSCostingCode2": costing_codes['COGSCostingCode2'],
@@ -1048,7 +1197,11 @@ class ReturnsSyncV2:
                 "CostingCode": costing_codes['CostingCode'],
                 "CostingCode2": costing_codes['CostingCode2'],
                 "CostingCode3": costing_codes['CostingCode3']
-            }]
+            }
+            line_items.append(gift_card_line)
+            
+            # Calculate freight expenses if order had shipping
+            freight_expenses = self._calculate_freight_expenses(order, store_key, sap_codes)
             
             # Use centralized invoice preparation
             invoice_data = self.sap_operations.prepare_invoice_data(
@@ -1063,9 +1216,14 @@ class ReturnsSyncV2:
                 doc_date=datetime.now().strftime("%Y-%m-%d"),
                 comments=f"Gift card created for refund - Order {order.get('name', '')}",
                 custom_fields={
-                    "U_Shopify_Order_ID": f"Refund:{order.get('id', '')}"
+                    "U_Shopify_Order_ID": order.get('id', '')
                 }
             )
+            
+            # Add freight expenses if any
+            if freight_expenses:
+                invoice_data["DocumentAdditionalExpenses"] = freight_expenses
+                logger.info(f"Added freight expenses to invoice: {freight_expenses}")
             
             # Create invoice in SAP using shared operations
             result = await self.sap_operations.create_invoice_in_sap(invoice_data, order.get('name', ''))
@@ -1109,22 +1267,19 @@ class ReturnsSyncV2:
             # Determine payment type based on gateway
             payment_type = "PaidOnline" if gateway.lower() != "cash" else "Cash"
             
-            # Use centralized payment preparation
-            payment_data = self.sap_operations.prepare_payment_data(
-                order_data={"id": order.get("id", ""), "name": order.get("name", "")},
-                customer_card_code=original_payment_details.get("CardCode"),
-                store_key=store_key,
-                location_analysis=location_analysis,
-                invoice_doc_entry=invoice_result.get("sap_doc_entry"),
-                payment_amount=invoice_result.get("sap_doc_total"),
-                payment_type=payment_type,
-                gateway=gateway,
-                custom_fields={
-                    "TransferAccount": original_payment_details.get("TransferAccount"),
-                    "CashAccount": original_payment_details.get("CashAccount"),
-                    "PaymentCreditCards": original_payment_details.get("PaymentCreditCards"),
-                }
-            )
+            # Copy the exact payment data from original payment
+            payment_data = original_payment_details.copy()
+            
+            # Update only the necessary fields for the new payment
+            payment_data["DocDate"] = datetime.now().strftime("%Y-%m-%d")
+            payment_data["U_Shopify_Order_ID"] = order.get("id", "").split("/")[-1] if "/" in order.get("id", "") else order.get("id", "")
+            payment_data["PaymentInvoices"] = [{
+                "DocEntry": invoice_result.get("sap_doc_entry"),
+                "SumApplied": original_payment_details.get("CashSum", 0) + original_payment_details.get("TransferSum", 0),
+                "InvoiceType": "it_Invoice"
+            }]
+            
+            logger.info(f"Using exact original payment data - Cash: {original_payment_details.get('CashSum', 0)}, Transfer: {original_payment_details.get('TransferSum', 0)}")
             
             # Create incoming payment using shared operations
             result = await self.sap_operations.create_incoming_payment_in_sap(payment_data, order_name)

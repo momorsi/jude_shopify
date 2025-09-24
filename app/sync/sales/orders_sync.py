@@ -1708,7 +1708,7 @@ class OrdersSalesSync:
             endpoint = "Invoices"
             params = {
                 "$select": "DocEntry,DocNum,U_Shopify_Order_ID",
-                "$filter": f"U_Shopify_Order_ID eq '{shopify_order_id}'"
+                "$filter": f"U_Shopify_Order_ID eq '{shopify_order_id}' and Cancelled eq 'tNO'"
             }
             
             result = await sap_client._make_request(

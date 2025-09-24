@@ -152,8 +152,8 @@ class SAPOperations:
                 invoice_data["DocumentAdditionalExpenses"].extend(order_data['gift_card_expenses'])
             
             # Add custom fields if provided
-            if custom_fields:
-                invoice_data.update(custom_fields)
+            #if custom_fields:
+            #    invoice_data.update(custom_fields)
             
             return invoice_data
             
@@ -204,9 +204,15 @@ class SAPOperations:
                 # Cash transactions - use cash account from custom_fields (original payment details)
                 cash_account = custom_fields.get("CashAccount") if custom_fields else None
                 if cash_account:
-                    payment_data["CashSum"] = payment_amount
+                    # Use custom fields if provided (for returns sync)
+                    if custom_fields and "CashSum" in custom_fields:
+                        payment_data["CashSum"] = custom_fields["CashSum"]
+                        payment_data["TransferSum"] = custom_fields.get("TransferSum", 0)
+                        logger.info(f"💰 CASH TRANSACTION (custom): Cash={custom_fields['CashSum']}, Transfer={custom_fields.get('TransferSum', 0)}")
+                    else:
+                        payment_data["CashSum"] = payment_amount
                     payment_data["CashAccount"] = cash_account
-                    logger.info(f"💰 CASH TRANSACTION: {payment_amount} EGP - Account: {cash_account}")
+                    logger.info(f"💰 CASH TRANSACTION: {payment_data['CashSum']} EGP - Account: {cash_account}")
                 else:
                     # Fallback to location configuration
                     cash_account = config_settings.get_cash_account_for_location(location_mapping)
