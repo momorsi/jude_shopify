@@ -11,6 +11,7 @@ from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.services.sap.api_logger import sl_add_log
 from datetime import datetime
+import httpx
 
 class ItemsInitialization:
     def __init__(self):
@@ -40,12 +41,6 @@ class ItemsInitialization:
                 await self.initialize_store(store_key, store_config)
             except Exception as e:
                 logger.error(f"Failed to initialize store {store_key}: {str(e)}")
-                await sl_add_log(
-                    server="items_init",
-                    endpoint=f"initialize_store_{store_key}",
-                    response_data={"error": str(e)},
-                    status="failure"
-                )
     
     async def initialize_store(self, store_key: str, store_config):
         """
@@ -71,9 +66,14 @@ class ItemsInitialization:
         """
         Get all active products from Shopify store that are NOT synced
         """
+        logger.info(f"Fetching active products from store: {store_key}")
+        
+        # Add retry logic for GraphQL queries to handle rate limiting
+        max_retries = 3
+        retry_delay = 2  # Start with 2 seconds
         query = """
         query GetUnsyncedProducts($cursor: String) {
-            products(first: 50, after: $cursor, query: "status:active") {
+            products(first: 150, after: $cursor, query: "status:active") {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -114,7 +114,29 @@ class ItemsInitialization:
         while True:
             variables = {"cursor": cursor} if cursor else {}
             
-            result = await multi_store_shopify_client.execute_query(store_key, query, variables)
+            # Add retry logic for each GraphQL query
+            for attempt in range(max_retries):
+                try:
+                    result = await multi_store_shopify_client.execute_query(store_key, query, variables)
+                    
+                    if result["msg"] == "success":
+                        break  # Success, exit retry loop
+                    else:
+                        logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
+                        
+                        if attempt < max_retries - 1:  # Don't sleep on last attempt
+                            logger.info(f"Retrying in {retry_delay} seconds...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            
+                except Exception as e:
+                    logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
             
             if result["msg"] != "success":
                 logger.error(f"Failed to get products from store {store_key}: {result.get('error')}")
@@ -154,12 +176,6 @@ class ItemsInitialization:
                 await self.process_single_product(store_key, store_config, product)
             except Exception as e:
                 logger.error(f"Error processing product {product.get('id')}: {str(e)}")
-                await sl_add_log(
-                    server="items_init",
-                    endpoint=f"process_product_{store_key}",
-                    response_data={"product_id": product.get('id'), "error": str(e)},
-                    status="failure"
-                )
     
     async def process_single_product(self, store_key: str, store_config, product: Dict[str, Any]):
         """
@@ -182,14 +198,24 @@ class ItemsInitialization:
         variants = product.get('variants', {}).get('edges', [])
         
         try:
-            if len(variants) == 1:
+            # Check if this is a single variant product (no variants)
+            # A product with no variants will have exactly one variant with title "Default Title"
+            is_single_variant = (len(variants) == 1 and 
+                               variants[0]['node'].get('title', '') == 'Default Title')
+            
+            logger.info(f"Product {product_id} has {len(variants)} variants, is_single_variant: {is_single_variant}")
+            logger.info(f"Processing product in store: {store_key} - SAP field updates: {'enabled' if store_key == 'local' else 'disabled'}")
+            
+            if is_single_variant:
                 # Single product (no variants)
                 variant = variants[0]['node']
+                logger.info(f"Processing single variant product: {product_title}")
                 await self.process_single_variant_product(
                     store_key, store_config, product, variant
                 )
             else:
                 # Product with variants
+                logger.info(f"Processing multi-variant product: {product_title} with {len(variants)} variants")
                 await self.process_multi_variant_product(
                     store_key, store_config, product, variants
                 )
@@ -235,8 +261,12 @@ class ItemsInitialization:
             store_key, product_id, main_product_name, sku
         )
         
-                # Update SAP item fields
-        await self.update_sap_item_fields(sku, main_product_name, "", "")
+        # Update SAP item fields for single variant product (only for local store)
+        # ForeignName => title of the product, U_SalesChannel => "3"
+        if store_key == "local":
+            await self.update_sap_item_fields(sku, main_product_name, "", "", is_single_variant=True)
+        else:
+            logger.info(f"Skipping SAP item field updates for international store: {store_key}")
     
     async def process_multi_variant_product(self, store_key: str, store_config,
                                            product: Dict[str, Any], variants: List[Dict[str, Any]]):
@@ -247,7 +277,7 @@ class ItemsInitialization:
         main_product_name = product.get('title', '')
         
         # Filter out variants that are already synced
-        unsynced_variants = await self.get_unsynced_variants(variants)
+        unsynced_variants = await self.get_unsynced_variants(variants, store_key)
         
         if not unsynced_variants:
             logger.info(f"All variants for product {product_id} are already synced")
@@ -282,8 +312,13 @@ class ItemsInitialization:
                 main_product_name, color_name
             )
             
-            # Update SAP item fields
-            await self.update_sap_item_fields(sku, main_product_name, main_product_name, color_name)
+            # Update SAP item fields for multi-variant product (only for local store)
+            # ForeignName => title of the product, U_SalesChannel => "3"
+            # U_ParentCommercialName => title of the product, U_ShopifyColor => title of the variant
+            if store_key == "local":
+                await self.update_sap_item_fields(sku, main_product_name, main_product_name, color_name, is_single_variant=False)
+            else:
+                logger.info(f"Skipping SAP item field updates for international store: {store_key}")
     
     async def create_sap_mapping_record(self, store_key: str, sku: str, product_id: str, 
                                        variant_id: str, inventory_variant_id: str,
@@ -312,20 +347,8 @@ class ItemsInitialization:
             
             if variant_result["msg"] == "success":
                 logger.info(f"Created variant mapping record for SKU: {sku} in store: {store_key}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint="U_SHOPIFY_MAPPING_2",
-                    response_data={"sku": sku, "store": store_key, "type": "variant", "status": "created"},
-                    status="success"
-                )
             else:
                 logger.error(f"Failed to create variant mapping record for SKU {sku}: {variant_result.get('error')}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint="U_SHOPIFY_MAPPING_2",
-                    response_data={"sku": sku, "type": "variant", "error": variant_result.get('error')},
-                    status="failure"
-                )
                 raise Exception(f"Failed to create variant mapping record: {variant_result.get('error')}")
             
             # Create inventory mapping record
@@ -343,30 +366,12 @@ class ItemsInitialization:
             
             if inventory_result["msg"] == "success":
                 logger.info(f"Created inventory mapping record for SKU: {sku} in store: {store_key}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint="U_SHOPIFY_MAPPING_2",
-                    response_data={"sku": sku, "store": store_key, "type": "variant_inventory", "status": "created"},
-                    status="success"
-                )
             else:
                 logger.error(f"Failed to create inventory mapping record for SKU {sku}: {inventory_result.get('error')}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint="U_SHOPIFY_MAPPING_2",
-                    response_data={"sku": sku, "type": "variant_inventory", "error": inventory_result.get('error')},
-                    status="failure"
-                )
                 raise Exception(f"Failed to create inventory mapping record: {inventory_result.get('error')}")
                 
         except Exception as e:
             logger.error(f"Error creating mapping records for SKU {sku}: {str(e)}")
-            await sl_add_log(
-                server="sap",
-                endpoint="U_SHOPIFY_MAPPING_2",
-                response_data={"sku": sku, "error": str(e)},
-                status="failure"
-            )
             raise
     
     async def create_product_mapping_record(self, store_key: str, product_id: str, main_product_name: str, sku: str = None):
@@ -396,30 +401,12 @@ class ItemsInitialization:
             
             if result["msg"] == "success":
                 logger.info(f"Created product mapping record for product: {product_id_number} in store: {store_key}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint="U_SHOPIFY_MAPPING_2",
-                    response_data={"product_id": product_id_number, "store": store_key, "status": "created"},
-                    status="success"
-                )
             else:
                 logger.error(f"Failed to create product mapping record for product {product_id_number}: {result.get('error')}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint="U_SHOPIFY_MAPPING_2",
-                    response_data={"product_id": product_id_number, "error": result.get('error')},
-                    status="failure"
-                )
                 raise Exception(f"Failed to create product mapping record: {result.get('error')}")
                 
         except Exception as e:
             logger.error(f"Error creating product mapping record for product {product_id_number}: {str(e)}")
-            await sl_add_log(
-                server="sap",
-                endpoint="U_SHOPIFY_MAPPING_2",
-                response_data={"product_id": product_id_number, "error": str(e)},
-                status="failure"
-            )
             raise
     
     def _get_metafield_value(self, product: Dict[str, Any], namespace: str, key: str) -> str:
@@ -439,7 +426,7 @@ class ItemsInitialization:
         """
         return self._get_metafield_value(product, "custom", "sap_sync")
     
-    async def check_variant_sync_status(self, sku: str) -> bool:
+    async def check_variant_sync_status(self, sku: str, store_key: str) -> bool:
         """
         Check if a variant is synced by looking up its SKU in SAP mapping table
         Returns True if variant is synced, False otherwise
@@ -448,7 +435,7 @@ class ItemsInitialization:
             # Query SAP to check if this SKU exists in the mapping table
             result = await sap_client._make_request(
                 method="GET",
-                endpoint=f"U_SHOPIFY_MAPPING_2?$filter=U_SAP_Code eq '{sku}'",
+                endpoint=f"U_SHOPIFY_MAPPING_2?$filter=U_SAP_Code eq '{sku}' and U_Shopify_Store eq '{store_key}'",
                 login_required=True
             )
             
@@ -464,7 +451,7 @@ class ItemsInitialization:
             logger.error(f"Error checking variant sync status for SKU {sku}: {str(e)}")
             return False
     
-    async def get_unsynced_variants(self, variants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def get_unsynced_variants(self, variants: List[Dict[str, Any]], store_key: str) -> List[Dict[str, Any]]:
         """
         Filter variants to return only those that are not synced
         """
@@ -480,7 +467,7 @@ class ItemsInitialization:
                 continue
             
             # Check if this variant is already synced in SAP
-            is_synced = await self.check_variant_sync_status(sku)
+            is_synced = await self.check_variant_sync_status(sku, store_key)
             
             if not is_synced:
                 unsynced_variants.append(variant_edge)
@@ -503,92 +490,128 @@ class ItemsInitialization:
     
     async def _set_metafield(self, store_key: str, product_id: str, namespace: str, key: str, value: str):
         """
-        Set a metafield on a product using REST API
+        Set a metafield on a product using REST API with retry logic
         """
-        try:
-            import httpx
-            
-            # Get store configuration
-            enabled_stores = config_settings.get_enabled_stores()
-            store_config = enabled_stores.get(store_key)
-            
-            if not store_config:
-                logger.error(f"Store configuration not found for {store_key}")
-                return
-            
-            # Extract product ID number from GraphQL ID
-            product_id_number = product_id.split("/")[-1] if "/" in product_id else product_id
-            
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
-            
-            async with httpx.AsyncClient() as client:
-                # Get current metafields
-                metafields_url = f"https://{store_config.shop_url}/admin/api/2024-01/products/{product_id_number}/metafields.json"
-                metafields_response = await client.get(metafields_url, headers=headers)
-                metafields_response.raise_for_status()
-                metafields_data = metafields_response.json()
-                metafields = metafields_data.get('metafields', [])
+        logger.info(f"Setting metafield {namespace}.{key} = {value} for product {product_id} in store {store_key}")
+        
+        # Add retry logic for metafield updates
+        max_retries = 3
+        retry_delay = 2  # Start with 2 seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Get store configuration
+                enabled_stores = config_settings.get_enabled_stores()
+                store_config = enabled_stores.get(store_key)
                 
-                # Check if metafield already exists
-                existing_metafield = None
-                for metafield in metafields:
-                    if metafield.get('namespace') == namespace and metafield.get('key') == key:
-                        existing_metafield = metafield
-                        break
+                if not store_config:
+                    logger.error(f"Store configuration not found for {store_key}")
+                    return
                 
-                if existing_metafield:
-                    # Update existing metafield
-                    update_url = f"https://{store_config.shop_url}/admin/api/2024-01/metafields/{existing_metafield['id']}.json"
-                    update_data = {
-                        "metafield": {
-                            "value": value
+                # Extract product ID number from GraphQL ID
+                product_id_number = product_id.split("/")[-1] if "/" in product_id else product_id
+                
+                headers = {
+                    'X-Shopify-Access-Token': store_config.access_token,
+                    'Content-Type': 'application/json',
+                }
+                
+                async with httpx.AsyncClient() as client:
+                    # Get current metafields
+                    metafields_url = f"https://{store_config.shop_url}/admin/api/2024-01/products/{product_id_number}/metafields.json"
+                    metafields_response = await client.get(metafields_url, headers=headers)
+                    metafields_response.raise_for_status()
+                    metafields_data = metafields_response.json()
+                    metafields = metafields_data.get('metafields', [])
+                    
+                    # Check if metafield already exists
+                    existing_metafield = None
+                    for metafield in metafields:
+                        if metafield.get('namespace') == namespace and metafield.get('key') == key:
+                            existing_metafield = metafield
+                            break
+                    
+                    if existing_metafield:
+                        # Update existing metafield
+                        update_url = f"https://{store_config.shop_url}/admin/api/2024-01/metafields/{existing_metafield['id']}.json"
+                        update_data = {
+                            "metafield": {
+                                "value": value
+                            }
                         }
-                    }
+                        
+                        update_response = await client.put(update_url, headers=headers, json=update_data)
+                        update_response.raise_for_status()
+                        
+                        logger.info(f"Updated metafield {namespace}.{key} = {value} for product {product_id}")
+                    else:
+                        # Create new metafield
+                        create_data = {
+                            "metafield": {
+                                "namespace": namespace,
+                                "key": key,
+                                "value": value,
+                                "type": "single_line_text_field"
+                            }
+                        }
+                        
+                        create_response = await client.post(metafields_url, headers=headers, json=create_data)
+                        create_response.raise_for_status()
+                        
+                        logger.info(f"Created metafield {namespace}.{key} = {value} for product {product_id}")
+                
+                return  # Success, exit retry loop
                     
-                    update_response = await client.put(update_url, headers=headers, json=update_data)
-                    update_response.raise_for_status()
-                    
-                    logger.info(f"Updated metafield {namespace}.{key} = {value} for product {product_id}")
+            except httpx.HTTPStatusError as e:
+                logger.warning(f"HTTP error setting metafield {namespace}.{key} for product {product_id} (attempt {attempt + 1}/{max_retries}): {e.response.status_code} - {e.response.text}")
+                
+                if attempt < max_retries - 1:  # Don't sleep on last attempt
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
                 else:
-                    # Create new metafield
-                    create_data = {
-                        "metafield": {
-                            "namespace": namespace,
-                            "key": key,
-                            "value": value,
-                            "type": "single_line_text_field"
-                        }
-                    }
+                    logger.error(f"Failed to set metafield {namespace}.{key} for product {product_id} after {max_retries} attempts")
                     
-                    create_response = await client.post(metafields_url, headers=headers, json=create_data)
-                    create_response.raise_for_status()
-                    
-                    logger.info(f"Created metafield {namespace}.{key} = {value} for product {product_id}")
-                    
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error setting metafield {namespace}.{key} for product {product_id}: {e.response.status_code} - {e.response.text}")
-        except Exception as e:
-            logger.error(f"Error setting metafield {namespace}.{key} for product {product_id}: {str(e)}")
+            except Exception as e:
+                logger.warning(f"Error setting metafield {namespace}.{key} for product {product_id} (attempt {attempt + 1}/{max_retries}): {str(e)}")
+                
+                if attempt < max_retries - 1:  # Don't sleep on last attempt
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"Failed to set metafield {namespace}.{key} for product {product_id} after {max_retries} attempts: {str(e)}")
     
     async def update_sap_item_fields(self, sku: str, foreign_name: str, 
-                                   parent_commercial_name: str, shopify_color: str):
+                                   parent_commercial_name: str, shopify_color: str, 
+                                   is_single_variant: bool = True):
         """
         Update SAP item fields using PATCH request
+        
+        For single variant products:
+        - ForeignName => title of the product
+        - U_SalesChannel => "3"
+        
+        For multi-variant products:
+        - ForeignName => title of the product
+        - U_SalesChannel => "3"
+        - U_ParentCommercialName => title of the product
+        - U_ShopifyColor => title of the variant
         """
         update_data = {
-            "ForeignName": foreign_name
+            "ForeignName": foreign_name,
+            "U_SalesChannel": "3"
         }
         
-        # Only add variant-specific fields if they have values
-        if parent_commercial_name:
-            update_data["U_ParentCommercialName"] = parent_commercial_name
-        if shopify_color:
-            update_data["U_ShopifyColor"] = shopify_color
+        # Add variant-specific fields for multi-variant products
+        if not is_single_variant:
+            if parent_commercial_name:
+                update_data["U_ParentCommercialName"] = parent_commercial_name
+            if shopify_color:
+                update_data["U_ShopifyColor"] = shopify_color
         
         try:
+            logger.info(f"Updating SAP item fields for SKU: {sku} with data: {update_data}")
             result = await sap_client._make_request(
                 method="PATCH",
                 endpoint=f"Items('{sku}')",
@@ -597,30 +620,14 @@ class ItemsInitialization:
             )
             
             if result["msg"] == "success":
-                logger.info(f"Updated SAP item fields for SKU: {sku}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint=f"Items('{sku}')",
-                    response_data={"sku": sku, "fields_updated": list(update_data.keys())},
-                    status="success"
-                )
+                logger.info(f"Successfully updated SAP item fields for SKU: {sku} (single_variant: {is_single_variant})")
             else:
                 logger.error(f"Failed to update SAP item fields for SKU {sku}: {result.get('error')}")
-                await sl_add_log(
-                    server="sap",
-                    endpoint=f"Items('{sku}')",
-                    response_data={"sku": sku, "error": result.get('error')},
-                    status="failure"
-                )
+                raise Exception(f"Failed to update SAP item fields: {result.get('error')}")
                 
         except Exception as e:
             logger.error(f"Error updating SAP item fields for SKU {sku}: {str(e)}")
-            await sl_add_log(
-                server="sap",
-                endpoint=f"Items('{sku}')",
-                response_data={"sku": sku, "error": str(e)},
-                status="failure"
-            )
+            raise
     
     async def get_products_by_sync_status(self, store_key: str, status: str = None) -> List[Dict[str, Any]]:
         """
@@ -629,10 +636,10 @@ class ItemsInitialization:
         # Build query filter based on status
         if status:
             # Filter by specific status
-            query_filter = f'status:active AND metafield:jude_system.sap_sync_status="{status}"'
+            query_filter = f'status:active AND metafield:custom.sap_sync="{status}"'
         else:
             # Get all products without sync status (not yet processed)
-            query_filter = 'status:active AND -metafield:jude_system.sap_sync_status'
+            query_filter = 'status:active AND -metafield:custom.sap_sync'
         
         query = """
         query GetProductsBySyncStatus($cursor: String, $query: String!) {
@@ -648,7 +655,7 @@ class ItemsInitialization:
                         description
                         vendor
                         productType
-                        metafields(first: 10, namespace: "jude_system") {
+                        metafields(first: 10, namespace: "custom") {
                             edges {
                                 node {
                                     id

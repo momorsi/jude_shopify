@@ -150,6 +150,9 @@ class ReturnsSyncV2:
                                         phone
                                     }
                                 }
+                                retailLocation {
+                                    id
+                                }
                                 metafields(first: 10) {
                                     edges {
                                         node {
@@ -342,18 +345,32 @@ class ReturnsSyncV2:
             
             logger.info(f"Processing refunded order: {order_name} (ID: {order_id})")
             
-            # Get warehouse code once at the beginning for reuse throughout processing
+            # Get warehouse code based on order type (POS vs Web)
             warehouse_code = "ONL"  # Default for online
-            source_identifier = order.get('sourceIdentifier', '')
-            if source_identifier:
-                # Extract location ID from sourceIdentifier (e.g., "70074892354-1-1007" -> "70074892354")
-                location_id = source_identifier.split('-')[0] if '-' in source_identifier else source_identifier
-                # Get location mapping to get the location_cc (not warehouse code)
-                location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
-                warehouse_code = location_mapping.get('location_cc', 'ONL')  # Use location_cc for U_Location field
-                logger.info(f"Using location code '{warehouse_code}' for location '{location_id}'")
+            location_id = None
+            
+            # Check if this is a POS order first
+            source_name = order.get("sourceName", "").lower()
+            is_pos_order = source_name == "pos"
+            
+            if is_pos_order:
+                # For POS orders, use retailLocation field
+                retail_location = order.get("retailLocation", {})
+                if retail_location and retail_location.get("id"):
+                    # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/72406990914" -> "72406990914")
+                    location_gid = retail_location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    logger.info(f"Found retail location ID for POS order: {location_id}")
+                    
+                    # Get location mapping to get the location_cc (not warehouse code)
+                    location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                    warehouse_code = location_mapping.get('location_cc', 'ONL')  # Use location_cc for U_Location field
+                    logger.info(f"Using location code '{warehouse_code}' for POS location '{location_id}'")
+                else:
+                    logger.warning("No retail location found in POS order, using default location code 'ONL'")
             else:
-                logger.warning("No source identifier provided, using default location code 'ONL'")
+                # For web/online orders, use default location code
+                logger.info("Web/online order detected, using default location code 'ONL'")
             
             # Determine if this is a POS order or online order
             is_pos_order = self._is_pos_order(order, store_key)
@@ -595,14 +612,24 @@ class ReturnsSyncV2:
     
     def _is_pos_order(self, order: Dict[str, Any], store_key: str) -> bool:
         """
-        Check if order is from a POS/store location
+        Check if order is from a POS/store location using sourceName
         """
         try:
+            # Check sourceName first - this is the most reliable indicator
+            source_name = order.get("sourceName", "").lower()
+            if source_name == "pos":
+                logger.info("POS order detected based on sourceName")
+                return True
+            elif source_name in ["web", "online", "shopify"]:
+                logger.info("Web/online order detected based on sourceName")
+                return False
+            
+            # Fallback to original method if sourceName is not clear
+            logger.info("Source name not clearly identified, using original location mapping method")
             from order_location_mapper import OrderLocationMapper
             location_analysis = OrderLocationMapper.analyze_order_source(order, store_key)
-            
-            # Check if the order is from a POS location
             return location_analysis.get("is_pos_order", False)
+            
         except Exception as e:
             logger.error(f"Error determining order location type: {str(e)}")
             return False
@@ -693,64 +720,20 @@ class ReturnsSyncV2:
             logger.error(f"Error querying gift cards: {str(e)}")
             return []
 
-    async def _create_or_get_gift_card_in_sap(self, gift_card_id: str, amount: float, customer_card_code: str, warehouse_code: str = "ONL") -> Optional[str]:
+    async def _prepare_gift_card_for_invoice(self, gift_card_id: str, amount: float, customer_card_code: str, warehouse_code: str = "ONL") -> Optional[str]:
         """
-        Create or get gift card in SAP GiftCards entity
+        Prepare gift card data for invoice line without creating SAP GiftCards entity entry
         """
         try:
             # Extract numeric ID from Shopify gift card ID
             numeric_id = gift_card_id.split("/")[-1] if "/" in gift_card_id else gift_card_id
             
-            # Check if gift card already exists in SAP
-            existing_gift_card = await self._check_gift_card_exists_in_sap(numeric_id)
-            
-            if existing_gift_card:
-                logger.info(f"Gift card {numeric_id} already exists in SAP, using existing record")
-                return numeric_id
-            
-            # Create gift card in SAP using the same technique as orders_sync
-            from datetime import datetime, timedelta
-            
-            # Calculate expiration date (1 year from now)
-            order_date = datetime.now().strftime("%Y-%m-%d")
-            order_datetime = datetime.strptime(order_date, "%Y-%m-%d")
-            expiration_date = order_datetime + timedelta(days=365)
-            expiration_date_str = expiration_date.strftime("%Y-%m-%d")
-            
-            # Use the provided warehouse code (already determined at order processing start)
-            logger.info(f"Using warehouse code '{warehouse_code}' for gift card creation")
-            
-            gift_card_data = {
-                "Code": numeric_id,  # Use the actual gift card ID
-                "U_ActiveDate": order_date,
-                "U_ExpirDate": expiration_date_str,
-                "U_Active": "Yes",
-                "U_CardBal": amount,
-                "U_Customer": customer_card_code,
-                "U_Location": warehouse_code,  # Use warehouse code from configuration
-                "U_Consumed": 0,
-                "U_CardAmount": amount,
-                "U_Expired": "No"
-            }
-            
-            # Create gift card in SAP using the same method as orders_sync
-            result = await self.sap_client.create_gift_card(gift_card_data)
-            
-            if result["msg"] == "success":
-                logger.info(f"✅ Created gift card in SAP: {numeric_id} - Amount: {amount}")
-                return numeric_id
-            else:
-                # Check if it's an "already exists" error
-                error_msg = result.get('error', '')
-                if "already exists" in error_msg.lower() or "-2035" in error_msg:
-                    logger.info(f"Gift card {numeric_id} already exists in SAP, using existing record")
-                    return numeric_id
-                else:
-                    logger.error(f"Failed to create gift card in SAP: {result.get('error')}")
-                    return None
+            # Skip SAP GiftCards entity creation - just prepare data for invoice line
+            logger.info(f"Preparing gift card data for invoice line: {numeric_id} - Amount: {amount}")
+            return numeric_id
                 
         except Exception as e:
-            logger.error(f"Error creating gift card in SAP: {str(e)}")
+            logger.error(f"Error preparing gift card data: {str(e)}")
             return None
 
     async def _check_gift_card_exists_in_sap(self, gift_card_id: str) -> bool:
@@ -1140,12 +1123,12 @@ class ReturnsSyncV2:
             # Calculate total store credit amount from the passed parameter
             total_amount = sum(refund["amount"] for refund in store_credit_refunds)
             
-            # First, create or get the gift card in SAP GiftCards entity
-            sap_gift_card_id = await self._create_or_get_gift_card_in_sap(gift_card_id, total_amount, customer_card_code, warehouse_code)
+            # Prepare gift card data for invoice line (skip SAP GiftCards entity creation)
+            sap_gift_card_id = await self._prepare_gift_card_for_invoice(gift_card_id, total_amount, customer_card_code, warehouse_code)
             
             if not sap_gift_card_id:
-                logger.error(f"Failed to create gift card in SAP GiftCards entity")
-                return {"msg": "failure", "error": "Failed to create gift card in SAP"}
+                logger.error(f"Failed to prepare gift card data for invoice")
+                return {"msg": "failure", "error": "Failed to prepare gift card data"}
             
             # Get gift card item code from configuration
             gift_card_item_code = self.config.get_gift_card_item_code()
@@ -1154,10 +1137,8 @@ class ReturnsSyncV2:
                 return {"msg": "failure", "error": "Gift card item code not found"}
                 
             # Prepare invoice data with gift card reference
-            # Get costing codes from OrderLocationMapper like orders_sync
-            from order_location_mapper import OrderLocationMapper
-            
-            location_analysis = OrderLocationMapper.analyze_order_source(order, store_key)
+            # Get location analysis using retailLocation field (same as orders_sync)
+            location_analysis = self._analyze_order_location_from_retail_location(order, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
             
             # Use location-based costing codes, fallback to defaults if not available
@@ -1173,8 +1154,8 @@ class ReturnsSyncV2:
             # Override with location-specific codes if available
             costing_codes = {key: sap_codes.get(key, default_codes[key]) for key in default_codes.keys()}
             
-            # Get warehouse code based on order location (same as orders_sync)
-            warehouse_code_from_location = self.config.get_warehouse_code_for_order(store_key, order)
+            # Get warehouse code from sap_codes (same as orders_sync)
+            warehouse_code_from_location = sap_codes.get('Warehouse', 'SW') 
             logger.info(f"Using warehouse code '{warehouse_code_from_location}' for gift card invoice")
             
             # Extract non-returned items (currentQuantity > 0) and non-gift card items
@@ -1203,6 +1184,29 @@ class ReturnsSyncV2:
             # Calculate freight expenses if order had shipping
             freight_expenses = self._calculate_freight_expenses(order, store_key, sap_codes)
             
+            # Extract gift card redemptions from the original order and add as expenses
+            payment_info = self._extract_payment_info(order)
+            gift_card_expenses = []
+            if payment_info.get("gift_cards"):
+                logger.info(f"🎁 Processing {len(payment_info['gift_cards'])} gift card redemption(s) from original order")
+                for gift_card in payment_info["gift_cards"]:
+                    gift_card_expense = {
+                        "ExpenseCode": 2,  # Gift card expense code
+                        "LineTotal": -float(gift_card["amount"]),  # Negative amount
+                        "Remarks": f"Gift Card: {gift_card['last_characters']}",
+                        "U_GiftCard": gift_card["gift_card_id"],  # Add gift card ID to expense entry
+                        "DistributionRule": sap_codes.get('DistributionRule', 'ONL'),                                               
+                        "DistributionRule2": sap_codes.get('DistributionRule2', 'SAL'),                                               
+                        "DistributionRule3": sap_codes.get('DistributionRule3', 'OnlineS')   
+                    }
+                    gift_card_expenses.append(gift_card_expense)
+                    logger.info(f"🎁 Created gift card expense: {gift_card['last_characters']} - Amount: -{gift_card['amount']}")
+            else:
+                logger.info("🎁 No gift card redemptions found in original order")
+            
+            # Get location analysis for invoice preparation (same as orders_sync)
+            location_analysis = self._analyze_order_location_from_retail_location(order, store_key)
+            
             # Use centralized invoice preparation
             invoice_data = self.sap_operations.prepare_invoice_data(
                 order_data=order,
@@ -1224,6 +1228,16 @@ class ReturnsSyncV2:
             if freight_expenses:
                 invoice_data["DocumentAdditionalExpenses"] = freight_expenses
                 logger.info(f"Added freight expenses to invoice: {freight_expenses}")
+            
+            # Add gift card redemption expenses if any
+            if gift_card_expenses:
+                # Combine freight and gift card expenses
+                all_expenses = freight_expenses + gift_card_expenses
+                invoice_data["DocumentAdditionalExpenses"] = all_expenses
+                logger.info(f"Added gift card redemption expenses to invoice: {gift_card_expenses}")
+            elif freight_expenses:
+                # Only freight expenses, no gift cards
+                invoice_data["DocumentAdditionalExpenses"] = freight_expenses
             
             # Create invoice in SAP using shared operations
             result = await self.sap_operations.create_invoice_in_sap(invoice_data, order.get('name', ''))
@@ -1255,9 +1269,8 @@ class ReturnsSyncV2:
                 logger.error("No original payment details provided")
                 return {"msg": "failure", "error": "No original payment details provided"}
                 
-            # Get location analysis for payment preparation
-            from order_location_mapper import OrderLocationMapper
-            location_analysis = OrderLocationMapper.analyze_order_source({"id": order.get("id", ""), "name": order.get("name", "")}, store_key)
+            # Get location analysis for payment preparation using retailLocation
+            location_analysis = self._get_location_analysis_from_retail_location(order, store_key)
             
             # Get the actual gateway from the order transactions
             gateway = "cash"  # Default for POS orders
@@ -1404,3 +1417,404 @@ class ReturnsSyncV2:
         """
         date_filter = datetime.now() - timedelta(days=30)
         return date_filter.strftime("%Y-%m-%d")
+    
+    def _get_sap_codes_from_retail_location(self, order: Dict[str, Any], store_key: str) -> Dict[str, str]:
+        """
+        Get SAP codes from retailLocation field for POS orders, use default for web orders
+        """
+        try:
+            # Check if this is a POS order first
+            source_name = order.get("sourceName", "").lower()
+            is_pos_order = source_name == "pos"
+            
+            if is_pos_order:
+                # For POS orders, use retailLocation field
+                retail_location = order.get("retailLocation", {})
+                location_id = None
+                
+                if retail_location and retail_location.get("id"):
+                    # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/72406990914" -> "72406990914")
+                    location_gid = retail_location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    
+                    # Get location mapping for this specific location
+                    location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                    
+                    if location_mapping:
+                        logger.info(f"Using retail location SAP codes for POS order: {location_id}")
+                        return {
+                            'COGSCostingCode': location_mapping.get('location_cc', 'ONL'),
+                            'COGSCostingCode2': location_mapping.get('department_cc', 'SAL'),
+                            'COGSCostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                            'CostingCode': location_mapping.get('location_cc', 'ONL'),
+                            'CostingCode2': location_mapping.get('department_cc', 'SAL'),
+                            'CostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                            'Warehouse': location_mapping.get('warehouse', 'SW')
+                        }
+                
+                # Fallback to default codes if no retail location or mapping found for POS order
+                logger.warning("No retail location or mapping found for POS order, using default SAP codes")
+            else:
+                # For web/online orders, use default codes
+                logger.info("Web/online order detected, using default SAP codes")
+            
+            # Return default codes for web orders or as fallback for POS orders
+            # For web orders, get the default location mapping
+            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
+            
+            return {
+                'COGSCostingCode': 'ONL',
+                'COGSCostingCode2': 'SAL',
+                'COGSCostingCode3': 'OnlineS',
+                'CostingCode': 'ONL',
+                'CostingCode2': 'SAL',
+                'CostingCode3': 'OnlineS',
+                'Warehouse': default_warehouse
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting SAP codes from retail location: {str(e)}")
+            # Return default codes on error
+            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
+            
+            return {
+                'COGSCostingCode': 'ONL',
+                'COGSCostingCode2': 'SAL',
+                'COGSCostingCode3': 'OnlineS',
+                'CostingCode': 'ONL',
+                'CostingCode2': 'SAL',
+                'CostingCode3': 'OnlineS',
+                'Warehouse': default_warehouse
+            }
+    
+    def _extract_payment_info(self, order_node: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract payment information from Shopify order transactions including gift cards and store credit
+        """
+        payment_info = {
+            "gateway": "Unknown",
+            "card_type": "Unknown", 
+            "last_4": "Unknown",
+            "payment_id": "Unknown",
+            "authorization": "Unknown",
+            "amount": 0.0,
+            "status": "Unknown",
+            "processed_at": "Unknown",
+            "is_online_payment": False,
+            "gift_cards": [],
+            "total_gift_card_amount": 0.0,
+            "store_credit": {
+                "amount": 0.0,
+                "transactions": []
+            },
+            "payment_gateways": [],
+            "total_payment_amount": 0.0
+        }
+        
+        try:
+            transactions = order_node.get("transactions", [])
+            
+            for transaction in transactions:
+                
+                # Look for successful payment transactions
+                if (transaction.get("kind") == "SALE" and 
+                    transaction.get("status") == "SUCCESS"):
+                    
+                    gateway = transaction.get("gateway", "Unknown")
+                    amount = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
+                    receipt_json = transaction.get("receiptJson", "{}")
+                    
+                    # Handle store credit transactions
+                    if gateway == "shopify_store_credit":
+                        store_credit_info = {
+                            "transaction_id": transaction.get("id", "Unknown"),
+                            "amount": amount,
+                            "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                            "processed_at": transaction.get("processedAt", "Unknown"),
+                            "receipt_json": receipt_json
+                        }
+                        payment_info["store_credit"]["transactions"].append(store_credit_info)
+                        payment_info["store_credit"]["amount"] += amount
+                        logger.info(f"🏪 STORE CREDIT DETECTED: {amount} {store_credit_info['currency']} - Transaction ID: {store_credit_info['transaction_id']}")
+                    
+                    # Handle all payment gateway transactions except gift_card and store_credit (which have their own processing)
+                    elif gateway != "Unknown" and gateway != "gift_card" and gateway != "shopify_store_credit":
+                        # Create payment gateway info
+                        gateway_info = {
+                            "gateway": gateway,
+                            "amount": amount,
+                            "status": transaction.get("status", "Unknown"),
+                            "processed_at": transaction.get("processedAt", "Unknown"),
+                            "transaction_id": transaction.get("id", "Unknown"),
+                            "receipt_json": receipt_json
+                        }
+                        
+                        # Extract payment_id from receiptJson (for supported gateways)
+                        try:
+                            import json
+                            receipt_data = json.loads(receipt_json)
+                            gateway_info["payment_id"] = receipt_data.get("payment_id", transaction.get("id", "Unknown"))
+                        except (json.JSONDecodeError, KeyError):
+                            gateway_info["payment_id"] = transaction.get("id", "Unknown")
+                        
+                        # Add to payment gateways list
+                        payment_info["payment_gateways"].append(gateway_info)
+                        payment_info["total_payment_amount"] += amount
+                        
+                        # Set primary gateway info (for backward compatibility - use the first non-store-credit gateway)
+                        if payment_info["gateway"] == "Unknown":
+                            payment_info["gateway"] = gateway
+                            payment_info["amount"] = amount
+                            payment_info["status"] = transaction.get("status", "Unknown")
+                            payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                            payment_info["payment_id"] = gateway_info["payment_id"]
+                        
+                        # Check if this is an online payment
+                        source_name = order_node.get("sourceName", "")
+                        if source_name:
+                            source_name = source_name.lower()
+                            if ("online store" in source_name or 
+                                "web" in source_name or 
+                                "shopify" in source_name or
+                                "online" in source_name or
+                                "mobile" in source_name or
+                                "app" in source_name):
+                                payment_info["is_online_payment"] = True
+                    
+                    # Handle gift card transactions
+                    elif gateway == "gift_card":
+                        try:
+                            import json
+                            receipt_data = json.loads(receipt_json)
+                            
+                            gift_card_info = {
+                                "last_characters": receipt_data.get("gift_card_last_characters", "Unknown"),
+                                "amount": amount,  # Use the transaction amount directly
+                                "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                                "gift_card_id": receipt_data.get("gift_card_id", "Unknown")
+                            }
+                            
+                            payment_info["gift_cards"].append(gift_card_info)
+                            payment_info["total_gift_card_amount"] += amount
+                            
+                        except (json.JSONDecodeError, KeyError) as e:
+                            logger.warning(f"Error parsing gift card receipt JSON: {e}")
+                            # Fallback gift card info
+                            gift_card_info = {
+                                "last_characters": "Unknown",
+                                "amount": amount,
+                                "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                                "gift_card_id": "Unknown"
+                            }
+                            payment_info["gift_cards"].append(gift_card_info)
+                            payment_info["total_gift_card_amount"] += amount
+                    
+                    # Handle other payment gateways
+                    else:
+                        payment_info["gateway"] = gateway
+                        payment_info["amount"] = amount
+                        payment_info["status"] = transaction.get("status", "Unknown")
+                        payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                        payment_info["authorization"] = transaction.get("authorization", "Unknown")
+                        
+                        # Extract credit card information if available
+                        payment_details = transaction.get("paymentDetails", {})
+                        if payment_details:
+                            payment_info["card_type"] = payment_details.get("creditCardCompany", "Unknown")
+                            payment_info["last_4"] = payment_details.get("creditCardLastDigits", "Unknown")
+                        else:
+                            # Use gateway as card type if payment details not available
+                            payment_info["card_type"] = gateway
+                        
+                        # Check if this is an online payment
+                        source_name = order_node.get("sourceName", "")
+                        if source_name:
+                            source_name = source_name.lower()
+                            if ("online store" in source_name or 
+                                "web" in source_name or 
+                                "shopify" in source_name or
+                                "online" in source_name or
+                                "mobile" in source_name or
+                                "app" in source_name):
+                                payment_info["is_online_payment"] = True
+                                # For online payments, use the transaction ID as payment ID
+                                payment_info["payment_id"] = transaction.get("id", "Unknown")
+                    
+        except Exception as e:
+            logger.error(f"Error extracting payment info: {str(e)}")
+        
+        return payment_info
+
+    def _analyze_order_location_from_retail_location(self, order_node: Dict[str, Any], store_key: str) -> Dict[str, Any]:
+        """
+        Analyze order location using retailLocation field for POS orders, fallback to original method for web orders
+        """
+        try:
+            # Check if this is a POS order first
+            source_name = order_node.get("sourceName", "").lower()
+            is_pos_order = source_name == "pos"
+            
+            if is_pos_order:
+                # For POS orders, use retailLocation field
+                retail_location = order_node.get("retailLocation", {})
+                location_id = None
+                
+                if retail_location and retail_location.get("id"):
+                    # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/72406990914" -> "72406990914")
+                    location_gid = retail_location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    logger.info(f"Found retail location ID for POS order: {location_id}")
+                else:
+                    logger.warning("No retail location found in POS order, using default location mapping")
+                    # Fallback to default location mapping if no retail location
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                if not location_id:
+                    logger.warning("Could not extract location ID from retail location, using default location mapping")
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                # Get location mapping for this specific location
+                logger.info(f"Looking for location mapping for location_id: {location_id} in store: {store_key}")
+                location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                logger.info(f"Location mapping result: {location_mapping}")
+                
+                if not location_mapping:
+                    logger.warning(f"No location mapping found for location {location_id}, using default location mapping")
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                # Get SAP codes for this location
+                warehouse_code = location_mapping.get('warehouse', 'SW')
+                logger.info(f"Using warehouse code: {warehouse_code} for location {location_id}")
+                
+                sap_codes = {
+                    'COGSCostingCode': location_mapping.get('location_cc', 'ONL'),
+                    'COGSCostingCode2': location_mapping.get('department_cc', 'SAL'),
+                    'COGSCostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                    'CostingCode': location_mapping.get('location_cc', 'ONL'),
+                    'CostingCode2': location_mapping.get('department_cc', 'SAL'),
+                    'CostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                    'Warehouse': warehouse_code
+                }
+                
+                # Extract receipt number for POS orders
+                extracted_receipt_number = None
+                source_identifier = order_node.get("sourceIdentifier", "")
+                if source_identifier and "-" in source_identifier:
+                    # Extract receipt number from sourceIdentifier (e.g., "70074892354-1-1010" -> "1010")
+                    parts = source_identifier.split("-")
+                    if len(parts) >= 3:
+                        extracted_receipt_number = parts[2]
+                        logger.info(f"Extracted POS receipt number: {extracted_receipt_number}")
+                
+                return {
+                    "location_id": location_id,
+                    "location_mapping": location_mapping,
+                    "is_pos_order": True,
+                    "sap_codes": sap_codes,
+                    "extracted_receipt_number": extracted_receipt_number
+                }
+            else:
+                # For web/online orders, use the original method
+                logger.info("Web/online order detected, using original location mapping method")
+                from order_location_mapper import OrderLocationMapper
+                return OrderLocationMapper.analyze_order_source(order_node, store_key)
+            
+        except Exception as e:
+            logger.error(f"Error analyzing order location: {str(e)}")
+            # Fallback to original method
+            from order_location_mapper import OrderLocationMapper
+            return OrderLocationMapper.analyze_order_source(order_node, store_key)
+
+    def _get_location_analysis_from_retail_location(self, order: Dict[str, Any], store_key: str) -> Dict[str, Any]:
+        """
+        Get location analysis from retailLocation field for POS orders, use default for web orders
+        """
+        try:
+            # Check if this is a POS order first
+            source_name = order.get("sourceName", "").lower()
+            is_pos_order = source_name == "pos"
+            
+            if is_pos_order:
+                # For POS orders, use retailLocation field
+                retail_location = order.get("retailLocation", {})
+                location_id = None
+                
+                if retail_location and retail_location.get("id"):
+                    # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/72406990914" -> "72406990914")
+                    location_gid = retail_location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    
+                    # Get location mapping for this specific location
+                    location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                    
+                    if location_mapping:
+                        # Get SAP codes for this location
+                        sap_codes = {
+                            'COGSCostingCode': location_mapping.get('location_cc', 'ONL'),
+                            'COGSCostingCode2': location_mapping.get('department_cc', 'SAL'),
+                            'COGSCostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                            'CostingCode': location_mapping.get('location_cc', 'ONL'),
+                            'CostingCode2': location_mapping.get('department_cc', 'SAL'),
+                            'CostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                            'Warehouse': location_mapping.get('warehouse', 'SW')
+                        }
+                        
+                        logger.info(f"Using retail location analysis for POS order: {location_id}")
+                        return {
+                            "location_id": location_id,
+                            "location_mapping": location_mapping,
+                            "is_pos_order": True,
+                            "sap_codes": sap_codes
+                        }
+                
+                # Fallback to default location analysis if no retail location or mapping found for POS order
+                logger.warning("No retail location or mapping found for POS order, using default location analysis")
+            else:
+                # For web/online orders, use default location analysis
+                logger.info("Web/online order detected, using default location analysis")
+            
+            # Return default location analysis for web orders or as fallback for POS orders
+            # For web orders, get the default location mapping
+            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
+            
+            return {
+                "location_id": None,
+                "location_mapping": {},
+                "is_pos_order": False,
+                "sap_codes": {
+                    'COGSCostingCode': 'ONL',
+                    'COGSCostingCode2': 'SAL',
+                    'COGSCostingCode3': 'OnlineS',
+                    'CostingCode': 'ONL',
+                    'CostingCode2': 'SAL',
+                    'CostingCode3': 'OnlineS',
+                    'Warehouse': default_warehouse
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting location analysis from retail location: {str(e)}")
+            # Return default location analysis on error
+            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
+            
+            return {
+                "location_id": None,
+                "location_mapping": {},
+                "is_pos_order": False,
+                "sap_codes": {
+                    'COGSCostingCode': 'ONL',
+                    'COGSCostingCode2': 'SAL',
+                    'COGSCostingCode3': 'OnlineS',
+                    'CostingCode': 'ONL',
+                    'CostingCode2': 'SAL',
+                    'CostingCode3': 'OnlineS',
+                    'Warehouse': default_warehouse
+                }
+            }

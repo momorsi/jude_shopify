@@ -48,6 +48,7 @@ class MultiStoreShopifyClient:
             return {"msg": "failure", "error": f"Store {store_key} not found or not enabled"}
         
         try:
+            logger.info(f"Executing GraphQL query for store: {store_key}")
             # Log the request
             log_api_call(
                 service="shopify",

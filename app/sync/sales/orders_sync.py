@@ -43,7 +43,9 @@ class OrdersSalesSync:
                         displayFulfillmentStatus
                         sourceName
                         sourceIdentifier
-
+                        retailLocation {
+                            id
+                        }
                         totalPriceSet {
                         shopMoney {
                             amount
@@ -105,6 +107,11 @@ class OrdersSalesSync:
                             country
                             phone
                         }
+                        }
+
+                        # --- Retail Location ---
+                        retailLocation {
+                            id
                         }
                         
                         # --- Metafields ---
@@ -263,7 +270,7 @@ class OrdersSalesSync:
             orders = result["data"]["orders"]["edges"]
             
             # Take only the last 5 most recent orders (already filtered by query)
-            orders = orders[:5]
+            #orders = orders[:5]
             
             logger.info(f"Retrieved {len(orders)} unsynced orders (limited to 5 most recent) from Shopify store {store_key}")
             
@@ -297,8 +304,8 @@ class OrdersSalesSync:
             financial_status = order_node.get("displayFinancialStatus", "PENDING")
             fulfillment_status = order_node.get("displayFulfillmentStatus", "UNFULFILLED")
             
-            # Get location mapping for this order
-            location_analysis = OrderLocationMapper.analyze_order_source(order_node, store_key)
+            # Get location mapping for this order using retailLocation field
+            location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
             
             # Use location-based costing codes, fallback to defaults if not available
@@ -366,62 +373,138 @@ class OrdersSalesSync:
                 # Get warehouse code based on order location (use location-based warehouse if available)
                 warehouse_code = costing_codes.get('Warehouse', config_settings.get_warehouse_code_for_order(store_key, order_node))
                 
-                line_item = {
-                    "ItemCode": item_code,
-                    "Quantity": quantity,
-                    "UnitPrice": float(original_price),  # Always use original price (compareAtPrice)
-                    "WarehouseCode": warehouse_code,
-                    "COGSCostingCode": costing_codes['COGSCostingCode'],
-                    "COGSCostingCode2": costing_codes['COGSCostingCode2'],
-                    "COGSCostingCode3": costing_codes['COGSCostingCode3'],
-                    "CostingCode": costing_codes['CostingCode'],
-                    "CostingCode2": costing_codes['CostingCode2'],
-                    "CostingCode3": costing_codes['CostingCode3']                    
-                }
-                
-                # Calculate discount percentage based on compareAtPrice vs sale price
-                if original_price > 0 and sale_price > 0 and original_price != sale_price:
-                    # Calculate discount percentage: (original - sale) / original * 100
-                    discount_amount = original_price - sale_price
-                    discount_percentage = (discount_amount / original_price) * 100
-                    line_item["DiscountPercent"] = float(discount_percentage)
-                    line_item["U_ItemDiscountAmount"] = float(discount_amount)
-                    logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
-                
-                # Also check for additional discount allocations (coupons, etc.)
-                discount_allocations = item.get("discountAllocations", [])
-                if discount_allocations:
-                    total_item_discount = sum(
-                        float(allocation.get("allocatedAmount", {}).get("amount", 0))
-                        for allocation in discount_allocations
-                    )
-                    if total_item_discount > 0:
-                        # Add additional discount amount to existing discount
-                        if "U_ItemDiscountAmount" in line_item:
-                            line_item["U_ItemDiscountAmount"] += total_item_discount
-                        else:
-                            line_item["U_ItemDiscountAmount"] = total_item_discount
-                        
-                        # Recalculate total discount percentage
-                        if original_price > 0:
-                            total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
-                            line_item["DiscountPercent"] = total_discount_percentage
-                            logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
-                
-                # Check if this is a gift card line item and add U_GiftCard field
+                # Check if this is a gift card line item
+                is_gift_card_item = False
                 if created_gift_cards:
-                    # Calculate line total for this item
-                    line_total = float(original_price) * quantity
-                    
+                    # Check if this line item matches any gift card by SKU and unit price
                     for gift_card_info in created_gift_cards:
-                        # Match by amount (line total) to ensure correct gift card association
-                        if abs(gift_card_info.get("amount", 0) - line_total) < 0.01:  # Use small tolerance for floating point comparison
-                            # This is a gift card line item, add the gift card ID
-                            line_item["U_GiftCard"] = gift_card_info.get("gift_card_id")
-                            logger.info(f"Added U_GiftCard field to line item: {gift_card_info.get('gift_card_id')} for amount: {line_total}")
+                        if (gift_card_info.get("sku") == item_code and 
+                            abs(gift_card_info.get("amount", 0) - float(original_price)) < 0.01):
+                            is_gift_card_item = True
                             break
                 
-                line_items.append(line_item)
+                # For gift card items with quantity > 1, create separate lines
+                if is_gift_card_item and quantity > 1:
+                    logger.info(f"Creating {quantity} separate lines for gift card item: {item_code}")
+                    
+                    # Create separate lines for each gift card
+                    for i in range(quantity):
+                        # Find the corresponding gift card for this line
+                        matching_gift_card = None
+                        for gift_card_info in created_gift_cards:
+                            if (gift_card_info.get("sku") == item_code and 
+                                abs(gift_card_info.get("amount", 0) - float(original_price)) < 0.01):
+                                matching_gift_card = gift_card_info
+                                # Remove from list to avoid duplicate matching
+                                created_gift_cards.remove(gift_card_info)
+                                break
+                        
+                        line_item = {
+                            "ItemCode": item_code,
+                            "Quantity": 1,  # Each line has quantity 1
+                            "UnitPrice": float(original_price),  # Always use original price (compareAtPrice)
+                            "WarehouseCode": warehouse_code,
+                            "COGSCostingCode": costing_codes['COGSCostingCode'],
+                            "COGSCostingCode2": costing_codes['COGSCostingCode2'],
+                            "COGSCostingCode3": costing_codes['COGSCostingCode3'],
+                            "CostingCode": costing_codes['CostingCode'],
+                            "CostingCode2": costing_codes['CostingCode2'],
+                            "CostingCode3": costing_codes['CostingCode3']
+                        }
+                        
+                        # Add gift card ID to this line
+                        if matching_gift_card:
+                            line_item["U_GiftCard"] = matching_gift_card.get("gift_card_id")
+                            logger.info(f"Added U_GiftCard field to line item: {matching_gift_card.get('gift_card_id')} for gift card {i+1}/{quantity}")
+                        
+                        # Calculate discount percentage based on compareAtPrice vs sale price
+                        if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                            # Calculate discount percentage: (original - sale) / original * 100
+                            discount_amount = original_price - sale_price
+                            discount_percentage = (discount_amount / original_price) * 100
+                            line_item["DiscountPercent"] = float(discount_percentage)
+                            line_item["U_ItemDiscountAmount"] = float(discount_amount)
+                            logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
+                        
+                        # Also check for additional discount allocations (coupons, etc.)
+                        discount_allocations = item.get("discountAllocations", [])
+                        if discount_allocations:
+                            total_item_discount = sum(
+                                float(allocation.get("allocatedAmount", {}).get("amount", 0))
+                                for allocation in discount_allocations
+                            )
+                            if total_item_discount > 0:
+                                # Add additional discount amount to existing discount
+                                if "U_ItemDiscountAmount" in line_item:
+                                    line_item["U_ItemDiscountAmount"] += total_item_discount
+                                else:
+                                    line_item["U_ItemDiscountAmount"] = total_item_discount
+                                
+                                # Recalculate total discount percentage
+                                if original_price > 0:
+                                    total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
+                                    line_item["DiscountPercent"] = total_discount_percentage
+                                    logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+                        
+                        line_items.append(line_item)
+                else:
+                    # Regular line item (non-gift card or gift card with quantity 1)
+                    line_item = {
+                        "ItemCode": item_code,
+                        "Quantity": quantity,
+                        "UnitPrice": float(original_price),  # Always use original price (compareAtPrice)
+                        "WarehouseCode": warehouse_code,
+                        "COGSCostingCode": costing_codes['COGSCostingCode'],
+                        "COGSCostingCode2": costing_codes['COGSCostingCode2'],
+                        "COGSCostingCode3": costing_codes['COGSCostingCode3'],
+                        "CostingCode": costing_codes['CostingCode'],
+                        "CostingCode2": costing_codes['CostingCode2'],
+                        "CostingCode3": costing_codes['CostingCode3']                    
+                    }
+                    
+                    # Calculate discount percentage based on compareAtPrice vs sale price
+                    if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                        # Calculate discount percentage: (original - sale) / original * 100
+                        discount_amount = original_price - sale_price
+                        discount_percentage = (discount_amount / original_price) * 100
+                        line_item["DiscountPercent"] = float(discount_percentage)
+                        line_item["U_ItemDiscountAmount"] = float(discount_amount)
+                        logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
+                    
+                    # Also check for additional discount allocations (coupons, etc.)
+                    discount_allocations = item.get("discountAllocations", [])
+                    if discount_allocations:
+                        total_item_discount = sum(
+                            float(allocation.get("allocatedAmount", {}).get("amount", 0))
+                            for allocation in discount_allocations
+                        )
+                        if total_item_discount > 0:
+                            # Add additional discount amount to existing discount
+                            if "U_ItemDiscountAmount" in line_item:
+                                line_item["U_ItemDiscountAmount"] += total_item_discount
+                            else:
+                                line_item["U_ItemDiscountAmount"] = total_item_discount
+                            
+                            # Recalculate total discount percentage
+                            if original_price > 0:
+                                total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
+                                line_item["DiscountPercent"] = total_discount_percentage
+                                logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+                    
+                    # Check if this is a gift card line item and add U_GiftCard field
+                    if is_gift_card_item and created_gift_cards:
+                        # Find matching gift card for this line item
+                        for gift_card_info in created_gift_cards:
+                            if (gift_card_info.get("sku") == item_code and 
+                                abs(gift_card_info.get("amount", 0) - float(original_price)) < 0.01):
+                                # This is a gift card line item, add the gift card ID
+                                line_item["U_GiftCard"] = gift_card_info.get("gift_card_id")
+                                logger.info(f"Added U_GiftCard field to line item: {gift_card_info.get('gift_card_id')} for amount: {float(original_price)}")
+                                # Remove from list to avoid duplicate matching
+                                created_gift_cards.remove(gift_card_info)
+                                break
+                    
+                    line_items.append(line_item)
             
             # Add gift card expense entries if any gift cards were used
             payment_info = self._extract_payment_info(order_node)
@@ -742,21 +825,40 @@ class OrdersSalesSync:
                 logger.error(f"Failed to query gift cards: {result.get('error')}")
                 return []
             
+            # Check if result has the expected data structure
+            if not result.get("data") or not result["data"].get("giftCards"):
+                logger.warning(f"No gift cards data found in result: {result}")
+                return []
+            
             gift_cards = []
-            for edge in result["data"]["giftCards"]["edges"]:
-                gift_card = edge["node"]
-                # Check if this gift card belongs to our order
-                order_info = gift_card.get("order", {})
-                if order_info.get("id") == f"gid://shopify/Order/{order_id}":
-                    gift_cards.append({
-                        "id": gift_card["id"],
-                        "order_id": order_id,
-                        "initial_value": float(gift_card["initialValue"]["amount"]),
-                        "currency": gift_card["initialValue"]["currencyCode"],
-                        "created_at": gift_card["createdAt"],
-                        "expires_on": gift_card.get("expiresOn"),
-                        "customer_email": gift_card.get("customer", {}).get("email", "")
-                    })
+            gift_cards_edges = result["data"]["giftCards"].get("edges", [])
+            for edge in gift_cards_edges:
+                try:
+                    gift_card = edge.get("node", {})
+                    if not gift_card:
+                        logger.warning(f"Empty gift card node found: {edge}")
+                        continue
+                    
+                    # Check if this gift card belongs to our order
+                    order_info = gift_card.get("order", {})
+                    if order_info.get("id") == f"gid://shopify/Order/{order_id}":
+                        # Safely extract gift card data
+                        initial_value = gift_card.get("initialValue", {})
+                        if not initial_value:
+                            logger.warning(f"No initialValue found for gift card: {gift_card}")
+                            continue
+                            
+                        gift_cards.append({
+                            "id": gift_card.get("id", ""),
+                            "order_id": order_id,
+                            "initial_value": float(initial_value.get("amount", 0)),
+                            "currency": initial_value.get("currencyCode", "EGP"),
+                            "created_at": gift_card.get("createdAt", ""),
+                            "customer_email": gift_card.get("customer", {}).get("email", "")
+                        })
+                except Exception as e:
+                    logger.error(f"Error processing gift card edge: {str(e)} - Edge: {edge}")
+                    continue
             
             logger.info(f"Found {len(gift_cards)} gift cards for order {order_id}")
             return gift_cards
@@ -767,7 +869,8 @@ class OrdersSalesSync:
 
     async def _create_gift_cards_in_sap(self, gift_cards: List[Dict[str, Any]], order_date: str, customer_card_code: str, order_name: str, order_id: str, order_created_at: str, shopify_gift_cards: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
-        Create gift card entries in SAP for gift card purchases using actual gift card IDs from Shopify
+        Prepare gift card data for invoice lines without creating SAP GiftCards entity entries
+        For multiple gift cards of same amount, create separate entries for each
         """
         created_gift_cards = []
         
@@ -782,73 +885,127 @@ class OrdersSalesSync:
         
         for gift_card in gift_cards:
             try:
-                # Find matching Shopify gift card by amount
-                matching_shopify_gift_card = None
-                for shopify_gc in shopify_gift_cards:
-                    if abs(shopify_gc["initial_value"] - gift_card["line_total"]) < 0.01:
-                        matching_shopify_gift_card = shopify_gc
-                        break
+                quantity = gift_card["quantity"]
+                unit_price = gift_card["unit_price"]
                 
-                if not matching_shopify_gift_card:
-                    logger.warning(f"No matching gift card found in Shopify for amount {gift_card['line_total']} - creating with generated ID")
-                    # Generate a unique ID for this gift card
-                    numeric_id = f"GC{order_id}_{gift_card['line_total']}_{len(created_gift_cards)}"
-                else:
-                    # Use the actual Shopify gift card ID
-                    shopify_gift_card_id = matching_shopify_gift_card["id"]
-                    numeric_id = shopify_gift_card_id.split("/")[-1] if "/" in shopify_gift_card_id else shopify_gift_card_id
-                
-                # Check if gift card already exists in SAP
-                existing_gift_card = await self._check_gift_card_exists_in_sap(numeric_id)
-                
-                if existing_gift_card:
-                    # Gift card already exists, use it
-                    logger.info(f"Gift card {numeric_id} already exists in SAP, using existing record")
+                # For each gift card, create separate entries based on quantity
+                for i in range(quantity):
+                    # Find matching Shopify gift card by unit price (not line total)
+                    matching_shopify_gift_card = None
+                    
+                    # Debug: Log available gift cards and what we're looking for
+                    logger.info(f"Looking for gift card with unit price: {unit_price}")
+                    logger.info(f"Available Shopify gift cards: {[{'id': gc['id'], 'amount': gc['initial_value']} for gc in shopify_gift_cards]}")
+                    
+                    for shopify_gc in shopify_gift_cards:
+                        logger.info(f"Checking gift card {shopify_gc['id']} with amount {shopify_gc['initial_value']} against unit price {unit_price}")
+                        if abs(shopify_gc["initial_value"] - unit_price) < 0.01:
+                            matching_shopify_gift_card = shopify_gc
+                            logger.info(f"✅ Found matching gift card: {shopify_gc['id']}")
+                            break
+                    
+                    if not matching_shopify_gift_card:
+                        logger.warning(f"No matching gift card found in Shopify for unit price {unit_price} - creating with generated ID")
+                        # Generate a unique ID for this gift card
+                        numeric_id = f"GC{order_id}_{unit_price}_{len(created_gift_cards)}"
+                    else:
+                        # Use the actual Shopify gift card ID
+                        shopify_gift_card_id = matching_shopify_gift_card["id"]
+                        numeric_id = shopify_gift_card_id.split("/")[-1] if "/" in shopify_gift_card_id else shopify_gift_card_id
+                        # Remove the matched gift card from the list to avoid duplicate matching
+                        shopify_gift_cards.remove(matching_shopify_gift_card)
+                    
+                    # Skip SAP GiftCards entity creation - just prepare data for invoice lines
+                    logger.info(f"Preparing gift card data for invoice line: {numeric_id} - Amount: {unit_price} - SKU: {gift_card['sku']}")
                     created_gift_cards.append({
                         "gift_card_id": numeric_id,
-                        "amount": gift_card["line_total"],
+                        "amount": unit_price,  # Use unit price, not line total
                         "sku": gift_card["sku"],
-                        "sap_result": {"msg": "success", "existing": True}
+                        "sap_result": {"msg": "success", "skipped_entity_creation": True}
                     })
-                else:
-                    # Gift card doesn't exist, create it
-                    # Calculate expiration date (1 year from order date)
-                    from datetime import datetime, timedelta
-                    order_datetime = datetime.strptime(order_date, "%Y-%m-%d")
-                    expiration_date = order_datetime + timedelta(days=365)
-                    expiration_date_str = expiration_date.strftime("%Y-%m-%d")
-                    
-                    gift_card_data = {
-                        "Code": numeric_id,  # Use the actual gift card ID
-                        "U_ActiveDate": order_date,
-                        "U_ExpirDate": expiration_date_str,
-                        "U_Active": "Yes",
-                        "U_CardBal": gift_card["line_total"],
-                        "U_Customer": customer_card_code,
-                        "U_Location": "ONL",
-                        "U_Consumed": 0,
-                        "U_CardAmount": gift_card["line_total"],
-                        "U_Expired": "No"
-                    }
-                    
-                    # Create gift card in SAP
-                    result = await sap_client.create_gift_card(gift_card_data)
-                    
-                    if result["msg"] == "success":
-                        created_gift_cards.append({
-                            "gift_card_id": numeric_id,
-                            "amount": gift_card["line_total"],
-                            "sku": gift_card["sku"],
-                            "sap_result": result
-                        })
-                        logger.info(f"Created gift card in SAP: {numeric_id} - Amount: {gift_card['line_total']} - SKU: {gift_card['sku']}")
-                    else:
-                        logger.error(f"Failed to create gift card in SAP: {numeric_id} - Error: {result.get('error')}")
                         
             except Exception as e:
-                logger.error(f"Error creating gift card in SAP: {str(e)}")
+                logger.error(f"Error preparing gift card data: {str(e)}")
         
         return created_gift_cards
+
+    def _analyze_order_location_from_retail_location(self, order_node: Dict[str, Any], store_key: str) -> Dict[str, Any]:
+        """
+        Analyze order location using retailLocation field for POS orders, fallback to original method for web orders
+        """
+        try:
+            # Check if this is a POS order first
+            source_name = order_node.get("sourceName", "").lower()
+            is_pos_order = source_name == "pos"
+            
+            if is_pos_order:
+                # For POS orders, use retailLocation field
+                retail_location = order_node.get("retailLocation", {})
+                location_id = None
+                
+                if retail_location and retail_location.get("id"):
+                    # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/72406990914" -> "72406990914")
+                    location_gid = retail_location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    logger.info(f"Found retail location ID for POS order: {location_id}")
+                else:
+                    logger.warning("No retail location found in POS order, using default location mapping")
+                    # Fallback to default location mapping if no retail location
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                if not location_id:
+                    logger.warning("Could not extract location ID from retail location, using default location mapping")
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                # Get location mapping for this specific location
+                location_mapping = config_settings.get_location_mapping_for_location(store_key, location_id)
+                
+                if not location_mapping:
+                    logger.warning(f"No location mapping found for location {location_id}, using default location mapping")
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                # Get SAP codes for this location
+                sap_codes = {
+                    'COGSCostingCode': location_mapping.get('location_cc', 'ONL'),
+                    'COGSCostingCode2': location_mapping.get('department_cc', 'SAL'),
+                    'COGSCostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                    'CostingCode': location_mapping.get('location_cc', 'ONL'),
+                    'CostingCode2': location_mapping.get('department_cc', 'SAL'),
+                    'CostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                    'Warehouse': location_mapping.get('warehouse', 'SW')
+                }
+                
+                # Extract receipt number for POS orders
+                extracted_receipt_number = None
+                source_identifier = order_node.get("sourceIdentifier", "")
+                if source_identifier and "-" in source_identifier:
+                    # Extract receipt number from sourceIdentifier (e.g., "70074892354-1-1010" -> "1010")
+                    parts = source_identifier.split("-")
+                    if len(parts) >= 3:
+                        extracted_receipt_number = parts[2]
+                        logger.info(f"Extracted POS receipt number: {extracted_receipt_number}")
+                
+                return {
+                    "location_id": location_id,
+                    "location_mapping": location_mapping,
+                    "is_pos_order": True,
+                    "sap_codes": sap_codes,
+                    "extracted_receipt_number": extracted_receipt_number
+                }
+            else:
+                # For web/online orders, use the original method
+                logger.info("Web/online order detected, using original location mapping method")
+                from order_location_mapper import OrderLocationMapper
+                return OrderLocationMapper.analyze_order_source(order_node, store_key)
+            
+        except Exception as e:
+            logger.error(f"Error analyzing order location: {str(e)}")
+            # Fallback to original method
+            from order_location_mapper import OrderLocationMapper
+            return OrderLocationMapper.analyze_order_source(order_node, store_key)
 
     async def _check_gift_card_exists_in_sap(self, gift_card_id: str) -> bool:
         """
