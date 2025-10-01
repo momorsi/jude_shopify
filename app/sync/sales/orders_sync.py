@@ -1176,7 +1176,8 @@ class OrdersSalesSync:
                 "sap_doc_entry": created_invoice.get('DocEntry', ''),
                 "sap_doc_num": created_invoice.get('DocNum', ''),
                 "sap_trans_num": created_invoice.get('TransNum', ''),
-                "sap_doc_total": created_invoice.get('DocTotal', 0.0)
+                "sap_doc_total": created_invoice.get('DocTotal', 0.0),
+                "sap_doc_date": created_invoice.get('DocDate', datetime.now().strftime("%Y-%m-%d"))
             }
             
         except Exception as e:
@@ -1215,8 +1216,10 @@ class OrdersSalesSync:
                 raise ValueError("No DocEntry found in SAP invoice data")
             
             # Initialize payment data with the correct structure
+            # Use the same DocDate as the invoice
+            invoice_doc_date = sap_invoice_data.get("DocDate", datetime.now().strftime("%Y-%m-%d"))
             payment_data = {
-                "DocDate": datetime.now().strftime("%Y-%m-%d"),
+                "DocDate": invoice_doc_date,
                 "CardCode": customer_card_code,
                 "DocType": "rCustomer",
                 "Series": config_settings.get_series_for_location(store_key, location_analysis.get('location_mapping', {}), 'incoming_payments'),
@@ -2244,8 +2247,8 @@ class OrdersSalesSync:
             shipping_address = order_node.get("shippingAddress", {})
             billing_address = order_node.get("billingAddress", {})
             
-            # Get location mapping for this order
-            location_analysis = OrderLocationMapper.analyze_order_source(order_node, store_key)
+            # Get location mapping for this order using retail location
+            location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
             
             logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
@@ -2441,7 +2444,8 @@ class OrdersSalesSync:
                 "DocEntry": invoice_result["sap_doc_entry"],
                 "DocNum": invoice_result["sap_doc_num"],
                 "DocTotal": invoice_result["sap_doc_total"],
-                "TransNum": invoice_result["sap_trans_num"]
+                "TransNum": invoice_result["sap_trans_num"],
+                "DocDate": invoice_result["sap_doc_date"]
             }
             
             logger.info(f"Created invoice data: {created_invoice_data}")

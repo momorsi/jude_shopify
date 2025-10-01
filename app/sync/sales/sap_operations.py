@@ -42,7 +42,8 @@ class SAPOperations:
                 "sap_doc_entry": created_invoice.get('DocEntry', ''),
                 "sap_doc_num": created_invoice.get('DocNum', ''),
                 "sap_trans_num": created_invoice.get('TransNum', ''),
-                "sap_doc_total": created_invoice.get('DocTotal', 0.0)
+                "sap_doc_total": created_invoice.get('DocTotal', 0.0),
+                "sap_doc_date": created_invoice.get('DocDate', '')
             }
             
         except Exception as e:

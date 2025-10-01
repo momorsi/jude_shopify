@@ -117,7 +117,7 @@ class PaymentRecoverySync:
             # 2. Don't have sap_payment_synced or sap_payment_failed tags
             # 3. Are PAID
             from_date = config_settings.payment_recovery_from_date
-            query_filter = f"(financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded) AND tag:sap_invoice_synced AND -tag:sap_payment_synced AND -tag:sap_payment_failed created_at:>={from_date}"
+            query_filter = f"(financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded) tag:sap_invoice_synced -tag:sap_payment_synced -tag:sap_payment_failed created_at:>={from_date}"
             
             # Add retry logic for GraphQL queries to handle rate limiting
             max_retries = 3
@@ -230,7 +230,7 @@ class PaymentRecoverySync:
             # Query SAP for invoice with specific DocEntry
             endpoint = "Invoices"
             params = {
-                "$select": "DocEntry,CardCode,DocTotal,U_Shopify_Order_ID",
+                "$select": "DocEntry,CardCode,DocTotal,U_Shopify_Order_ID,DocDate",
                 "$filter": f"DocEntry eq {doc_entry}"
             }
             
@@ -282,8 +282,10 @@ class PaymentRecoverySync:
             payment_type = self._determine_payment_type(source_name, source_identifier, payment_info, location_type)
             
             # Initialize payment data
+            # Use the same DocDate as the invoice
+            invoice_doc_date = sap_invoice.get("DocDate", datetime.now().strftime("%Y-%m-%d"))
             payment_data = {
-                "DocDate": datetime.now().strftime("%Y-%m-%d"),
+                "DocDate": invoice_doc_date,
                 "CardCode": sap_invoice["CardCode"],
                 "DocType": "rCustomer",
                 "Series": 15,  # Series for incoming payments

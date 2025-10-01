@@ -391,8 +391,8 @@ class ReturnsSync:
                 
                 # Check for bin location allocation
                 try:
-                    # Get location mapping for this order
-                    location_analysis = OrderLocationMapper.analyze_order_source(order_node, store_key)
+                    # Get location mapping for this order using retail location
+                    location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
                     location_mapping = location_analysis.get('location_mapping', {})
                     
                     # Check if this location has a bin_location configured
@@ -732,3 +732,81 @@ class ReturnsSync:
                 "successful": 0,
                 "errors": 1
             }
+    
+    def _analyze_order_location_from_retail_location(self, order_node: Dict[str, Any], store_key: str) -> Dict[str, Any]:
+        """
+        Analyze order location using retailLocation field for POS orders, fallback to original method for web orders
+        """
+        try:
+            # Check if this is a POS order first
+            source_name = order_node.get("sourceName", "").lower()
+            is_pos_order = source_name == "pos"
+            
+            if is_pos_order:
+                # For POS orders, use retailLocation field
+                retail_location = order_node.get("retailLocation", {})
+                location_id = None
+                
+                if retail_location and retail_location.get("id"):
+                    # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/72406990914" -> "72406990914")
+                    location_gid = retail_location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    logger.info(f"Found retail location ID for POS order: {location_id}")
+                else:
+                    logger.warning("No retail location found in POS order, using default location mapping")
+                    # Fallback to default location mapping if no retail location
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                if not location_id:
+                    logger.warning("Could not extract location ID from retail location, using default location mapping")
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                # Get location mapping for this specific location
+                location_mapping = self.config_settings.get_location_mapping_for_location(store_key, location_id)
+                
+                if not location_mapping:
+                    logger.warning(f"No location mapping found for location {location_id}, using default location mapping")
+                    from order_location_mapper import OrderLocationMapper
+                    return OrderLocationMapper.analyze_order_source(order_node, store_key)
+                
+                # Get SAP codes for this location
+                sap_codes = {
+                    'COGSCostingCode': location_mapping.get('location_cc', 'ONL'),
+                    'COGSCostingCode2': location_mapping.get('department_cc', 'SAL'),
+                    'COGSCostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                    'CostingCode': location_mapping.get('location_cc', 'ONL'),
+                    'CostingCode2': location_mapping.get('department_cc', 'SAL'),
+                    'CostingCode3': location_mapping.get('activity_cc', 'OnlineS'),
+                    'Warehouse': location_mapping.get('warehouse', 'SW')
+                }
+                
+                # Extract receipt number for POS orders
+                extracted_receipt_number = None
+                source_identifier = order_node.get("sourceIdentifier", "")
+                if source_identifier and "-" in source_identifier:
+                    # Extract receipt number from sourceIdentifier (e.g., "70074892354-1-1010" -> "1010")
+                    parts = source_identifier.split("-")
+                    if len(parts) >= 3:
+                        extracted_receipt_number = parts[2]
+                        logger.info(f"Extracted POS receipt number: {extracted_receipt_number}")
+                
+                return {
+                    "location_id": location_id,
+                    "location_mapping": location_mapping,
+                    "is_pos_order": True,
+                    "sap_codes": sap_codes,
+                    "extracted_receipt_number": extracted_receipt_number
+                }
+            else:
+                # For web/online orders, use the original method
+                logger.info("Web/online order detected, using original location mapping method")
+                from order_location_mapper import OrderLocationMapper
+                return OrderLocationMapper.analyze_order_source(order_node, store_key)
+            
+        except Exception as e:
+            logger.error(f"Error analyzing order location: {str(e)}")
+            # Fallback to original method
+            from order_location_mapper import OrderLocationMapper
+            return OrderLocationMapper.analyze_order_source(order_node, store_key)

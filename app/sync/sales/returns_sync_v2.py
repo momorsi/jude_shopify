@@ -452,11 +452,17 @@ class ReturnsSyncV2:
             
             if existing_invoice_entry:
                 logger.info(f"Found existing invoice {existing_invoice_entry} for order {order_name}, skipping invoice creation")
+                
+                order_created_at = order.get("createdAt", "")
+                from datetime import datetime
+                parsed_date = datetime.fromisoformat(order_created_at.replace('Z', '+00:00'))
+                doc_date = parsed_date.strftime("%Y-%m-%d")
                 # Create a mock invoice result with existing DocEntry
                 new_invoice_result = {
                     "msg": "success",
                     "sap_doc_entry": existing_invoice_entry,
-                    "sap_doc_total": sum(refund["amount"] for refund in store_credit_refunds)
+                    "sap_doc_total": sum(refund["amount"] for refund in store_credit_refunds),
+                    "sap_doc_date": doc_date
                 }
             else:
                 # Create new invoice in SAP for gift card
@@ -1207,6 +1213,22 @@ class ReturnsSyncV2:
             # Get location analysis for invoice preparation (same as orders_sync)
             location_analysis = self._analyze_order_location_from_retail_location(order, store_key)
             
+            # Extract createdAt date from the original order for DocDate
+            order_created_at = order.get("createdAt", "")
+            if order_created_at:
+                # Parse the ISO date and format it for SAP
+                try:
+                    from datetime import datetime
+                    parsed_date = datetime.fromisoformat(order_created_at.replace('Z', '+00:00'))
+                    doc_date = parsed_date.strftime("%Y-%m-%d")
+                    logger.info(f"Using order createdAt date for gift card invoice DocDate: {doc_date}")
+                except Exception as e:
+                    logger.warning(f"Failed to parse order createdAt date '{order_created_at}': {str(e)}, using current date")
+                    doc_date = datetime.now().strftime("%Y-%m-%d")
+            else:
+                logger.warning("No createdAt date found in order, using current date")
+                doc_date = datetime.now().strftime("%Y-%m-%d")
+            
             # Use centralized invoice preparation
             invoice_data = self.sap_operations.prepare_invoice_data(
                 order_data=order,
@@ -1217,7 +1239,7 @@ class ReturnsSyncV2:
                 financial_status="PAID",
                 fulfillment_status="FULFILLED",
                 order_type="1",  # Gift card order
-                doc_date=datetime.now().strftime("%Y-%m-%d"),
+                doc_date=doc_date,
                 comments=f"Gift card created for refund - Order {order.get('name', '')}",
                 custom_fields={
                     "U_Shopify_Order_ID": order.get('id', '')
@@ -1250,7 +1272,8 @@ class ReturnsSyncV2:
                     "sap_doc_entry": result.get('sap_doc_entry'),
                     "sap_doc_num": result.get('sap_doc_num'),
                     "sap_trans_num": result.get('sap_trans_num'),
-                    "sap_doc_total": result.get('sap_doc_total')
+                    "sap_doc_total": result.get('sap_doc_total'),
+                    "sap_doc_date": doc_date  # Use the doc_date we calculated, not from SAP response
                 }
             else:
                 logger.error(f"Failed to create gift card invoice: {result.get('error')}")
@@ -1284,7 +1307,10 @@ class ReturnsSyncV2:
             payment_data = original_payment_details.copy()
             
             # Update only the necessary fields for the new payment
-            payment_data["DocDate"] = datetime.now().strftime("%Y-%m-%d")
+            # Use the same DocDate as the invoice
+            invoice_doc_date = invoice_result.get("sap_doc_date", datetime.now().strftime("%Y-%m-%d"))
+            logger.info(f"Using invoice DocDate for gift card payment: {invoice_doc_date}")
+            payment_data["DocDate"] = invoice_doc_date
             payment_data["U_Shopify_Order_ID"] = order.get("id", "").split("/")[-1] if "/" in order.get("id", "") else order.get("id", "")
             payment_data["PaymentInvoices"] = [{
                 "DocEntry": invoice_result.get("sap_doc_entry"),
