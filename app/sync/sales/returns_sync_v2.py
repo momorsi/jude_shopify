@@ -780,7 +780,7 @@ class ReturnsSyncV2:
                     method='GET',
                     endpoint=f'IncomingPayments({payment_entry})',
                     params={
-                        "$select": "TransferAccount,CashAccount,CardCode,CashSum,TransferSum,Series,Cancelled,PaymentCreditCards "
+                        "$select": "TransferAccount,CashAccount,CardCode,CashSum,TransferSum,Series,Cancelled,PaymentCreditCards"
                     }
                 )
                 
@@ -812,7 +812,8 @@ class ReturnsSyncV2:
                         "CardCode": payment_data.get("CardCode"),
                         "CashSum": payment_data.get("CashSum", 0),
                         "TransferSum": payment_data.get("TransferSum", 0),
-                        "Series": payment_data.get("Series")
+                        "Series": payment_data.get("Series"),
+                        "PaymentCreditCards": payment_data.get("PaymentCreditCards")
                     }
                 else:
                     logger.error(f"Failed to get payment details: {payment_result.get('error')}")
@@ -1079,16 +1080,16 @@ class ReturnsSyncV2:
                     
                     # Add revenue expense
                     if "revenue" in config: 
-                        config["revenue"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
-                        config["revenue"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
-                        config["revenue"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"                                               
+                        config["revenue"]["DistributionRule"] = sap_codes.get('location_cc', 'ONL') if sap_codes else "ONL"                                               
+                        config["revenue"]["DistributionRule2"] = sap_codes.get('department_cc', 'SAL') if sap_codes else "SAL"                                               
+                        config["revenue"]["DistributionRule3"] = sap_codes.get('activity_cc', 'OnlineS') if sap_codes else "OnlineS"                                               
                         expenses.append(config["revenue"])
                     
                     # Add cost expense
                     if "cost" in config:
-                        config["cost"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
-                        config["cost"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
-                        config["cost"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"  
+                        config["cost"]["DistributionRule"] = sap_codes.get('location_cc', 'ONL') if sap_codes else "ONL"                                               
+                        config["cost"]["DistributionRule2"] = sap_codes.get('department_cc', 'SAL') if sap_codes else "SAL"                                               
+                        config["cost"]["DistributionRule3"] = sap_codes.get('activity_cc', 'OnlineS') if sap_codes else "OnlineS"  
                         expenses.append(config["cost"])
                         
                     logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
@@ -1201,9 +1202,9 @@ class ReturnsSyncV2:
                         "LineTotal": -float(gift_card["amount"]),  # Negative amount
                         "Remarks": f"Gift Card: {gift_card['last_characters']}",
                         "U_GiftCard": gift_card["gift_card_id"],  # Add gift card ID to expense entry
-                        "DistributionRule": sap_codes.get('DistributionRule', 'ONL'),                                               
-                        "DistributionRule2": sap_codes.get('DistributionRule2', 'SAL'),                                               
-                        "DistributionRule3": sap_codes.get('DistributionRule3', 'OnlineS')   
+                        "DistributionRule": sap_codes.get('location_cc', 'ONL'),                                               
+                        "DistributionRule2": sap_codes.get('department_cc', 'SAL'),                                               
+                        "DistributionRule3": sap_codes.get('activity_cc', 'OnlineS')   
                     }
                     gift_card_expenses.append(gift_card_expense)
                     logger.info(f"🎁 Created gift card expense: {gift_card['last_characters']} - Amount: -{gift_card['amount']}")
@@ -1306,19 +1307,40 @@ class ReturnsSyncV2:
             # Copy the exact payment data from original payment
             payment_data = original_payment_details.copy()
             
+            # Ensure PaymentCreditCards array is preserved if it exists in original payment
+            if "PaymentCreditCards" in original_payment_details:
+                payment_data["PaymentCreditCards"] = original_payment_details["PaymentCreditCards"]
+                logger.info(f"Preserved PaymentCreditCards array with {len(original_payment_details['PaymentCreditCards'])} credit cards")
+            
             # Update only the necessary fields for the new payment
             # Use the same DocDate as the invoice
             invoice_doc_date = invoice_result.get("sap_doc_date", datetime.now().strftime("%Y-%m-%d"))
             logger.info(f"Using invoice DocDate for gift card payment: {invoice_doc_date}")
             payment_data["DocDate"] = invoice_doc_date
             payment_data["U_Shopify_Order_ID"] = order.get("id", "").split("/")[-1] if "/" in order.get("id", "") else order.get("id", "")
+            # Calculate total sum from all payment methods in original payment
+            total_sum = 0
+            if "CashSum" in original_payment_details:
+                total_sum += original_payment_details["CashSum"]
+            if "TransferSum" in original_payment_details:
+                total_sum += original_payment_details["TransferSum"]
+            if "PaymentCreditCards" in original_payment_details:
+                for credit_card in original_payment_details["PaymentCreditCards"]:
+                    total_sum += credit_card.get("CreditSum", 0)
+            
             payment_data["PaymentInvoices"] = [{
                 "DocEntry": invoice_result.get("sap_doc_entry"),
-                "SumApplied": original_payment_details.get("CashSum", 0) + original_payment_details.get("TransferSum", 0),
+                "SumApplied": total_sum,
                 "InvoiceType": "it_Invoice"
             }]
             
-            logger.info(f"Using exact original payment data - Cash: {original_payment_details.get('CashSum', 0)}, Transfer: {original_payment_details.get('TransferSum', 0)}")
+            logger.info(f"Using exact original payment data - Cash: {original_payment_details.get('CashSum', 0)}, Transfer: {original_payment_details.get('TransferSum', 0)}, CreditCards: {len(original_payment_details.get('PaymentCreditCards', []))} cards")
+            
+            # Log the final payment data structure being sent to SAP
+            logger.info(f"Gift card payment data structure - CashSum: {payment_data.get('CashSum', 'N/A')}, TransferSum: {payment_data.get('TransferSum', 'N/A')}, PaymentCreditCards: {len(payment_data.get('PaymentCreditCards', []))} cards")
+            if payment_data.get('PaymentCreditCards'):
+                for i, card in enumerate(payment_data['PaymentCreditCards']):
+                    logger.info(f"  Credit Card {i+1}: CreditCard={card.get('CreditCard')}, CreditSum={card.get('CreditSum')}, CreditCur={card.get('CreditCur')}")
             
             # Create incoming payment using shared operations
             result = await self.sap_operations.create_incoming_payment_in_sap(payment_data, order_name)

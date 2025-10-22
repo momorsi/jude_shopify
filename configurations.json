@@ -44,6 +44,7 @@
                         "activity_cc": "OnlineS",
                         "bin_location": 24,
                         "group_code": 110,
+                        "sales_employee": 28,
                         "series": {
                             "invoices": 82,
                             "credit_notes": 85,
@@ -68,18 +69,21 @@
                         "department_cc": "SAL",
                         "activity_cc": "General",
                         "group_code": 100,
+                        "sales_employee": 28,
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
                         "bank_transfers": {                                                                                
-                            "Valu POS": "10801231",
-                            "Fawry POS": "10801246"
+                            
                         },
                         "credit": {
-                            "Geidea POS": "10801235",
-                            "Paymob POS": "10801247"
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801226"
                         
@@ -91,18 +95,20 @@
                         "department_cc": "SAL",
                         "activity_cc": "General",
                         "group_code": 100,
+                        "sales_employee": 33,
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                                                
-                            "Valu POS": "10801231",
-                            "Fawry POS": "10801246"
+                        "bank_transfers": {          
                         },
                         "credit": {
-                            "Geidea POS": "10801235",
-                            "Paymob POS": "10801247"
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801228"
                     },
@@ -113,18 +119,20 @@
                         "department_cc": "SAL",
                         "activity_cc": "General",
                         "group_code": 100,
+                        "sales_employee": 34,
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                                                
-                            "Valu POS": "10801231",
-                            "Fawry POS": "10801246"
+                        "bank_transfers": {           
                         },
                         "credit": {
-                            "Geidea POS": "10801235",
-                            "Paymob POS": "10801247"
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801239"
                     },
@@ -135,18 +143,20 @@
                         "department_cc": "SAL",
                         "activity_cc": "General",
                         "group_code": 100,
+                        "sales_employee": 32,
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                                                
-                            "Valu POS": "10801231",
-                            "Fawry POS": "10801246"
+                        "bank_transfers": {          
                         },
                         "credit": {
-                            "Geidea POS": "10801235",
-                            "Paymob POS": "10801247"
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801227"
                     },
@@ -157,18 +167,20 @@
                         "department_cc": "SAL",
                         "activity_cc": "General",
                         "group_code": 100,
+                        "sales_employee": 35,
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                                                
-                            "Valu POS": "10801231",
-                            "Fawry POS": "10801246"
+                        "bank_transfers": {           
                         },
                         "credit": {
-                            "Geidea POS": "10801235",
-                            "Paymob POS": "10801247"
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801229"
                     },
@@ -179,18 +191,20 @@
                         "department_cc": "SAL",
                         "activity_cc": "General",
                         "group_code": 100,
+                        "sales_employee": 36,
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                                                
-                            "Valu POS": "10801231",
-                            "Fawry POS": "10801246"
+                        "bank_transfers": {       
                         },
                         "credit": {
-                            "Geidea POS": "10801235",
-                            "Paymob POS": "10801247"
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801248"
                     }
@@ -261,22 +275,22 @@
 
         "sales": {
             "orders": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 5,
                 "batch_size": 10,
-                "from_date": "2025-09-10"
+                "from_date": "2025-10-20"
             },
             "payment_recovery": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 15,
                 "batch_size": 50,
-                "from_date": "2025-09-10"
+                "from_date": "2025-10-20"
             },
             "returns": {
                 "enabled": true,
                 "interval_minutes": 10,
                 "batch_size": 10,
-                "from_date": "2025-09-10"
+                "from_date": "2025-10-20"
             }
         }
     },

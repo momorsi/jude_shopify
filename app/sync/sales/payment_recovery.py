@@ -289,19 +289,26 @@ class PaymentRecoverySync:
                 "CardCode": sap_invoice["CardCode"],
                 "DocType": "rCustomer",
                 "Series": 15,  # Series for incoming payments
-                "TransferSum": sap_invoice["DocTotal"],  # Use the invoice total from SAP
-                "TransferAccount": "",
                 "U_Shopify_Order_ID": order_id_number  # Add Shopify Order ID (numeric)
             }
             
+            # Initialize payment method fields based on order type
+            if location_type == "online":
+                # Online orders always use transfers
+                payment_data["TransferSum"] = sap_invoice["DocTotal"]
+                payment_data["TransferAccount"] = ""
+            else:
+                # POS orders - will be set based on payment type below
+                pass
+            
             # Add POS receipt number if this is a POS order
-            if location_analysis and location_analysis.get('is_pos_order') and location_analysis.get('extracted_receipt_number'):
-                payment_data["U_POS_Receipt_Number"] = location_analysis['extracted_receipt_number']
-                logger.info(f"Added POS receipt number to payment: {location_analysis['extracted_receipt_number']}")
+            #if location_analysis and location_analysis.get('is_pos_order') and location_analysis.get('extracted_receipt_number'):
+            #    payment_data["U_POS_Receipt_Number"] = location_analysis['extracted_receipt_number']
+            #    logger.info(f"Added POS receipt number to payment: {location_analysis['extracted_receipt_number']}")
             
             # Set payment method based on type and location
-            if payment_type == "PaidOnline":
-                # Online payments - use location-based bank transfer account
+            if location_type == "online":
+                # All online orders use transfers (regardless of payment_type)
                 gateway = payment_info.get('gateway', 'Paymob')
                 transfer_account = config_settings.get_bank_transfer_for_location(
                     store_key, 
@@ -352,25 +359,55 @@ class PaymentRecoverySync:
                 payment_data["TransferAccount"] = transfer_account
                 logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
                 
-            elif payment_type == "Cash":
+            elif location_type == "store" and payment_type == "Cash":
                 # Cash payment at store - use cash account from location mapping
                 cash_account = config_settings.get_cash_account_for_location(location_analysis.get('location_mapping', {}))
                 if cash_account:
-                    payment_data["TransferAccount"] = cash_account
+                    payment_data["CashSum"] = sap_invoice["DocTotal"]
+                    payment_data["CashAccount"] = cash_account
                     logger.info(f"Cash payment at store - using cash account: {cash_account}")
                 else:
                     logger.warning(f"No cash account configured for location, using transfer sum only")
                 
-            elif payment_type == "CreditCard":
-                # Credit card payment at store - use location-based bank transfer
+            elif location_type == "store" and payment_type == "CreditCard":
+                # Credit card payment at store - use PaymentCreditCards structure
                 gateway = payment_info.get('gateway', 'Geidea')
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Credit card payment at store - using {gateway} account: {transfer_account}")
+                location_mapping = location_analysis.get('location_mapping', {})
+                
+                # Create credit card payment object
+                cred_obj = {}
+                
+                # Get credit account from configuration
+                credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
+                if credit_account:
+                    cred_obj['CreditCard'] = credit_account
+                else:
+                    logger.warning(f"No credit account found for gateway: {gateway}")
+                    # Fallback to transfer if no credit account
+                    transfer_account = config_settings.get_bank_transfer_for_location(
+                        store_key, location_mapping, gateway
+                    )
+                    payment_data["TransferAccount"] = transfer_account
+                    logger.info(f"Credit card payment fallback - using transfer account: {transfer_account}")
+                    return payment_data
+                
+                cred_obj['CreditCardNumber'] = "1234"
+                
+                # Calculate next month date
+                from datetime import datetime, timedelta
+                next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                res = next_month - timedelta(days=next_month.day)
+                cred_obj['CardValidUntil'] = str(res.date())
+                
+                cred_obj['VoucherNum'] = gateway
+                cred_obj['PaymentMethodCode'] = 1
+                cred_obj['CreditSum'] = sap_invoice["DocTotal"]
+                cred_obj['CreditCur'] = "EGP"
+                cred_obj['CreditType'] = "cr_Regular"
+                cred_obj['SplitPayments'] = "tNO"
+                
+                payment_data["PaymentCreditCards"] = [cred_obj]
+                logger.info(f"Credit card payment at store - using {gateway} account: {credit_account}")
                 
             else:
                 # Default to transfer for unknown payment types

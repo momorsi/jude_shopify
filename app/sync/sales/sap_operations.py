@@ -119,7 +119,7 @@ class SAPOperations:
                 "NumAtCard": order_data.get('name', '').replace("#", ""),
                 "Series": series,
                 "Comments": comments,
-                "SalesPersonCode": 28,
+                "SalesPersonCode": location_analysis.get('location_mapping', {}).get('sales_employee', 28),
                 "DocumentLines": line_items,
                 "U_Pay_type": 1 if financial_status in ["PAID", "PARTIALLY_REFUNDED"] else 2 if store_key == "local" else 3,
                 "U_Shopify_Order_ID": order_data.get('id', '').split("/")[-1] if "/" in order_data.get('id', '') else order_data.get('id', ''),
@@ -236,12 +236,11 @@ class SAPOperations:
                 else:
                     # Fallback to creating new credit card details
                     cred_obj = {}
-                    cred_obj['CreditCard'] = 1
                     
                     # Get credit account from configuration
                     credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
                     if credit_account:
-                        cred_obj['CreditAcct'] = credit_account
+                        cred_obj['CreditCard'] = credit_account
                     else:
                         logger.warning(f"No credit account found for gateway: {gateway}")
                         return payment_data
