@@ -93,7 +93,8 @@ class ReturnsSyncV2:
                 # Query for refunded orders that need processing
                 filter_query = (
                     f"""tag:returntest 
-                    financial_status:refunded OR financial_status:partially_refunded OR return_status:RETURNED
+                    fulfillment_status:fulfilled
+                    (financial_status:refunded OR financial_status:partially_refunded OR return_status:RETURNED)
                     tag:sap_invoice_synced 
                     tag:sap_payment_synced 
                     -tag:sap_return_synced 

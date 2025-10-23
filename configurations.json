@@ -7,7 +7,7 @@
         "password": "Azmjude$1",
         "language": "en_US",
         "timeout": 30,
-        "custom_giftcard": "SR-0000073" 
+        "custom_giftcard": "SR-0000073"
     },
     "shopify": {
         "stores": {
@@ -18,7 +18,7 @@
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "EGP",
-                "price_list": 1,                
+                "price_list": 1,
                 "enabled": true
             },
             "international": {
@@ -50,8 +50,8 @@
                             "credit_notes": 85,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {   
-                            "local":{                                                 
+                        "bank_transfers": {
+                            "local": {
                                 "Tuyingo": "10801245",
                                 "Loadbugs": "10801238",
                                 "Payfort": "10801236",
@@ -75,9 +75,7 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {                                                                                
-                            
-                        },
+                        "bank_transfers": {},
                         "credit": {
                             "Geidea POS": 2,
                             "Paymob POS": 6,
@@ -86,7 +84,6 @@
                             "QNB POS": 3
                         },
                         "cash": "10801226"
-                        
                     },
                     "70074892354": {
                         "type": "store",
@@ -101,8 +98,7 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {          
-                        },
+                        "bank_transfers": {},
                         "credit": {
                             "Geidea POS": 2,
                             "Paymob POS": 6,
@@ -125,8 +121,7 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {           
-                        },
+                        "bank_transfers": {},
                         "credit": {
                             "Geidea POS": 2,
                             "Paymob POS": 6,
@@ -149,8 +144,7 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {          
-                        },
+                        "bank_transfers": {},
                         "credit": {
                             "Geidea POS": 2,
                             "Paymob POS": 6,
@@ -173,8 +167,7 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {           
-                        },
+                        "bank_transfers": {},
                         "credit": {
                             "Geidea POS": 2,
                             "Paymob POS": 6,
@@ -197,8 +190,7 @@
                             "credit_notes": 84,
                             "incoming_payments": 15
                         },
-                        "bank_transfers": {       
-                        },
+                        "bank_transfers": {},
                         "credit": {
                             "Geidea POS": 2,
                             "Paymob POS": 6,
@@ -227,19 +219,52 @@
                 }
             }
         },
+        "freight_master_data": {
+            "Tuyingo": 6,
+            "Loadbugs": 5,
+            "DHL": 1
+        },
         "freight_config": {
             "local": {
+                "100": {
+                    "revenue": {
+                        "ExpenseCode": 5,
+                        "LineTotal": 60
+                    },
+                    "cost": {
+                        "ExpenseCode": 4,
+                        "LineTotal": 40
+                    }
+                },
                 "120": {
-                    "revenue": {"ExpenseCode": 4, "LineTotal": 30},
-                    "cost": {"ExpenseCode": 6, "LineTotal": 90}
+                    "revenue": {
+                        "ExpenseCode": 6,
+                        "LineTotal": 90
+                    },
+                    "cost": {
+                        "ExpenseCode": 4,
+                        "LineTotal": 30
+                    }
                 },
                 "160": {
-                    "revenue": {"ExpenseCode": 4, "LineTotal": 60},
-                    "cost": {"ExpenseCode": 6, "LineTotal": 100}
+                    "revenue": {
+                        "ExpenseCode": 6,
+                        "LineTotal": 100
+                    },
+                    "cost": {
+                        "ExpenseCode": 4,
+                        "LineTotal": 60
+                    }
                 },
                 "200": {
-                    "revenue": {"ExpenseCode": 4, "LineTotal": 80},
-                    "cost": {"ExpenseCode": 6, "LineTotal": 120}
+                    "revenue": {
+                        "ExpenseCode": 6,
+                        "LineTotal": 120
+                    },
+                    "cost": {
+                        "ExpenseCode": 4,
+                        "LineTotal": 80
+                    }
                 }
             },
             "international": {
@@ -249,7 +274,7 @@
                 }
             }
         }
-    },    
+    },
     "sync": {
         "new_items": {
             "enabled": false,
@@ -260,7 +285,9 @@
             "enabled": false,
             "interval_minutes": 2,
             "batch_size": 50,
-            "locations": ["your_location_id"]
+            "locations": [
+                "your_location_id"
+            ]
         },
         "item_changes": {
             "enabled": false,
@@ -272,10 +299,14 @@
             "interval_minutes": 3,
             "batch_size": 50
         },
-
+        "freight_prices": {
+            "enabled": false,
+            "run_time": "06:00",
+            "timezone": "UTC"
+        },
         "sales": {
             "orders": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 5,
                 "batch_size": 10,
                 "from_date": "2025-10-20"
@@ -287,7 +318,7 @@
                 "from_date": "2025-10-20"
             },
             "returns": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 10,
                 "batch_size": 10,
                 "from_date": "2025-10-20"
@@ -304,4 +335,4 @@
         "max_attempts": 3,
         "delay_seconds": 5
     }
-} 
+}

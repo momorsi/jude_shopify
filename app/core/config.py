@@ -417,6 +417,11 @@ class ConfigSettings(BaseSettings):
     price_changes_interval: int = config_data['sync']['price_changes']['interval_minutes']
     price_changes_batch_size: int = config_data['sync']['price_changes']['batch_size']
     
+    # Freight Prices Sync Settings
+    freight_prices_enabled: bool = config_data['sync']['freight_prices']['enabled']
+    freight_prices_run_time: str = config_data['sync']['freight_prices']['run_time']
+    freight_prices_timezone: str = config_data['sync']['freight_prices']['timezone']
+    
 
     
     # Sales Module Settings

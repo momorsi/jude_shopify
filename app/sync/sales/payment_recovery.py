@@ -117,7 +117,7 @@ class PaymentRecoverySync:
             # 2. Don't have sap_payment_synced or sap_payment_failed tags
             # 3. Are PAID
             from_date = config_settings.payment_recovery_from_date
-            query_filter = f"(financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded) tag:sap_invoice_synced -tag:sap_payment_synced -tag:sap_payment_failed created_at:>={from_date}"
+            query_filter = f"(financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded) fulfillment_status:fulfilled tag:sap_invoice_synced -tag:sap_payment_synced -tag:sap_payment_failed created_at:>={from_date}"
             
             # Add retry logic for GraphQL queries to handle rate limiting
             max_retries = 3

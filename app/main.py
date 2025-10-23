@@ -85,6 +85,33 @@ class ShopifySAPSync:
         logger.info("Starting price changes sync...")
         return await price_changes_sync.sync_price_changes()
     
+    async def run_freight_prices_sync(self) -> Dict[str, Any]:
+        """
+        Run freight prices sync (SAP → Configuration)
+        """
+        logger.info("Starting freight prices sync...")
+        from app.sync.freight_sync import freight_sync
+        result = await freight_sync.sync_freight_prices()
+        
+        # Convert result format to match other syncs
+        if result.get("success"):
+            return {
+                "msg": "success",
+                "processed": 1,
+                "successful": 1,
+                "errors": 0,
+                "local_entries": result.get("local_entries", 0),
+                "international_entries": result.get("international_entries", 0)
+            }
+        else:
+            return {
+                "msg": "failure",
+                "error": result.get("error", "Unknown error"),
+                "processed": 0,
+                "successful": 0,
+                "errors": 1
+            }
+    
     async def run_all_syncs(self) -> Dict[str, Any]:
         """
         Run all enabled syncs in sequence
@@ -108,7 +135,9 @@ class ShopifySAPSync:
         if config_settings.price_changes_enabled:
             results["price_changes"] = await self.run_price_changes_sync()
         
-
+        # Freight prices sync (check config)
+        if config_settings.freight_prices_enabled:
+            results["freight_prices"] = await self.run_freight_prices_sync()
         
         # Sales Module syncs
         
@@ -173,6 +202,7 @@ class ShopifySAPSync:
             "stock": self.run_stock_change_sync,
             "item_changes": self.run_item_changes_sync,
             "price_changes": self.run_price_changes_sync,
+            "freight_prices": self.run_freight_prices_sync,
     
             "sales_orders": self.run_sales_orders_sync,
             "payment_recovery": self.run_payment_recovery_sync,
@@ -226,6 +256,12 @@ class ShopifySAPSync:
             tasks.append(price_changes_task)
             logger.info(f"Price changes sync scheduled to run every {config_settings.price_changes_interval} minutes")
         
+        if config_settings.freight_prices_enabled:
+            freight_prices_task = asyncio.create_task(
+                self._run_freight_sync_daily()
+            )
+            tasks.append(freight_prices_task)
+            logger.info(f"Freight prices sync scheduled to run daily at {config_settings.freight_prices_run_time}")
 
         
         # Sales Module continuous syncs
@@ -294,6 +330,60 @@ class ShopifySAPSync:
             if self.running:
                 logger.info(f"Waiting {interval_minutes} minutes before next {sync_type} sync...")
                 await asyncio.sleep(interval_minutes * 60)  # Convert minutes to seconds
+    
+    async def _run_freight_sync_daily(self):
+        """
+        Run freight sync daily at the specified time
+        """
+        import datetime
+        import pytz
+        
+        while self.running:
+            try:
+                # Get current time in the configured timezone
+                timezone = pytz.timezone(config_settings.freight_prices_timezone)
+                now = datetime.datetime.now(timezone)
+                
+                # Parse the run time (format: "HH:MM")
+                run_time_parts = config_settings.freight_prices_run_time.split(":")
+                run_hour = int(run_time_parts[0])
+                run_minute = int(run_time_parts[1])
+                
+                # Create target time for today
+                target_time = now.replace(hour=run_hour, minute=run_minute, second=0, microsecond=0)
+                
+                # If target time has passed today, schedule for tomorrow
+                if now >= target_time:
+                    target_time += datetime.timedelta(days=1)
+                
+                # Calculate seconds until target time
+                seconds_until_run = (target_time - now).total_seconds()
+                
+                logger.info(f"Freight sync scheduled for {target_time.strftime('%Y-%m-%d %H:%M:%S')} ({config_settings.freight_prices_timezone})")
+                logger.info(f"Waiting {seconds_until_run/3600:.1f} hours until next freight sync...")
+                
+                # Wait until target time
+                await asyncio.sleep(seconds_until_run)
+                
+                if self.running:
+                    logger.info("Running daily freight sync...")
+                    result = await self.run_specific_sync("freight_prices")
+                    
+                    if result["msg"] == "success":
+                        logger.info(f"✅ Freight sync completed successfully")
+                        if "local_entries" in result:
+                            logger.info(f"   - Local entries: {result.get('local_entries', 0)}")
+                            logger.info(f"   - International entries: {result.get('international_entries', 0)}")
+                    else:
+                        logger.error(f"❌ Freight sync failed: {result.get('error')}")
+                
+            except Exception as e:
+                logger.error(f"❌ Exception in freight sync: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Wait 1 hour before retrying on error
+                if self.running:
+                    await asyncio.sleep(3600)
 
 async def main():
     """
@@ -304,7 +394,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "item_changes", "price_changes", "sales_orders", "payment_recovery", "returns", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "freight_prices", "sales_orders", "payment_recovery", "returns", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(

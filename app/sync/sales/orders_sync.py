@@ -234,7 +234,7 @@ class OrdersSalesSync:
             # Filter to only include orders with "take" tag and exclude orders that already have sap_invoice_synced or sap_invoice_failed tags
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
-            query_filter = f"tag:salestest -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
+            query_filter = f"tag:salestest fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -307,6 +307,7 @@ class OrdersSalesSync:
             # Get location mapping for this order using retailLocation field
             location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
+            location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
             
             # Use location-based costing codes, fallback to defaults if not available
             default_codes = {
@@ -434,11 +435,6 @@ class OrdersSalesSync:
                                 for allocation in discount_allocations
                             )
                             if total_item_discount > 0:
-                                # Add additional discount amount to existing discount
-                                if "U_ItemDiscountAmount" in line_item:
-                                    line_item["U_ItemDiscountAmount"] += total_item_discount
-                                else:
-                                    line_item["U_ItemDiscountAmount"] = total_item_discount
                                 
                                 # Recalculate total discount percentage
                                 if original_price > 0:
@@ -517,9 +513,9 @@ class OrdersSalesSync:
                         "LineTotal": -float(gift_card["amount"]),  # Negative amount
                         "Remarks": f"Gift Card: {gift_card['last_characters']}",
                         "U_GiftCard": gift_card["gift_card_id"],  # Add gift card ID to expense entry
-                        "DistributionRule": sap_codes.get('DistributionRule', 'ONL'),                                               
-                        "DistributionRule2": sap_codes.get('DistributionRule2', 'SAL'),                                               
-                        "DistributionRule3": sap_codes.get('DistributionRule3', 'OnlineS')   
+                        "DistributionRule": costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL",                                               
+                        "DistributionRule2": costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL",                                               
+                        "DistributionRule3": costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"   
                     }
                     gift_card_expenses.append(gift_card_expense)
                     logger.info(f"🎁 Created gift card expense: {gift_card['last_characters']} - Amount: -{gift_card['amount']}")
@@ -530,7 +526,7 @@ class OrdersSalesSync:
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
             
             # Calculate freight expenses
-            freight_expenses = self._calculate_freight_expenses(order_node, store_key, sap_codes)
+            freight_expenses = self._calculate_freight_expenses(order_node, store_key, sap_codes, costing_codes)
             
             # Generate address strings
             shipping_address = order_node.get("shippingAddress", {})
@@ -1087,7 +1083,7 @@ class OrdersSalesSync:
         else:
             return ", ".join(address_parts)
 
-    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str, sap_codes: Dict[str, str] = None) -> List[Dict[str, Any]]:
+    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str, sap_codes: Dict[str, str] = None, costing_codes: Dict[str, str] = None) -> List[Dict[str, Any]]:
         """
         Calculate freight expenses based on shipping fee and store configuration
         """
@@ -1114,16 +1110,16 @@ class OrdersSalesSync:
                     
                     # Add revenue expense
                     if "revenue" in config: 
-                        config["revenue"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
-                        config["revenue"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
-                        config["revenue"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"                                               
+                        config["revenue"]["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
+                        config["revenue"]["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
+                        config["revenue"]["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                                                                          
                         expenses.append(config["revenue"])
                     
                     # Add cost expense
                     if "cost" in config:
-                        config["cost"]["DistributionRule"] = sap_codes.get('DistributionRule', 'ONL') if sap_codes else "ONL"                                               
-                        config["cost"]["DistributionRule2"] = sap_codes.get('DistributionRule2', 'SAL') if sap_codes else "SAL"                                               
-                        config["cost"]["DistributionRule3"] = sap_codes.get('DistributionRule3', 'OnlineS') if sap_codes else "OnlineS"  
+                        config["cost"]["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
+                        config["cost"]["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
+                        config["cost"]["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                             
                         expenses.append(config["cost"])
                         
                     logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
@@ -1137,6 +1133,13 @@ class OrdersSalesSync:
                     # Set the actual shipping price as the line total
                     dhl_expense = dhl_config.copy()
                     dhl_expense["LineTotal"] = shipping_price
+                    
+                    # Apply location-specific costing codes to DHL expense
+                    if sap_codes:
+                        dhl_expense["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
+                        dhl_expense["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
+                        dhl_expense["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                             
+                    
                     expenses.append(dhl_expense)
                     
                     logger.info(f"Applied DHL freight expense for international order: {dhl_expense}")

@@ -59,6 +59,10 @@ async def run_all_enabled_syncs():
         enabled_syncs.append("returns")
         print(f"✅ Returns Sync: Enabled (every {config_settings.returns_interval} minutes)")
     
+    if config_settings.freight_prices_enabled:
+        enabled_syncs.append("freight_prices")
+        print(f"✅ Freight Prices Sync: Enabled (daily at {config_settings.freight_prices_run_time})")
+    
     if not enabled_syncs:
         print("❌ No sync processes are enabled in configuration!")
         print("Please enable at least one sync in configurations.json")
