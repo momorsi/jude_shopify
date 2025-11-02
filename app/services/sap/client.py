@@ -54,7 +54,7 @@ class SAPClient:
     
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def _make_request(self, method: str, endpoint: str, data: Dict = None, 
-                           params: Dict = None, login_required: bool = True, order_id: str = "") -> Dict[str, Any]:
+                           params: Dict = None, headers: Dict = None, login_required: bool = True, order_id: str = "") -> Dict[str, Any]:
         """Make HTTP request to SAP with automatic session management"""
         
         # Ensure we have a valid session
@@ -62,7 +62,7 @@ class SAPClient:
             if not await self._login():
                 return {"msg": "failure", "error": "Failed to login to SAP"}
         
-        headers = {
+        headers = headers or {
             'Content-Type': 'application/json',
             'Accept': '*/*'
         }

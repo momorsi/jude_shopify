@@ -73,7 +73,7 @@ class ItemsInitialization:
         retry_delay = 2  # Start with 2 seconds
         query = """
         query GetUnsyncedProducts($cursor: String) {
-            products(first: 150, after: $cursor, query: "status:active") {
+            products(first: 150, after: $cursor) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -188,7 +188,7 @@ class ItemsInitialization:
         sync_status = self._get_sync_status(product)
         
         # Skip products that are already synced or failed
-        if sync_status in ["synced", "failed"]:
+        if sync_status in ["synced", "failed", "synced_prd"]:
             if sync_status == "synced":
                 logger.info(f"Product {product_id} already synced, skipping")
             else:
@@ -636,14 +636,14 @@ class ItemsInitialization:
         # Build query filter based on status
         if status:
             # Filter by specific status
-            query_filter = f'status:active AND metafield:custom.sap_sync="{status}"'
+            query_filter = f'metafield:custom.sap_sync="{status}"'
         else:
             # Get all products without sync status (not yet processed)
-            query_filter = 'status:active AND -metafield:custom.sap_sync'
+            query_filter = '-metafield:custom.sap_sync'
         
         query = """
         query GetProductsBySyncStatus($cursor: String, $query: String!) {
-            products(first: 250, after: $cursor, query: $query) {
+            products(first: 150, after: $cursor, query: $query) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -666,7 +666,7 @@ class ItemsInitialization:
                                 }
                             }
                         }
-                        variants(first: 250) {
+                        variants(first: 15) {
                             edges {
                                 node {
                                     id

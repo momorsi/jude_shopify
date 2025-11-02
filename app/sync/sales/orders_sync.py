@@ -6,6 +6,7 @@ Syncs orders from Shopify to SAP with customer management and invoice creation
 import asyncio
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
+from app.services.sap.api_logger import sl_add_log
 from app.services.sap.client import sap_client
 from app.services.shopify.multi_store_client import multi_store_shopify_client
 from app.core.config import config_settings
@@ -234,7 +235,7 @@ class OrdersSalesSync:
             # Filter to only include orders with "take" tag and exclude orders that already have sap_invoice_synced or sap_invoice_failed tags
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
-            query_filter = f"tag:salestest fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
+            query_filter = f"channel:{config_settings.sales_orders_channel} fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -308,6 +309,10 @@ class OrdersSalesSync:
             location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
             location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
+            
+            courier_name = ""
+            if location_type == "online":
+                courier_name = self._extract_courier_from_metafields(order_node)
             
             # Use location-based costing codes, fallback to defaults if not available
             default_codes = {
@@ -526,7 +531,7 @@ class OrdersSalesSync:
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
             
             # Calculate freight expenses
-            freight_expenses = self._calculate_freight_expenses(order_node, store_key, sap_codes, costing_codes)
+            freight_expenses = self._calculate_freight_expenses(order_node, store_key, sap_codes, costing_codes, courier_name)
             
             # Generate address strings
             shipping_address = order_node.get("shippingAddress", {})
@@ -1083,7 +1088,7 @@ class OrdersSalesSync:
         else:
             return ", ".join(address_parts)
 
-    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str, sap_codes: Dict[str, str] = None, costing_codes: Dict[str, str] = None) -> List[Dict[str, Any]]:
+    def _calculate_freight_expenses(self, order_node: Dict[str, Any], store_key: str, sap_codes: Dict[str, str] = None, costing_codes: Dict[str, str] = None, courier_name: str = "") -> List[Dict[str, Any]]:
         """
         Calculate freight expenses based on shipping fee and store configuration
         """
@@ -1098,7 +1103,12 @@ class OrdersSalesSync:
             from app.core.config import config_data
             freight_config = config_data['shopify'].get("freight_config", {})
             store_freight_config = freight_config.get(store_key, {})
-            
+            freight_master_data = config_data['shopify'].get("freight_master_data", {})
+            if courier_name in freight_master_data:           
+                freight_code = freight_master_data[courier_name]
+            else:
+                freight_code = 6
+
             expenses = []
             
             if store_key == "local":
@@ -1113,6 +1123,7 @@ class OrdersSalesSync:
                         config["revenue"]["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
                         config["revenue"]["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
                         config["revenue"]["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                                                                          
+                        config["revenue"]["ExpenseCode"] = freight_code
                         expenses.append(config["revenue"])
                     
                     # Add cost expense
@@ -1120,6 +1131,7 @@ class OrdersSalesSync:
                         config["cost"]["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
                         config["cost"]["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
                         config["cost"]["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                             
+                        config["cost"]["ExpenseCode"] = freight_master_data["Cost"]
                         expenses.append(config["cost"])
                         
                     logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
@@ -2157,7 +2169,7 @@ class OrdersSalesSync:
                 try:
                     async with httpx.AsyncClient(timeout=30.0) as client:
                         # Get current order to see existing tags
-                        order_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}.json"
+                        order_url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/orders/{order_id_number}.json"
                         
                         # First, get the current order
                         order_response = await client.get(order_url, headers=headers)
@@ -2253,6 +2265,30 @@ class OrdersSalesSync:
             # Get location mapping for this order using retail location
             location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
+            location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
+            
+            courier_name = ""
+            if location_type == "online":
+                courier_name = self._extract_courier_from_metafields(order_node)
+                
+                # Check if courier name is missing for orders with shipping fee
+                if courier_name == "":
+                    shipping_fee = float(order_node.get("totalShippingPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                    if shipping_fee > 0:                
+                        #add the tag "sap_invoice_failed" to the order
+                        await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
+                        #log in api_log
+                        await sl_add_log(
+                            server="shopify",
+                            endpoint="orders_sync",
+                            request_data={"order_id": order_id, "order_name": order_name, "error": "No courier name found for order with shipping fee"},
+                            response_data=None,
+                            status="failure"
+                        )
+                        logger.error(f"No courier name found for order {order_name} with shipping fee {shipping_fee}")
+                        return {"msg": "failure", "error": "No courier name found for order with shipping fee"}
+                    else:
+                        logger.info(f"Order {order_name} is pickup (no shipping fee) - proceeding without courier name")
             
             logger.info(f"Processing order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
             logger.info(f"Payment Gateway: {payment_info['gateway']} | Card Type: {payment_info['card_type']} | Amount: {payment_info['amount']}")
@@ -2440,6 +2476,7 @@ class OrdersSalesSync:
             # Create invoice in SAP
             invoice_result = await self.create_invoice_in_sap(sap_invoice_data, order_id_number)
             if invoice_result["msg"] == "failure":
+                await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
                 return invoice_result
             
             # Get the created invoice data with DocEntry, DocTotal, and TransNum

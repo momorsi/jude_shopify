@@ -431,14 +431,17 @@ class ConfigSettings(BaseSettings):
     sales_orders_interval: int = config_data['sync']['sales']['orders']['interval_minutes']
     sales_orders_batch_size: int = config_data['sync']['sales']['orders']['batch_size']
     sales_orders_from_date: str = config_data['sync']['sales']['orders']['from_date']
+    sales_orders_channel: str = config_data['sync']['sales']['orders']['channel']
     payment_recovery_enabled: bool = config_data['sync']['sales']['payment_recovery']['enabled']
     payment_recovery_interval: int = config_data['sync']['sales']['payment_recovery']['interval_minutes']
     payment_recovery_batch_size: int = config_data['sync']['sales']['payment_recovery']['batch_size']
     payment_recovery_from_date: str = config_data['sync']['sales']['payment_recovery']['from_date']
+    payment_recovery_channel: str = config_data['sync']['sales']['payment_recovery']['channel']
     returns_enabled: bool = config_data['sync']['sales']['returns']['enabled']
     returns_interval: int = config_data['sync']['sales']['returns']['interval_minutes']
     returns_batch_size: int = config_data['sync']['sales']['returns']['batch_size']
     returns_from_date: str = config_data['sync']['sales']['returns']['from_date']
+    returns_channel: str = config_data['sync']['sales']['returns']['channel']
     # Series configuration will be determined dynamically based on location mapping
     # Default fallback values (can be overridden by location-specific series)
     sales_series_invoices: int = config_data['shopify']['location_warehouse_mapping']['local']['locations']['web']['series']['invoices']

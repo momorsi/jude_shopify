@@ -161,7 +161,8 @@ class InventorySync:
                 
                 # Fetch rows from the view filtered by store
                 query = f"view.svc/MASHURA_StockChangeB1SLQuery?$filter=Shopify_Store eq '{store_key}'"
-                result = await sap_client._make_request("GET", query)
+                headers = {'Content-Type': 'application/json', 'Accept': '*/*', 'Prefer': f'odata.maxpagesize={self.batch_size}'}
+                result = await sap_client._make_request("GET", query, headers=headers)
                 
                 if result["msg"] != "success":
                     logger.error(f"Failed to fetch stock changes for store {store_key}: {result.get('error')}")

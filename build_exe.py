@@ -41,7 +41,7 @@ def build_executable():
     result = subprocess.run([
         "pyinstaller",
         "--clean",
-        "shopify_sap_integration.spec"
+        "continuous_sync.spec"
     ], capture_output=True, text=True)
     
     if result.returncode == 0:
@@ -53,13 +53,26 @@ def build_executable():
             print(f"📦 Executable created: {exe_path}")
             print(f"📁 Size: {exe_path.stat().st_size / (1024*1024):.1f} MB")
             
-            # Create a simple batch file for easy execution
+            # Create a batch file for easy execution with continuous mode
             batch_content = """@echo off
-echo Starting Shopify-SAP Integration...
+echo ========================================
+echo Shopify-SAP Integration - Continuous Mode
+echo ========================================
+echo.
+echo This will run all enabled sync processes continuously.
+echo Each sync process will run on its own interval as configured.
+echo.
+echo Press Ctrl+C to stop all syncs gracefully.
+echo.
+pause
+echo.
+echo Starting continuous sync...
 ShopifySAPIntegration.exe
+echo.
+echo Continuous sync stopped.
 pause
 """
-            batch_path = dist_dir / "run_sync.bat"
+            batch_path = dist_dir / "run_continuous_sync.bat"
             with open(batch_path, 'w') as f:
                 f.write(batch_content)
             
@@ -72,7 +85,8 @@ pause
             
             print("\n🎉 Build completed successfully!")
             print("📁 Output directory: dist/")
-            print("🚀 To run: double-click run_sync.bat or ShopifySAPIntegration.exe")
+            print("🚀 To run: double-click run_continuous_sync.bat or ShopifySAPIntegration.exe")
+            print("ℹ️  The executable will run in continuous mode by default")
             
         else:
             print("❌ Executable not found in dist directory")

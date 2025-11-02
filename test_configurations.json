@@ -1,13 +1,13 @@
 {
-    "test_mode": false,
+    "test_mode": true,
     "sap": {
         "server": "https://10.0.0.100:50000/b1s/v1",
-        "company": "JudeBenHalim_New",
+        "company": "JudeBenHalim_Test",
         "user": "manager",
         "password": "Azmjude$1",
         "language": "en_US",
         "timeout": 30,
-        "custom_giftcard": "SR-0000083"
+        "custom_giftcard": "SR-0000073"
     },
     "shopify": {
         "stores": {
@@ -24,7 +24,7 @@
             "international": {
                 "name": "International Store",
                 "shop_url": "int-judebenhalim.myshopify.com",
-                "access_token": "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",
+                "access_token": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "USD",
@@ -32,7 +32,7 @@
                 "enabled": false
             }
         },
-        "webhook_secret": "my_webhook_secret",
+        "webhook_secret": "your_webhook_secret",
         "location_warehouse_mapping": {
             "local": {
                 "locations": {
@@ -77,11 +77,11 @@
                         },
                         "bank_transfers": {},
                         "credit": {
-                            "Geidea POS": 1,
-                            "QNB POS": 2,
-                            "Fawry POS": 3,
-                            "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801226"
                     },
@@ -100,11 +100,11 @@
                         },
                         "bank_transfers": {},
                         "credit": {
-                            "Geidea POS": 1,
-                            "QNB POS": 2,
-                            "Fawry POS": 3,
-                            "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801228"
                     },
@@ -123,11 +123,11 @@
                         },
                         "bank_transfers": {},
                         "credit": {
-                            "Geidea POS": 1,
-                            "QNB POS": 2,
-                            "Fawry POS": 3,
-                            "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801239"
                     },
@@ -146,11 +146,11 @@
                         },
                         "bank_transfers": {},
                         "credit": {
-                            "Geidea POS": 1,
-                            "QNB POS": 2,
-                            "Fawry POS": 3,
-                            "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801227"
                     },
@@ -169,11 +169,11 @@
                         },
                         "bank_transfers": {},
                         "credit": {
-                            "Geidea POS": 1,
-                            "QNB POS": 2,
-                            "Fawry POS": 3,
-                            "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3
                         },
                         "cash": "10801229"
                     },
@@ -192,11 +192,11 @@
                         },
                         "bank_transfers": {},
                         "credit": {
-                            "Geidea POS": 1,
-                            "QNB POS": 2,
-                            "Fawry POS": 3,
-                            "Valu POS": 4,
-                            "Paymob POS": 5                                                                                    
+                            "Geidea POS": 2,
+                            "Paymob POS": 6,
+                            "Valu POS": 5,
+                            "Fawry POS": 4,
+                            "QNB POS": 3                                                                                    
                         },
                         "cash": "10801248"
                     }
@@ -222,8 +222,7 @@
         "freight_master_data": {
             "Tuyingo": 6,
             "Loadbugs": 5,
-            "DHL": 1,
-            "Cost": 4
+            "DHL": 1
         },
         "freight_config": {
             "local": {
@@ -279,12 +278,12 @@
     "sync": {
         "new_items": {
             "enabled": false,
-            "interval_minutes": 90,
+            "interval_minutes": 10,
             "batch_size": 50
         },
         "inventory": {
             "enabled": false,
-            "interval_minutes": 5,
+            "interval_minutes": 2,
             "batch_size": 50,
             "locations": [
                 "your_location_id"
@@ -292,12 +291,12 @@
         },
         "item_changes": {
             "enabled": false,
-            "interval_minutes": 60,
+            "interval_minutes": 5,
             "batch_size": 50
         },
         "price_changes": {
             "enabled": false,
-            "interval_minutes": 100,
+            "interval_minutes": 3,
             "batch_size": 50
         },
         "freight_prices": {
@@ -305,27 +304,24 @@
             "run_time": "06:00",
             "timezone": "UTC"
         },
-        "sales": {            
+        "sales": {
             "orders": {
-                "enabled": false,
-                "interval_minutes": 15,
+                "enabled": true,
+                "interval_minutes": 5,
                 "batch_size": 10,
-                "from_date": "2025-10-30",
-                "channel": "web"
+                "from_date": "2025-10-20"
             },
             "payment_recovery": {
-                "enabled": true,
-                "interval_minutes": 30,
+                "enabled": false,
+                "interval_minutes": 15,
                 "batch_size": 50,
-                "from_date": "2025-10-30",
-                "channel": "web"
+                "from_date": "2025-10-20"
             },
             "returns": {
                 "enabled": false,
-                "interval_minutes": 20,
+                "interval_minutes": 10,
                 "batch_size": 10,
-                "from_date": "2025-10-30",
-                "channel": "web"
+                "from_date": "2025-10-20"
             }
         }
     },

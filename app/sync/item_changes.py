@@ -22,9 +22,9 @@ class ItemChangesSync:
         """
         try:
             # Query the MASHURA_ItemChangeB1SLQuery view
-            query = f"view.svc/MASHURA_ItemChangeB1SLQuery?$filter=Shopify_Store eq '{store_key}'"
-            
-            result = await sap_client._make_request("GET", query)
+            query = f"view.svc/MASHURA_ItemChangeB1SLQuery?$filter=Shopify_Store eq '{store_key}'"         
+            headers = {'Content-Type': 'application/json', 'Accept': '*/*', 'Prefer': f'odata.maxpagesize={self.batch_size}'}
+            result = await sap_client._make_request("GET", query, headers=headers)
             
             if result["msg"] == "failure":
                 logger.error(f"Failed to get item changes from SAP for store {store_key}: {result.get('error')}")

@@ -23,8 +23,8 @@ class PriceChangesSync:
         try:
             # Query the MASHURA_PriceChangeB1SLQuery view
             query = f"view.svc/MASHURA_PriceChangeB1SLQuery?$filter=Shopify_Store eq '{store_key}'"
-            
-            result = await sap_client._make_request("GET", query)
+            headers = {'Content-Type': 'application/json', 'Accept': '*/*', 'Prefer': f'odata.maxpagesize={self.batch_size}'}
+            result = await sap_client._make_request("GET", query, headers=headers)
             
             if result["msg"] == "failure":
                 logger.error(f"Failed to get price changes from SAP for store {store_key}: {result.get('error')}")
