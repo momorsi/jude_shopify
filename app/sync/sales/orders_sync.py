@@ -44,6 +44,20 @@ class OrdersSalesSync:
                         displayFulfillmentStatus
                         sourceName
                         sourceIdentifier
+                        fulfillmentOrders(first: 10) {
+                            edges {
+                                node {
+                                    assignedLocation {
+                                        location {
+                                            id
+                                        }
+                                    }
+                                    deliveryMethod {
+                                        methodType
+                                    }
+                                }
+                            }
+                        }
                         retailLocation {
                             id
                         }
@@ -330,6 +344,28 @@ class OrdersSalesSync:
             
             logger.info(f"Using location-based costing codes for order {order_node.get('name', 'Unknown')}: {costing_codes}")
             
+            # Check if this is a pickup order and get warehouse code from pickup location
+            pickup_warehouse_code = None
+            fulfillment_orders = order_node.get("fulfillmentOrders", {}).get("edges", [])
+            if fulfillment_orders:
+                # Check first fulfillment order for PICK_UP method
+                first_fulfillment = fulfillment_orders[0].get("node", {})
+                delivery_method = first_fulfillment.get("deliveryMethod", {})
+                if delivery_method.get("methodType") == "PICK_UP":
+                    assigned_location = first_fulfillment.get("assignedLocation", {})
+                    location = assigned_location.get("location", {})
+                    if location and location.get("id"):
+                        # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/70074957890" -> "70074957890")
+                        location_gid = location["id"]
+                        location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                        # Get warehouse code from location mapping
+                        location_mapping = config_settings.get_location_mapping_for_location(store_key, location_id)
+                        if location_mapping:
+                            pickup_warehouse_code = location_mapping.get('warehouse', 'SW')
+                            logger.info(f"Detected PICK_UP order - using warehouse code '{pickup_warehouse_code}' from location {location_id}")
+                        else:
+                            logger.warning(f"PICK_UP order detected but no location mapping found for location {location_id}, using default warehouse code")
+            
             # Map line items with discount information
             line_items = []
             for item_edge in order_node["lineItems"]["edges"]:
@@ -377,7 +413,11 @@ class OrdersSalesSync:
                     item_code = "ACC-0000001"  # Default item only if no SKU available
                 
                 # Get warehouse code based on order location (use location-based warehouse if available)
-                warehouse_code = costing_codes.get('Warehouse', config_settings.get_warehouse_code_for_order(store_key, order_node))
+                # For pickup orders, use the pickup location warehouse code
+                if pickup_warehouse_code:
+                    warehouse_code = pickup_warehouse_code
+                else:
+                    warehouse_code = costing_codes.get('Warehouse', config_settings.get_warehouse_code_for_order(store_key, order_node))
                 
                 # Check if this is a gift card line item
                 is_gift_card_item = False
@@ -2516,6 +2556,37 @@ class OrdersSalesSync:
             
             logger.info(f"✅ Invoice created and tagged for order {order_name}")
             
+            if created_invoice_data['DocTotal'] == 0:
+                logger.info(f"Invoice {created_invoice_data['DocEntry']} has a total of 0 - skipping payment creation")                
+                await self.add_order_tag(
+                        store_key,
+                        order_id,
+                        "sap_payment_synced"
+                    )
+                await self.add_order_tag(
+                        store_key,
+                        order_id,
+                        "sap_payment_0000"
+                    )
+                return {
+                    "msg": "success",
+                    "order_name": order_name,
+                    "sap_invoice_number": created_invoice_data['DocEntry'],
+                    "sap_payment_number": None,
+                    "customer_card_code": sap_customer["CardCode"],
+                    "financial_status": financial_status,
+                    "fulfillment_status": fulfillment_status,
+                    "payment_id": payment_info.get("payment_id", "Unknown"),
+                    "payment_gateway": payment_info.get("gateway", "Unknown"),
+                    "payment_amount": payment_info.get("amount", 0.0),
+                    "is_online_payment": payment_info.get("is_online_payment", False),
+                    "gift_cards": payment_info.get("gift_cards", []),
+                    "total_gift_card_amount": payment_info.get("total_gift_card_amount", 0.0),
+                    "discount_info": discount_info,
+                    "shipping_address": shipping_address,
+                    "billing_address": billing_address
+                }
+            
             # Check if order is paid and create incoming payment
             # Treat PARTIALLY_REFUNDED as PAID for payment processing (order was paid, then partially refunded)
             sap_payment_number = None
@@ -2741,6 +2812,17 @@ class OrdersSalesSync:
                             else:
                                 total_errors += 1
                                 logger.error(f"❌ Failed to process order: {result.get('error')}")
+                                
+                                # Add invoice failure tag and log to API
+                                order_name = order_node.get('name', 'Unknown')
+                                await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
+                                await sl_add_log(
+                                    server="shopify",
+                                    endpoint="orders_sync",
+                                    request_data={"order_id": order_id, "order_name": order_name, "error": result.get('error')},
+                                    response_data=None,
+                                    status="failure"
+                                )
                             
                             total_processed += 1
                             
@@ -2977,6 +3059,17 @@ class OrdersSalesSync:
                                 total_errors += 1
 
                                 logger.error(f"❌ Failed to process order: {result.get('error')}")
+                                
+                                # Add invoice failure tag and log to API
+                                order_name = order_node.get('name', 'Unknown')
+                                await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
+                                await sl_add_log(
+                                    server="shopify",
+                                    endpoint="orders_sync",
+                                    request_data={"order_id": order_id, "order_name": order_name, "error": result.get('error')},
+                                    response_data=None,
+                                    status="failure"
+                                )
 
                             
 

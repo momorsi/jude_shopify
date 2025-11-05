@@ -307,14 +307,14 @@
         },
         "sales": {            
             "orders": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 15,
                 "batch_size": 10,
                 "from_date": "2025-10-30",
                 "channel": "web"
             },
             "payment_recovery": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 30,
                 "batch_size": 50,
                 "from_date": "2025-10-30",

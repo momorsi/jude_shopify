@@ -117,6 +117,20 @@ class ReturnsSyncV2:
                                 returnStatus
                                 sourceName
                                 sourceIdentifier
+                                fulfillmentOrders(first: 10) {
+                                    edges {
+                                        node {
+                                            assignedLocation {
+                                                location {
+                                                    id
+                                                }
+                                            }
+                                            deliveryMethod {
+                                                methodType
+                                            }
+                                        }
+                                    }
+                                }
                                 totalPriceSet {
                                     shopMoney {
                                         amount
@@ -1164,6 +1178,33 @@ class ReturnsSyncV2:
             
             # Get warehouse code from sap_codes (same as orders_sync)
             warehouse_code_from_location = sap_codes.get('Warehouse', 'SW') 
+            
+            # Check if this is a pickup order and get warehouse code from pickup location
+            pickup_warehouse_code = None
+            fulfillment_orders = order.get("fulfillmentOrders", {}).get("edges", [])
+            if fulfillment_orders:
+                # Check first fulfillment order for PICK_UP method
+                first_fulfillment = fulfillment_orders[0].get("node", {})
+                delivery_method = first_fulfillment.get("deliveryMethod", {})
+                if delivery_method.get("methodType") == "PICK_UP":
+                    assigned_location = first_fulfillment.get("assignedLocation", {})
+                    location = assigned_location.get("location", {})
+                    if location and location.get("id"):
+                        # Extract location ID from GraphQL ID (e.g., "gid://shopify/Location/70074957890" -> "70074957890")
+                        location_gid = location["id"]
+                        location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                        # Get warehouse code from location mapping
+                        location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                        if location_mapping:
+                            pickup_warehouse_code = location_mapping.get('warehouse', 'SW')
+                            logger.info(f"Detected PICK_UP order - using warehouse code '{pickup_warehouse_code}' from location {location_id}")
+                        else:
+                            logger.warning(f"PICK_UP order detected but no location mapping found for location {location_id}, using default warehouse code")
+            
+            # For pickup orders, use the pickup location warehouse code
+            if pickup_warehouse_code:
+                warehouse_code_from_location = pickup_warehouse_code
+            
             logger.info(f"Using warehouse code '{warehouse_code_from_location}' for gift card invoice")
             
             # Extract non-returned items (currentQuantity > 0) and non-gift card items
