@@ -458,7 +458,10 @@ class ReturnsSyncV2:
             # Always check and cancel original SAP documents if needed
             original_payment_details = await self._check_and_cancel_original_documents(sap_doc_entries, order_name)
             
-            if not original_payment_details:
+            # Check if there was no original payment (invoice had DocTotal = 0)
+            no_original_payment = original_payment_details and original_payment_details.get("_no_payment") == True
+            
+            if original_payment_details is None and not no_original_payment:
                 logger.error(f"Failed to process original documents for order {order_name}")
                 return
             
@@ -492,6 +495,17 @@ class ReturnsSyncV2:
                 else:
                     logger.info(f"✅ Using existing invoice {existing_invoice_entry} for order {order_name}")
                 
+                # Check if gift card invoice has DocTotal = 0 (similar to orders_sync)
+                invoice_doc_total = new_invoice_result.get('sap_doc_total', 0)
+                if invoice_doc_total == 0:
+                    logger.info(f"Gift card invoice {new_invoice_result.get('sap_doc_entry')} has a total of 0 - skipping payment creation")
+                    payment_synced_tag = "sap_giftcard_payment_synced"
+                    await self._add_order_tag_with_retry(order_id, payment_synced_tag, store_key)
+                    # Tag order as processed since invoice was created successfully (even without payment)
+                    await self._add_order_tag_with_retry(order_id, "sap_return_synced", store_key)
+                    logger.info(f"✅ Successfully processed return for order {order_name} (invoice created, payment skipped due to DocTotal = 0)")
+                    return
+                
                 # Check if payment already exists
                 existing_payment_entry = self._get_existing_payment_entry(order)
                 
@@ -503,6 +517,16 @@ class ReturnsSyncV2:
                         "sap_doc_entry": existing_payment_entry
                     }
                 else:
+                    # Check if there was no original payment - if so, we can't create a new payment
+                    if no_original_payment:
+                        logger.info(f"No original payment details available for order {order_name} - skipping payment creation")
+                        payment_synced_tag = "sap_giftcard_payment_synced"
+                        await self._add_order_tag_with_retry(order_id, payment_synced_tag, store_key)
+                        # Tag order as processed since invoice was created successfully
+                        await self._add_order_tag_with_retry(order_id, "sap_return_synced", store_key)
+                        logger.info(f"✅ Successfully processed return for order {order_name} (invoice created, payment skipped - no original payment)")
+                        return
+                    
                     # Create incoming payment for the new invoice using original payment details
                     payment_result = await self._create_gift_card_payment(new_invoice_result, original_payment_details, order_name, order, store_key)
                 
@@ -788,63 +812,78 @@ class ReturnsSyncV2:
             # Check and cancel incoming payment if needed
             if "payment" in sap_doc_entries:
                 payment_entry = sap_doc_entries["payment"]
-                logger.info(f"Checking incoming payment {payment_entry} for order {order_name}")
                 
-                # Get payment details first
-                payment_result = await self.sap_client._make_request(
-                    method='GET',
-                    endpoint=f'IncomingPayments({payment_entry})',
-                    params={
-                        "$select": "TransferAccount,CashAccount,CardCode,CashSum,TransferSum,Series,Cancelled,PaymentCreditCards"
-                    }
-                )
-                
-                if payment_result["msg"] == "success":
-                    payment_data = payment_result["data"]
-                    
-                    # Check if payment is already cancelled
-                    if payment_data.get("Cancelled") == "tNO":
-                        logger.info(f"Cancelling incoming payment {payment_entry}")
-                        
-                        cancel_result = await self.sap_client._make_request(
-                            method='POST',
-                            endpoint=f'IncomingPayments({payment_entry})/Cancel',
-                            data={}
-                        )
-                        
-                        if cancel_result["msg"] == "success":
-                            logger.info(f"✅ Successfully cancelled incoming payment {payment_entry}")
-                        else:
-                            logger.error(f"Failed to cancel incoming payment {payment_entry}: {cancel_result.get('error')}")
-                            return None
-                    else:
-                        logger.info(f"Incoming payment {payment_entry} is already cancelled")
-                    
-                    # Extract payment details for new payment
-                    payment_details = {
-                        "TransferAccount": payment_data.get("TransferAccount"),
-                        "CashAccount": payment_data.get("CashAccount"),
-                        "CardCode": payment_data.get("CardCode"),
-                        "CashSum": payment_data.get("CashSum", 0),
-                        "TransferSum": payment_data.get("TransferSum", 0),
-                        "Series": payment_data.get("Series"),
-                        "PaymentCreditCards": payment_data.get("PaymentCreditCards")
-                    }
+                # Check if payment entry is "0000" or invalid (no payment was created)
+                if payment_entry == "0000" or not payment_entry or payment_entry == "0":
+                    logger.info(f"Payment entry is {payment_entry} for order {order_name} - skipping payment cancellation (no payment exists)")
+                    # Mark that there was no payment - we'll need to get CardCode from invoice instead
+                    payment_details = {"_no_payment": True}
                 else:
-                    logger.error(f"Failed to get payment details: {payment_result.get('error')}")
-                    return None
+                    logger.info(f"Checking incoming payment {payment_entry} for order {order_name}")
+                    
+                    # Get payment details first
+                    payment_result = await self.sap_client._make_request(
+                        method='GET',
+                        endpoint=f'IncomingPayments({payment_entry})',
+                        params={
+                            "$select": "TransferAccount,CashAccount,CardCode,CashSum,TransferSum,Series,Cancelled,PaymentCreditCards"
+                        }
+                    )
+                    
+                    if payment_result["msg"] == "success":
+                        payment_data = payment_result["data"]
+                        
+                        # Check if payment is already cancelled
+                        if payment_data.get("Cancelled") == "tNO":
+                            logger.info(f"Cancelling incoming payment {payment_entry}")
+                            
+                            cancel_result = await self.sap_client._make_request(
+                                method='POST',
+                                endpoint=f'IncomingPayments({payment_entry})/Cancel',
+                                data={}
+                            )
+                            
+                            if cancel_result["msg"] == "success":
+                                logger.info(f"✅ Successfully cancelled incoming payment {payment_entry}")
+                            else:
+                                logger.error(f"Failed to cancel incoming payment {payment_entry}: {cancel_result.get('error')}")
+                                return None
+                        else:
+                            logger.info(f"Incoming payment {payment_entry} is already cancelled")
+                        
+                        # Extract payment details for new payment
+                        payment_details = {
+                            "TransferAccount": payment_data.get("TransferAccount"),
+                            "CashAccount": payment_data.get("CashAccount"),
+                            "CardCode": payment_data.get("CardCode"),
+                            "CashSum": payment_data.get("CashSum", 0),
+                            "TransferSum": payment_data.get("TransferSum", 0),
+                            "Series": payment_data.get("Series"),
+                            "PaymentCreditCards": payment_data.get("PaymentCreditCards")
+                        }
+                    else:
+                        logger.error(f"Failed to get payment details: {payment_result.get('error')}")
+                        return None
+            else:
+                # No payment entry in tags - original invoice likely had DocTotal = 0
+                logger.info(f"No payment entry found in tags for order {order_name} - original invoice likely had DocTotal = 0")
+                payment_details = {"_no_payment": True}
             
             # Check and cancel invoice if needed
             if "invoice" in sap_doc_entries:
                 invoice_entry = sap_doc_entries["invoice"]
                 logger.info(f"Checking invoice {invoice_entry} for order {order_name}")
                 
-                # Get invoice details
+                # Get invoice details - also get CardCode if we don't have payment details
+                select_fields = "Cancelled"
+                if payment_details and payment_details.get("_no_payment"):
+                    select_fields = "Cancelled,CardCode"
+                
                 invoice_result = await self.sap_client._make_request(
                     method='GET',
                     endpoint=f'Invoices({invoice_entry})',
                     params={
-                        "$select": "Cancelled"
+                        "$select": select_fields
                     }
                 )
                 
@@ -868,6 +907,11 @@ class ReturnsSyncV2:
                             return None
                     else:
                         logger.info(f"Invoice {invoice_entry} is already cancelled")
+                    
+                    # If we don't have payment details (no payment existed), get CardCode from invoice
+                    if payment_details and payment_details.get("_no_payment") and invoice_data.get("CardCode"):
+                        payment_details["CardCode"] = invoice_data.get("CardCode")
+                        logger.info(f"Retrieved CardCode {invoice_data.get('CardCode')} from invoice for order {order_name}")
                 else:
                     logger.error(f"Failed to get invoice details: {invoice_result.get('error')}")
                     return None

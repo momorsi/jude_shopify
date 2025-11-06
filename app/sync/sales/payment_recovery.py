@@ -230,7 +230,7 @@ class PaymentRecoverySync:
             # Query SAP for invoice with specific DocEntry
             endpoint = "Invoices"
             params = {
-                "$select": "DocEntry,CardCode,DocTotal,U_Shopify_Order_ID,DocDate",
+                "$select": "DocEntry,CardCode,DocTotal,U_Shopify_Order_ID,DocDate,DocTotalFc",
                 "$filter": f"DocEntry eq {doc_entry}"
             }
             
@@ -295,7 +295,7 @@ class PaymentRecoverySync:
             # Initialize payment method fields based on order type
             if location_type == "online":
                 # Online orders always use transfers
-                payment_data["TransferSum"] = sap_invoice["DocTotal"]
+                payment_data["TransferSum"] = sap_invoice["DocTotalFc"] if sap_invoice["DocTotalFc"] != 0 else sap_invoice["DocTotal"]
                 payment_data["TransferAccount"] = ""
             else:
                 # POS orders - will be set based on payment type below
