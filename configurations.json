@@ -19,7 +19,7 @@
                 "timeout": 45,
                 "currency": "EGP",
                 "price_list": 1,
-                "enabled": true
+                "enabled": false
             },
             "international": {
                 "name": "International Store",
@@ -29,7 +29,7 @@
                 "timeout": 45,
                 "currency": "USD",
                 "price_list": 7,
-                "enabled": false
+                "enabled": true
             }
         },
         "webhook_secret": "my_webhook_secret",
@@ -208,13 +208,23 @@
                         "warehouse": "SW",
                         "location_cc": "ONL",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "OnlineS",
+                        "bank_transfers": {
+                            "international": {
+                                "N-Genius Online by Network": "10801237"
+                            }
+                        }
                     },
                     "73474179162": {
                         "warehouse": "SW",
                         "location_cc": "ONL",
                         "department_cc": "SAL",
-                        "activity_cc": "OnlineS"
+                        "activity_cc": "OnlineS",                        
+                        "bank_transfers": {
+                            "international": {
+                                "N-Genius Online by Network": "10801237"
+                            }
+                        }
                     }
                 }
             }
@@ -307,14 +317,14 @@
         },
         "sales": {            
             "orders": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 15,
                 "batch_size": 10,
                 "from_date": "2025-10-30",
                 "channel": "web"
             },
             "payment_recovery": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 30,
                 "batch_size": 50,
                 "from_date": "2025-10-30",

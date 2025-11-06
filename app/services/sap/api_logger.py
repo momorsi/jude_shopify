@@ -1,5 +1,6 @@
 import datetime
 import json
+import asyncio
 from typing import Dict, Any, Optional
 from app.services.sap.logging_client import sap_logging_client
 from app.utils.logging import logger
@@ -9,6 +10,8 @@ class SAPAPILogger:
     
     def __init__(self):
         self.sap_client = sap_logging_client
+        self.max_retries = 5
+        self.retry_delays = [0.1, 0.2, 0.5, 1.0, 2.0]  # Exponential backoff delays in seconds
     
     async def log_api_call(self, 
                           server: str,
@@ -22,6 +25,7 @@ class SAPAPILogger:
                           order_id: str = "") -> bool:
         """
         Log API call to SAP table similar to sl_add_log function from reference project
+        With retry logic for deadlock handling.
         
         Args:
             server: Server name (e.g., 'shopify', 'sap')
@@ -33,51 +37,91 @@ class SAPAPILogger:
             action: Action being performed
             value: Additional value information
         """
-        try:
-            # Truncate fields according to SAP API_LOG table limits
-            # Server: Alphanumeric (50), EndPoint: Alphanumeric (100), Action: Alphanumeric (20), Value: Alphanumeric (250)
-            truncated_server = str(server)[:50] if server else ""
-            truncated_endpoint = str(endpoint)[:100] if endpoint else ""
-            truncated_action = str(action)[:20] if action else ""
-            truncated_value = str(value)[:250] if value else ""
-            truncated_reference = str(reference)[:60] if reference else ""
-            truncated_status = str(status)[:20] if status else ""
-            
-            # Add order ID to reference if provided
-            final_reference = truncated_reference
-            if order_id:
-                if final_reference:
-                    final_reference = f"{final_reference} | Order: {order_id}"
-                else:
-                    final_reference = f"Order: {order_id}"
-            
-            # Prepare the log data with truncated fields
-            log_data = {
-                'U_Server': truncated_server,
-                'U_EndPoint': truncated_endpoint,
-                'U_Request': json.dumps(request_data) if request_data else "",
-                'U_Response': json.dumps(response_data) if response_data else "",
-                'U_Status': truncated_status,
-                'U_Reference': final_reference[:60],  # Truncate to 60 chars
-                'U_LogDate': datetime.datetime.now().strftime('%Y-%m-%d'),
-                'U_LogTime': datetime.datetime.now().strftime('%H%M'),
-                'U_Action': truncated_action,
-                'U_Value': truncated_value
-            }
-            
-            # Add to SAP table using the service layer approach
-            result = await self.sap_client.create_entity('U_API_LOG', log_data)
-            
-            if result.get('msg') == 'success':
-                logger.info(f"API log added to SAP: {server} - {endpoint} - {status}")
-                return True
+        # Truncate fields according to SAP API_LOG table limits
+        # Server: Alphanumeric (50), EndPoint: Alphanumeric (100), Action: Alphanumeric (20), Value: Alphanumeric (250)
+        truncated_server = str(server)[:50] if server else ""
+        truncated_endpoint = str(endpoint)[:100] if endpoint else ""
+        truncated_action = str(action)[:20] if action else ""
+        truncated_value = str(value)[:250] if value else ""
+        truncated_reference = str(reference)[:60] if reference else ""
+        truncated_status = str(status)[:20] if status else ""
+        
+        # Add order ID to reference if provided
+        final_reference = truncated_reference
+        if order_id:
+            if final_reference:
+                final_reference = f"{final_reference} | Order: {order_id}"
             else:
-                logger.error(f"Failed to add API log to SAP: {result.get('error', 'Unknown error')}")
-                return False
+                final_reference = f"Order: {order_id}"
+        
+        # Prepare the log data with truncated fields
+        log_data = {
+            'U_Server': truncated_server,
+            'U_EndPoint': truncated_endpoint,
+            'U_Request': json.dumps(request_data) if request_data else "",
+            'U_Response': json.dumps(response_data) if response_data else "",
+            'U_Status': truncated_status,
+            'U_Reference': final_reference[:60],  # Truncate to 60 chars
+            'U_LogDate': datetime.datetime.now().strftime('%Y-%m-%d'),
+            'U_LogTime': datetime.datetime.now().strftime('%H%M'),
+            'U_Action': truncated_action,
+            'U_Value': truncated_value
+        }
+        
+        # Retry logic for deadlock handling
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                # Add to SAP table using the service layer approach
+                result = await self.sap_client.create_entity('U_API_LOG', log_data)
                 
-        except Exception as e:
-            logger.error(f"Error logging API call to SAP: {str(e)}")
-            return False
+                if result.get('msg') == 'success':
+                    if attempt > 0:
+                        logger.info(f"API log added to SAP after {attempt} retries: {server} - {endpoint} - {status}")
+                    else:
+                        logger.info(f"API log added to SAP: {server} - {endpoint} - {status}")
+                    return True
+                else:
+                    error_msg = result.get('error', 'Unknown error')
+                    error_str = str(error_msg).lower()
+                    
+                    # Check if error contains deadlock
+                    if 'deadlock' in error_str:
+                        last_error = error_msg
+                        if attempt < self.max_retries - 1:
+                            # Wait before retrying with exponential backoff
+                            delay = self.retry_delays[min(attempt, len(self.retry_delays) - 1)]
+                            logger.warning(f"Deadlock detected on API log write (attempt {attempt + 1}/{self.max_retries}), retrying in {delay}s...")
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            logger.error(f"Failed to add API log to SAP after {self.max_retries} retries due to deadlock: {error_msg}")
+                            return False
+                    else:
+                        # Non-deadlock error, don't retry
+                        logger.error(f"Failed to add API log to SAP: {error_msg}")
+                        return False
+                        
+            except Exception as e:
+                error_str = str(e).lower()
+                if 'deadlock' in error_str:
+                    last_error = str(e)
+                    if attempt < self.max_retries - 1:
+                        delay = self.retry_delays[min(attempt, len(self.retry_delays) - 1)]
+                        logger.warning(f"Deadlock exception on API log write (attempt {attempt + 1}/{self.max_retries}), retrying in {delay}s...")
+                        await asyncio.sleep(delay)
+                        continue
+                    else:
+                        logger.error(f"Error logging API call to SAP after {self.max_retries} retries: {str(e)}")
+                        return False
+                else:
+                    # Non-deadlock exception, don't retry
+                    logger.error(f"Error logging API call to SAP: {str(e)}")
+                    return False
+        
+        # If we get here, all retries failed
+        logger.error(f"Failed to add API log to SAP after {self.max_retries} attempts: {last_error}")
+        return False
     
     async def log_sync_event(self, 
                            sync_code: int,

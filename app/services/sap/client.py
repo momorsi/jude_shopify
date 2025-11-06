@@ -81,8 +81,20 @@ class SAPClient:
                 'BusinessPartners'  # Skip GET business partner calls
             ]
             
+            # Patterns to skip (endpoints containing these strings)
+            skip_patterns = [
+                'MASHURA_StockChangeB1SLQuery',
+                'MASHURA_ItemChangeB1SLQuery',
+                'MASHURA_PriceChangeB1SLQuery'
+            ]
+            
+            # Check if endpoint should be skipped
+            should_skip_exact = endpoint in skip_logging_endpoints
+            should_skip_pattern = any(pattern in endpoint for pattern in skip_patterns)
+            
             # Only log if not in skip list and not a GET request to BusinessPartners
-            should_log = (endpoint not in skip_logging_endpoints and 
+            should_log = (not should_skip_exact and 
+                         not should_skip_pattern and
                          not (method.upper() == 'GET' and 'BusinessPartners' in endpoint))
             
             # Store request data for logging later with response
