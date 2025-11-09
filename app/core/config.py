@@ -422,6 +422,11 @@ class ConfigSettings(BaseSettings):
     freight_prices_run_time: str = config_data['sync']['freight_prices']['run_time']
     freight_prices_timezone: str = config_data['sync']['freight_prices']['timezone']
     
+    # Color Metaobjects Sync Settings
+    color_metaobjects_enabled: bool = config_data['sync'].get('color_metaobjects', {}).get('enabled', False)
+    color_metaobjects_run_time: str = config_data['sync'].get('color_metaobjects', {}).get('run_time', '06:00')
+    color_metaobjects_timezone: str = config_data['sync'].get('color_metaobjects', {}).get('timezone', 'UTC')
+    
 
     
     # Sales Module Settings

@@ -346,12 +346,22 @@ class MultiStoreShopifyClient:
                 title
                 handle
                 description
+                options {
+                    id
+                    name
+                    values
+                    optionValues {
+                        id
+                        name
+                    }
+                }
                 variants(first: 50) {
                     edges {
                         node {
                             id
                             sku
                             price
+                            barcode
                             inventoryItem {
                                 id
                             }
@@ -868,6 +878,82 @@ class MultiStoreShopifyClient:
             
         except Exception as e:
             return {"msg": "failure", "error": str(e)}
+    
+    async def get_color_metaobjects(self, store_key: str) -> Dict[str, Any]:
+        """
+        Get all color metaobjects from Shopify for a specific store
+        Returns a mapping of color name (handle) to metaobject ID
+        """
+        query = """
+        query GetAllColorMetaobjects {
+            metaobjects(first: 250, type: "shopify--color-pattern") {
+                edges {
+                    node {
+                        id
+                        handle
+                        fields {
+                            key
+                            value
+                        }
+                    }
+                }
+            }
+        }
+        """
+        
+        return await self.execute_query(store_key, query, {})
+    
+    async def update_product_option(self, store_key: str, product_id: str, option_id: str, option_name: str, option_values_to_add: List[Dict[str, Any]] = None, variant_strategy: str = "LEAVE_AS_IS") -> Dict[str, Any]:
+        """
+        Update product option and add new option values (for metafield-linked options)
+        """
+        mutation = """
+        mutation updateOption(
+            $productId: ID!,
+            $option: OptionUpdateInput!,
+            $optionValuesToAdd: [OptionValueCreateInput!],
+            $variantStrategy: ProductOptionUpdateVariantStrategy
+        ) {
+            productOptionUpdate(
+                productId: $productId,
+                option: $option,
+                optionValuesToAdd: $optionValuesToAdd,
+                variantStrategy: $variantStrategy
+            ) {
+                userErrors { 
+                    field 
+                    message 
+                    code 
+                }
+                product {
+                    id
+                    options {
+                        id
+                        name
+                        values
+                        optionValues {
+                            id
+                            name
+                        }
+                    }
+                }
+            }
+        }
+        """
+        
+        variables = {
+            "productId": product_id,
+            "option": {
+                "id": option_id,
+                "name": option_name
+            },
+            "variantStrategy": variant_strategy
+        }
+        
+        if option_values_to_add:
+            variables["optionValuesToAdd"] = option_values_to_add
+        
+        return await self.execute_query(store_key, mutation, variables)
 
 # Create singleton instance
 multi_store_shopify_client = MultiStoreShopifyClient() 

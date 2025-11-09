@@ -19,7 +19,7 @@
                 "timeout": 45,
                 "currency": "EGP",
                 "price_list": 1,
-                "enabled": false
+                "enabled": true
             },
             "international": {
                 "name": "International Store",
@@ -313,6 +313,11 @@
         "freight_prices": {
             "enabled": false,
             "run_time": "06:00",
+            "timezone": "UTC"
+        },
+        "color_metaobjects": {
+            "enabled": false,
+            "run_time": "07:00",
             "timezone": "UTC"
         },
         "sales": {            

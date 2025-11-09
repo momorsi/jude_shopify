@@ -7,7 +7,7 @@ import asyncio
 import sys
 import argparse
 from typing import Dict, Any, List
-from app.sync.new_items_multi_store import MultiStoreNewItemsSync
+from app.sync.new_items_multi_store import MultiStoreNewItemsSync, color_mapper
 from app.sync.inventory import sync_stock_change_view
 
 
@@ -112,6 +112,31 @@ class ShopifySAPSync:
                 "errors": 1
             }
     
+    async def run_color_metaobjects_sync(self) -> Dict[str, Any]:
+        """
+        Run color metaobjects sync (Shopify → JSON mapping file)
+        """
+        logger.info("Starting color metaobjects sync...")
+        result = await color_mapper.sync_all_stores()
+        
+        if result["msg"] == "success":
+            total_colors = sum(r.get("color_count", 0) for r in result.get("results", {}).values())
+            return {
+                "msg": "success",
+                "processed": len(result.get("results", {})),
+                "successful": sum(1 for r in result.get("results", {}).values() if r.get("success")),
+                "errors": sum(1 for r in result.get("results", {}).values() if not r.get("success")),
+                "total_colors": total_colors
+            }
+        else:
+            return {
+                "msg": "failure",
+                "error": "Failed to sync color metaobjects",
+                "processed": 0,
+                "successful": 0,
+                "errors": 1
+            }
+    
     async def run_all_syncs(self) -> Dict[str, Any]:
         """
         Run all enabled syncs in sequence
@@ -138,6 +163,10 @@ class ShopifySAPSync:
         # Freight prices sync (check config)
         if config_settings.freight_prices_enabled:
             results["freight_prices"] = await self.run_freight_prices_sync()
+        
+        # Color metaobjects sync (check config)
+        if config_settings.color_metaobjects_enabled:
+            results["color_metaobjects"] = await self.run_color_metaobjects_sync()
         
         # Sales Module syncs
         
@@ -203,6 +232,7 @@ class ShopifySAPSync:
             "item_changes": self.run_item_changes_sync,
             "price_changes": self.run_price_changes_sync,
             "freight_prices": self.run_freight_prices_sync,
+            "color_metaobjects": self.run_color_metaobjects_sync,
     
             "sales_orders": self.run_sales_orders_sync,
             "payment_recovery": self.run_payment_recovery_sync,
@@ -262,6 +292,13 @@ class ShopifySAPSync:
             )
             tasks.append(freight_prices_task)
             logger.info(f"Freight prices sync scheduled to run daily at {config_settings.freight_prices_run_time}")
+        
+        if config_settings.color_metaobjects_enabled:
+            color_metaobjects_task = asyncio.create_task(
+                self._run_color_metaobjects_sync_daily()
+            )
+            tasks.append(color_metaobjects_task)
+            logger.info(f"Color metaobjects sync scheduled to run daily at {config_settings.color_metaobjects_run_time}")
 
         
         # Sales Module continuous syncs
@@ -379,6 +416,59 @@ class ShopifySAPSync:
                 
             except Exception as e:
                 logger.error(f"❌ Exception in freight sync: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Wait 1 hour before retrying on error
+                if self.running:
+                    await asyncio.sleep(3600)
+    
+    async def _run_color_metaobjects_sync_daily(self):
+        """
+        Run color metaobjects sync daily at the specified time
+        """
+        import datetime
+        import pytz
+        
+        while self.running:
+            try:
+                # Get current time in the configured timezone
+                timezone = pytz.timezone(config_settings.color_metaobjects_timezone)
+                now = datetime.datetime.now(timezone)
+                
+                # Parse the run time (format: "HH:MM")
+                run_time_parts = config_settings.color_metaobjects_run_time.split(":")
+                run_hour = int(run_time_parts[0])
+                run_minute = int(run_time_parts[1])
+                
+                # Create target time for today
+                target_time = now.replace(hour=run_hour, minute=run_minute, second=0, microsecond=0)
+                
+                # If target time has passed today, schedule for tomorrow
+                if now >= target_time:
+                    target_time += datetime.timedelta(days=1)
+                
+                # Calculate seconds until target time
+                seconds_until_run = (target_time - now).total_seconds()
+                
+                logger.info(f"Color metaobjects sync scheduled for {target_time.strftime('%Y-%m-%d %H:%M:%S')} ({config_settings.color_metaobjects_timezone})")
+                logger.info(f"Waiting {seconds_until_run/3600:.1f} hours until next color metaobjects sync...")
+                
+                # Wait until target time
+                await asyncio.sleep(seconds_until_run)
+                
+                if self.running:
+                    logger.info("Running daily color metaobjects sync...")
+                    result = await self.run_color_metaobjects_sync()
+                    
+                    if result["msg"] == "success":
+                        logger.info(f"✅ Color metaobjects sync completed successfully")
+                        logger.info(f"   - Stores processed: {result.get('processed', 0)}")
+                        logger.info(f"   - Total colors mapped: {result.get('total_colors', 0)}")
+                    else:
+                        logger.error(f"❌ Color metaobjects sync failed: {result.get('error')}")
+                
+            except Exception as e:
+                logger.error(f"❌ Exception in color metaobjects sync: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
                 # Wait 1 hour before retrying on error

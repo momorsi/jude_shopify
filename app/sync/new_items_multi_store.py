@@ -5,13 +5,143 @@ Handles parent items and variants based on SAP master data structure
 """
 
 import asyncio
+import json
 from typing import Dict, Any, List, Optional
+from pathlib import Path
 from app.services.sap.client import sap_client
 from app.services.shopify.multi_store_client import multi_store_shopify_client
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.services.sap.api_logger import sl_add_log
 from datetime import datetime
+
+class ColorMetaobjectMapper:
+    """
+    Manages color metaobject mappings for each store
+    Maps color names (handles) to metaobject IDs
+    """
+    def __init__(self):
+        # Store mappings in root directory
+        self.mapping_file = Path("color_metaobject_mappings.json")
+        self.mappings = self._load_mappings()
+    
+    def _load_mappings(self) -> Dict[str, Dict[str, str]]:
+        """Load color mappings from JSON file"""
+        if self.mapping_file.exists():
+            try:
+                with open(self.mapping_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Error loading color mappings: {str(e)}")
+                return {}
+        return {}
+    
+    def _save_mappings(self):
+        """Save color mappings to JSON file"""
+        try:
+            with open(self.mapping_file, 'w', encoding='utf-8') as f:
+                json.dump(self.mappings, f, indent=4, ensure_ascii=False)
+            logger.info(f"Color mappings saved to {self.mapping_file}")
+        except Exception as e:
+            logger.error(f"Error saving color mappings: {str(e)}")
+    
+    def get_color_metaobject_id(self, store_key: str, color_name: str) -> Optional[str]:
+        """
+        Get metaobject ID for a color in a specific store
+        Returns None if color not found in cache
+        """
+        color_key = color_name.lower().strip()
+        
+        # Check if we have it in cache
+        if store_key in self.mappings and color_key in self.mappings[store_key]:
+            return self.mappings[store_key][color_key]
+        
+        return None
+    
+    async def build_mapping_for_store(self, store_key: str) -> Dict[str, str]:
+        """
+        Query Shopify and build color mapping for a specific store
+        Returns mapping of color handle -> metaobject ID
+        """
+        logger.info(f"Building color metaobject mapping for store: {store_key}")
+        result = await multi_store_shopify_client.get_color_metaobjects(store_key)
+        
+        if result["msg"] != "success":
+            logger.error(f"Failed to get color metaobjects for store {store_key}: {result.get('error')}")
+            return {}
+        
+        color_mapping = {}
+        metaobjects = result["data"].get("metaobjects", {}).get("edges", [])
+        
+        for edge in metaobjects:
+            node = edge.get("node", {})
+            handle = node.get("handle", "").lower()
+            metaobject_id = node.get("id", "")
+            
+            if handle and metaobject_id:
+                color_mapping[handle] = metaobject_id
+        
+        # Update in-memory cache
+        if store_key not in self.mappings:
+            self.mappings[store_key] = {}
+        self.mappings[store_key].update(color_mapping)
+        
+        # Save to file
+        self._save_mappings()
+        
+        logger.info(f"Built color mapping for store {store_key}: {len(color_mapping)} colors")
+        return color_mapping
+    
+    async def ensure_color_mapping(self, store_key: str, color_name: str) -> Optional[str]:
+        """
+        Ensure color mapping exists for a store, build if needed
+        Returns metaobject ID or None if color doesn't exist in Shopify
+        """
+        color_key = color_name.lower().strip()
+        
+        # Check cache first
+        metaobject_id = self.get_color_metaobject_id(store_key, color_name)
+        if metaobject_id:
+            return metaobject_id
+        
+        # Not in cache, build mapping for this store
+        await self.build_mapping_for_store(store_key)
+        
+        # Check again after building
+        return self.get_color_metaobject_id(store_key, color_name)
+    
+    async def sync_all_stores(self) -> Dict[str, Any]:
+        """
+        Sync color metaobject mappings for all enabled stores
+        Called by scheduled sync
+        """
+        logger.info("Starting color metaobject mapping sync for all stores")
+        
+        enabled_stores = multi_store_shopify_client.get_enabled_stores()
+        results = {}
+        
+        for store_key in enabled_stores.keys():
+            try:
+                mapping = await self.build_mapping_for_store(store_key)
+                results[store_key] = {
+                    "success": True,
+                    "color_count": len(mapping)
+                }
+            except Exception as e:
+                logger.error(f"Error syncing color mappings for store {store_key}: {str(e)}")
+                results[store_key] = {
+                    "success": False,
+                    "error": str(e)
+                }
+        
+        logger.info(f"Color metaobject mapping sync completed for {len(results)} stores")
+        return {
+            "msg": "success",
+            "results": results
+        }
+
+# Create singleton instance
+color_mapper = ColorMetaobjectMapper()
 
 class MultiStoreNewItemsSync:
     def __init__(self):
@@ -151,9 +281,8 @@ class MultiStoreNewItemsSync:
         # For products with variants, use FrgnName as the product title
         product_title = base_item.get('FrgnName', '')
         
-        # Determine product status based on test mode
-        from app.core.config import config_settings
-        product_status = "DRAFT" if config_settings.test_mode else "ACTIVE"
+        # Always use DRAFT status for SAP-synced products
+        product_status = "DRAFT"
         
         # Step 1: Create product with options
         product_data = {
@@ -549,10 +678,10 @@ class MultiStoreNewItemsSync:
             if product_info["msg"] == "success" and product_info["data"].get("product"):
                 product = product_info["data"]["product"]
                 
-                # Get the Color option ID from the product's options
+                # Get the Color option ID from the product's options (case-insensitive)
                 color_option_id = None
                 for option in product.get("options", []):
-                    if option["name"] == "Color":
+                    if option["name"].lower() == "color":  # Case-insensitive match
                         color_option_id = option["id"]
                         break
                 
@@ -560,11 +689,11 @@ class MultiStoreNewItemsSync:
                 if not color_option_id:
                     logger.info(f"Color option not found in product options, checking existing variants for store {store_key}")
                     
-                    # Look for Color option in existing variants' selectedOptions
+                    # Look for Color option in existing variants' selectedOptions (case-insensitive)
                     for variant_edge in product.get("variants", {}).get("edges", []):
                         variant = variant_edge["node"]
                         for selected_option in variant.get("selectedOptions", []):
-                            if selected_option["name"] == "Color":
+                            if selected_option["name"].lower() == "color":  # Case-insensitive match
                                 # We found a Color option being used, but we need the option ID
                                 # Since we can't create options after product creation, we'll skip this variant
                                 logger.warning(f"Color option is being used in existing variants but not found in product options for store {store_key}")
@@ -592,6 +721,7 @@ class MultiStoreNewItemsSync:
                 "tracked": True
             }
             
+            # First attempt: Try with name field (works for non-metafield-linked options)
             variant_for_bulk = {
                 "price": variant_data.get('price', '0.0'),
                 "taxable": variant_data.get('taxable', False),
@@ -620,6 +750,130 @@ class MultiStoreNewItemsSync:
             # 4. Create variant using productVariantsBulkCreate
             result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk])
             
+            # Check if we got a metafield-linked option error
+            is_metafield_error = False
+            if result["msg"] == "success":
+                response_data = result["data"]["productVariantsBulkCreate"]
+                if response_data.get("userErrors"):
+                    errors = [error["message"] for error in response_data["userErrors"]]
+                    is_metafield_error = any("metafield" in err.lower() for err in errors)
+            
+            # If metafield error, handle metafield-linked option flow
+            if is_metafield_error:
+                logger.info(f"Option is metafield-linked, using metaobject flow for color '{sap_color}' in store {store_key}")
+                
+                # Get color metaobject ID
+                color_metaobject_id = await color_mapper.ensure_color_mapping(store_key, sap_color)
+                
+                if not color_metaobject_id:
+                    error_msg = f"Color '{sap_color}' not found in metaobjects for store {store_key}"
+                    logger.error(error_msg)
+                    await sl_add_log(
+                        server="shopify",
+                        endpoint=f"/admin/api/graphql_{store_key}",
+                        response_data={"error": error_msg},
+                        status="failure",
+                        action="add_variant",
+                        value=f"Color metaobject not found: {error_msg}"
+                    )
+                    return {"msg": "failure", "error": error_msg}
+                
+                # Check if option value already exists
+                # Store existing option value IDs before adding
+                existing_option_value_ids = set()
+                color_option_value_id = None
+                for option in product.get("options", []):
+                    if option["id"] == color_option_id:
+                        # Store all existing option value IDs
+                        for option_value in option.get("optionValues", []):
+                            existing_option_value_ids.add(option_value.get("id"))
+                            # Also check by name (case-insensitive) as fallback
+                            if option_value.get("name", "").lower() == sap_color.lower():
+                                color_option_value_id = option_value.get("id")
+                                logger.info(f"Found existing option value ID {color_option_value_id} for color '{sap_color}'")
+                        break
+                
+                # If option value doesn't exist, add it using metaobject
+                if not color_option_value_id:
+                    logger.info(f"Option value for '{sap_color}' doesn't exist, adding it using metaobject")
+                    
+                    # Add option value using productOptionUpdate
+                    option_update_result = await multi_store_shopify_client.update_product_option(
+                        store_key=store_key,
+                        product_id=product_id,
+                        option_id=color_option_id,
+                        option_name="Color",
+                        option_values_to_add=[
+                            {
+                                "linkedMetafieldValue": color_metaobject_id
+                            }
+                        ],
+                        variant_strategy="LEAVE_AS_IS"
+                    )
+                    
+                    if option_update_result["msg"] != "success":
+                        error_msg = f"Failed to add option value for color '{sap_color}': {option_update_result.get('error')}"
+                        logger.error(error_msg)
+                        await sl_add_log(
+                            server="shopify",
+                            endpoint=f"/admin/api/graphql_{store_key}",
+                            response_data={"error": error_msg},
+                            status="failure",
+                            action="add_option_value",
+                            value=error_msg
+                        )
+                        return {"msg": "failure", "error": error_msg}
+                    
+                    # Check for user errors
+                    update_response = option_update_result["data"]["productOptionUpdate"]
+                    if update_response.get("userErrors"):
+                        errors = [error["message"] for error in update_response["userErrors"]]
+                        error_msg = "; ".join(errors)
+                        logger.error(f"User errors adding option value: {error_msg}")
+                        return {"msg": "failure", "error": error_msg}
+                    
+                    # Extract the new option value ID from response
+                    # Find the option value that wasn't there before (newly added)
+                    updated_product = update_response.get("product", {})
+                    for option in updated_product.get("options", []):
+                        if option["id"] == color_option_id:
+                            for option_value in option.get("optionValues", []):
+                                option_value_id = option_value.get("id")
+                                # If this ID wasn't in our existing set, it's the newly added one
+                                if option_value_id not in existing_option_value_ids:
+                                    color_option_value_id = option_value_id
+                                    logger.info(f"Got new option value ID {color_option_value_id} for color '{sap_color}' (name: {option_value.get('name', 'N/A')})")
+                                    break
+                            break
+                    
+                    if not color_option_value_id:
+                        error_msg = f"Failed to get option value ID after adding color '{sap_color}'. This might indicate the option value name doesn't match."
+                        logger.error(error_msg)
+                        # Log all option values for debugging
+                        for option in updated_product.get("options", []):
+                            if option["id"] == color_option_id:
+                                logger.error(f"Available option values: {[ov.get('name') for ov in option.get('optionValues', [])]}")
+                        return {"msg": "failure", "error": error_msg}
+                
+                # Now create variant using option value ID
+                variant_for_bulk_metafield = {
+                    "price": variant_data.get('price', '0.0'),
+                    "taxable": variant_data.get('taxable', False),
+                    "optionValues": [
+                        {
+                            "optionId": color_option_id,
+                            "id": color_option_value_id
+                        }
+                    ],
+                    "inventoryItem": inventory_item
+                }
+                
+                if variant_data.get('barcode'):
+                    variant_for_bulk_metafield["barcode"] = variant_data.get('barcode')
+                
+                # Retry variant creation with option value ID
+                result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk_metafield])
+            
             if result["msg"] == "failure":
                 logger.error(f"Failed to create variant in bulk for store {store_key}: {result.get('error')}")
                 await sl_add_log(
@@ -637,6 +891,63 @@ class MultiStoreNewItemsSync:
                 errors = [error["message"] for error in response_data["userErrors"]]
                 error_msg = "; ".join(errors)
                 
+                # Check if variant already exists - this is not a failure, just fetch the existing variant
+                # Shopify may return errors like "SKU already exists" or "Variant already exists"
+                is_duplicate_error = any(
+                    "already exists" in err.lower() or 
+                    "duplicate" in err.lower() or 
+                    ("sku" in err.lower() and ("taken" in err.lower() or "exists" in err.lower())) or
+                    ("variant" in err.lower() and "exists" in err.lower())
+                    for err in errors
+                )
+                
+                if is_duplicate_error:
+                    logger.info(f"Variant {variant_data.get('sku')} already exists in product {product_id}, fetching existing variant")
+                    
+                    # Fetch the existing variant from the product we already have in memory
+                    existing_variant = None
+                    for variant_edge in product.get("variants", {}).get("edges", []):
+                        variant_node = variant_edge.get("node", {})
+                        if variant_node.get("sku") == variant_data.get('sku'):
+                            existing_variant = variant_node
+                            break
+                    
+                    if existing_variant:
+                        logger.info(f"Found existing variant {existing_variant.get('id')} for SKU {variant_data.get('sku')}")
+                        await sl_add_log(
+                            server="shopify",
+                            endpoint=f"/admin/api/graphql_{store_key}",
+                            response_data={
+                                "variant_id": existing_variant.get("id"),
+                                "sku": existing_variant.get("sku"),
+                                "inventory_item_id": existing_variant.get("inventoryItem", {}).get("id"),
+                                "note": "Variant already existed, fetched from product"
+                            },
+                            status="success",
+                            action="add_variant",
+                            value=f"Variant {variant_data.get('sku')} already exists, using existing variant"
+                        )
+                        return {
+                            "msg": "success",
+                            "shopify_variant_id": existing_variant.get("id"),
+                            "shopify_inventory_item_id": existing_variant.get("inventoryItem", {}).get("id"),
+                            "sku": existing_variant.get("sku"),
+                            "already_exists": True
+                        }
+                    else:
+                        # Variant exists according to error but we can't find it - this is unusual
+                        logger.warning(f"Variant {variant_data.get('sku')} already exists but couldn't fetch details from product")
+                        await sl_add_log(
+                            server="shopify",
+                            endpoint=f"/admin/api/graphql_{store_key}",
+                            response_data={"user_errors": errors, "note": "Could not fetch existing variant"},
+                            status="failure",
+                            action="add_variant",
+                            value=f"Variant already exists but details not found: {error_msg}"
+                        )
+                        return {"msg": "failure", "error": f"Variant already exists but details not found: {error_msg}"}
+                
+                # Not a duplicate error - this is a real failure
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
@@ -822,23 +1133,50 @@ class MultiStoreNewItemsSync:
                         # Extract main product name and existing Shopify product ID from the first item
                         main_product_name = group_items[0].get("MainProduct", "")
                         existing_shopify_product_id = group_items[0].get("Shopify_ProductCode")
+                        item_status = group_items[0].get("Status", "").lower()  # Get Status field
                         
                         # For items with NULL MainProduct, use itemcode as the product name
                         if not main_product_name:
                             main_product_name = group_items[0].get("itemcode", "")
                         
-                        # Check if we have an existing Shopify product ID
-                        if existing_shopify_product_id:
-                            logger.info(f"Found existing Shopify product ID: {existing_shopify_product_id} for {main_product_name}")
-                            # Use the existing product ID directly
-                            existing_product_result = {
-                                "msg": "success",
-                                "exists": True,
-                                "product_id": f"gid://shopify/Product/{existing_shopify_product_id}"
-                            }
+                        # CRITICAL: If Status is "existing", we MUST NOT create a new product
+                        # This means the product exists in Shopify and we should only add variants
+                        if item_status == "existing":
+                            logger.info(f"Item has Status='existing' for {main_product_name}, will NOT create new product")
+                            
+                            # Check if we have an existing Shopify product ID
+                            if existing_shopify_product_id:
+                                logger.info(f"Found existing Shopify product ID: {existing_shopify_product_id} for {main_product_name}")
+                                # Use the existing product ID directly
+                                existing_product_result = {
+                                    "msg": "success",
+                                    "exists": True,
+                                    "product_id": f"gid://shopify/Product/{existing_shopify_product_id}"
+                                }
+                            else:
+                                # Status is "existing" but no Shopify_ProductCode - try to find by handle
+                                logger.warning(f"Status is 'existing' but no Shopify_ProductCode for {main_product_name}, searching by handle")
+                                existing_product_result = await self.check_existing_product(store_key, main_product_name)
+                                
+                                if existing_product_result["msg"] == "failure" or not existing_product_result["exists"]:
+                                    # Status says "existing" but product not found - this is an error
+                                    logger.error(f"Status is 'existing' but product {main_product_name} not found in Shopify for store {store_key}")
+                                    errors += 1
+                                    continue  # Skip this group - don't create new product
                         else:
-                            # Check if product already exists by handle
-                            existing_product_result = await self.check_existing_product(store_key, main_product_name)
+                            # Status is NOT "existing" - normal flow: check if product exists
+                            # Check if we have an existing Shopify product ID
+                            if existing_shopify_product_id:
+                                logger.info(f"Found existing Shopify product ID: {existing_shopify_product_id} for {main_product_name}")
+                                # Use the existing product ID directly
+                                existing_product_result = {
+                                    "msg": "success",
+                                    "exists": True,
+                                    "product_id": f"gid://shopify/Product/{existing_shopify_product_id}"
+                                }
+                            else:
+                                # Check if product already exists by handle
+                                existing_product_result = await self.check_existing_product(store_key, main_product_name)
                         
                         if existing_product_result["msg"] == "failure":
                             logger.error(f"Failed to check existing product in store {store_key}: {existing_product_result.get('error')}")
@@ -891,37 +1229,49 @@ class MultiStoreNewItemsSync:
                                 
                                 # Check if we need to create a new product instead
                                 if variant_result["msg"] == "failure" and variant_result.get("error") == "CREATE_NEW_PRODUCT":
-                                    logger.info(f"Creating new product instead of adding to existing one for store {store_key}")
-                                    
-                                    # Create new product with all variants using the two-step approach
-                                    product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
-                                    store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
-                                    
-                                    if store_result["msg"] == "failure":
-                                        logger.error(f"Failed to create new product in store {store_key}: {store_result.get('error')}")
+                                    # CRITICAL: If Status is "existing", we MUST NOT create a new product
+                                    if item_status == "existing":
+                                        logger.error(f"Cannot create new product for item with Status='existing' (SKU: {sap_item.get('itemcode')}). Product should exist but variant addition failed.")
                                         errors += 1
-                                        break  # Break out of the variant loop since we're creating a new product
+                                        continue  # Skip this variant - don't create new product
                                     else:
-                                        logger.info(f"Successfully created new product in store {store_key}")
-                                        shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
-                                        success += len(group_items)  # Count all variants as success
-                                        break  # Break out of the variant loop since we're creating a new product
+                                        logger.info(f"Creating new product instead of adding to existing one for store {store_key}")
+                                        
+                                        # Create new product with all variants using the two-step approach
+                                        product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
+                                        store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
+                                        
+                                        if store_result["msg"] == "failure":
+                                            logger.error(f"Failed to create new product in store {store_key}: {store_result.get('error')}")
+                                            errors += 1
+                                            break  # Break out of the variant loop since we're creating a new product
+                                        else:
+                                            logger.info(f"Successfully created new product in store {store_key}")
+                                            shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
+                                            success += len(group_items)  # Count all variants as success
+                                            break  # Break out of the variant loop since we're creating a new product
                                 elif variant_result["msg"] == "failure" and variant_result.get("error") == "Color option not properly configured in existing product":
-                                    logger.info(f"Existing product has configuration issues, creating new product for store {store_key}")
-                                    
-                                    # Create new product with all variants using the two-step approach
-                                    product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
-                                    store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
-                                    
-                                    if store_result["msg"] == "failure":
-                                        logger.error(f"Failed to create new product in store {store_key}: {store_result.get('error')}")
+                                    # CRITICAL: If Status is "existing", we MUST NOT create a new product
+                                    if item_status == "existing":
+                                        logger.error(f"Cannot create new product for item with Status='existing' (SKU: {sap_item.get('itemcode')}). Product exists but has configuration issues.")
                                         errors += 1
-                                        break  # Break out of the variant loop since we're creating a new product
+                                        continue  # Skip this variant - don't create new product
                                     else:
-                                        logger.info(f"Successfully created new product in store {store_key}")
-                                        shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
-                                        success += len(group_items)  # Count all variants as success
-                                        break  # Break out of the variant loop since we're creating a new product
+                                        logger.info(f"Existing product has configuration issues, creating new product for store {store_key}")
+                                        
+                                        # Create new product with all variants using the two-step approach
+                                        product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
+                                        store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
+                                        
+                                        if store_result["msg"] == "failure":
+                                            logger.error(f"Failed to create new product in store {store_key}: {store_result.get('error')}")
+                                            errors += 1
+                                            break  # Break out of the variant loop since we're creating a new product
+                                        else:
+                                            logger.info(f"Successfully created new product in store {store_key}")
+                                            shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
+                                            success += len(group_items)  # Count all variants as success
+                                            break  # Break out of the variant loop since we're creating a new product
                                 else:
                                     variant_results.append(variant_result)
                                     

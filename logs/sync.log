@@ -14385,3 +14385,1537 @@ Giza, Egypt
 2025-11-06 13:02:16,192 - sync_service - INFO -    - Errors: 0
 2025-11-06 13:02:16,193 - sync_service - INFO - Waiting 30 minutes before next payment_recovery sync...
 2025-11-06 13:06:22,247 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-06 20:37:49,234 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-09 13:50:29,201 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-09 13:50:29,205 - sync_service - INFO - ================================================================================
+2025-11-09 13:50:29,206 - sync_service - INFO - SAP Payment/Invoice Cancellation Script
+2025-11-09 13:50:29,207 - sync_service - INFO - This script will:
+2025-11-09 13:50:29,209 - sync_service - INFO - 1. Fetch payments and invoices from SAP
+2025-11-09 13:50:29,209 - sync_service - INFO - 2. Patch them to clear Shopify Order ID fields
+2025-11-09 13:50:29,210 - sync_service - INFO - 3. Cancel the payments and invoices
+2025-11-09 13:50:29,210 - sync_service - INFO - 4. Remove tags from Shopify orders
+2025-11-09 13:50:29,211 - sync_service - INFO - ================================================================================
+2025-11-09 13:50:29,211 - sync_service - INFO - ================================================================================
+2025-11-09 13:50:29,212 - sync_service - INFO - Processing Payments
+2025-11-09 13:50:29,212 - sync_service - INFO - ================================================================================
+2025-11-09 13:50:29,213 - sync_service - INFO - Fetching payments from SAP...
+2025-11-09 13:50:30,166 - sync_service - INFO - SAP login successful
+2025-11-09 13:50:31,696 - sync_service - INFO - SAP logging client login successful
+2025-11-09 13:50:32,453 - sync_service - INFO - API log added to SAP: sap - IncomingPayments?$select=DocNum,DocCurrency,U_Shopify_Order_ID&$filter=DocNum ge 25550 and U_Shopify_Order_ID ne null - success
+2025-11-09 13:50:32,454 - sync_service - INFO - Found 45 payments to process
+2025-11-09 13:50:32,456 - sync_service - INFO - 
+--- Processing Payment 25550 ---
+2025-11-09 13:50:32,457 - sync_service - INFO - Shopify Order ID: 7075678027866
+2025-11-09 13:50:32,458 - sync_service - INFO - Currency: USD
+2025-11-09 13:50:32,460 - sync_service - INFO - Store: international
+2025-11-09 13:50:32,461 - sync_service - INFO - Step 1: Patching IncomingPayment 25550 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:34,168 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25550) - success
+2025-11-09 13:50:34,170 - sync_service - INFO - ✅ Successfully patched payment 25550
+2025-11-09 13:50:34,170 - sync_service - INFO - Step 2: Cancelling payment 25550...
+2025-11-09 13:50:36,260 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25550)/Cancel - success
+2025-11-09 13:50:36,261 - sync_service - INFO - ✅ Successfully cancelled payment 25550
+2025-11-09 13:50:36,262 - sync_service - INFO - Step 3: Removing tags from Shopify order 7075678027866...
+2025-11-09 13:50:36,263 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:50:36,264 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/7075678027866'}}, 'response': None, 'status': None}
+2025-11-09 13:50:36,705 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/7075678027866', 'name': '#1027', 'tags': ['sap_invoice_26357', 'sap_invoice_synced', 'sap_payment_25550', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:50:36,706 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:50:36,708 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/7075678027866', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:50:37,126 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/7075678027866', 'name': '#1027', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:50:37,127 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/7075678027866 in store international
+2025-11-09 13:50:37,128 - sync_service - INFO - ✅ Successfully removed tags from order 7075678027866
+2025-11-09 13:50:37,644 - sync_service - INFO - 
+--- Processing Payment 25551 ---
+2025-11-09 13:50:37,645 - sync_service - INFO - Shopify Order ID: 7080076607578
+2025-11-09 13:50:37,646 - sync_service - INFO - Currency: USD
+2025-11-09 13:50:37,646 - sync_service - INFO - Store: international
+2025-11-09 13:50:37,647 - sync_service - INFO - Step 1: Patching IncomingPayment 25551 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:38,759 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25551) - success
+2025-11-09 13:50:38,760 - sync_service - INFO - ✅ Successfully patched payment 25551
+2025-11-09 13:50:38,761 - sync_service - INFO - Step 2: Cancelling payment 25551...
+2025-11-09 13:50:40,240 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25551)/Cancel - success
+2025-11-09 13:50:40,242 - sync_service - INFO - ✅ Successfully cancelled payment 25551
+2025-11-09 13:50:40,243 - sync_service - INFO - Step 3: Removing tags from Shopify order 7080076607578...
+2025-11-09 13:50:40,243 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:50:40,244 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/7080076607578'}}, 'response': None, 'status': None}
+2025-11-09 13:50:40,647 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/7080076607578', 'name': '#1030', 'tags': ['sap_invoice_26358', 'sap_invoice_synced', 'sap_payment_25551', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:50:40,648 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:50:40,649 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/7080076607578', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:50:41,089 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/7080076607578', 'name': '#1030', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:50:41,090 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/7080076607578 in store international
+2025-11-09 13:50:41,091 - sync_service - INFO - ✅ Successfully removed tags from order 7080076607578
+2025-11-09 13:50:41,604 - sync_service - INFO - 
+--- Processing Payment 25553 ---
+2025-11-09 13:50:41,606 - sync_service - INFO - Shopify Order ID: 6494118182978
+2025-11-09 13:50:41,607 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:41,608 - sync_service - INFO - Store: local
+2025-11-09 13:50:41,609 - sync_service - INFO - Step 1: Patching IncomingPayment 25553 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:42,465 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25553) - success
+2025-11-09 13:50:42,466 - sync_service - INFO - ✅ Successfully patched payment 25553
+2025-11-09 13:50:42,467 - sync_service - INFO - Step 2: Cancelling payment 25553...
+2025-11-09 13:50:43,476 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25553)/Cancel - success
+2025-11-09 13:50:43,478 - sync_service - INFO - ✅ Successfully cancelled payment 25553
+2025-11-09 13:50:43,479 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494118182978...
+2025-11-09 13:50:43,479 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:43,991 - sync_service - INFO - 
+--- Processing Payment 25554 ---
+2025-11-09 13:50:43,992 - sync_service - INFO - Shopify Order ID: 6494136533058
+2025-11-09 13:50:43,994 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:43,994 - sync_service - INFO - Store: local
+2025-11-09 13:50:43,996 - sync_service - INFO - Step 1: Patching IncomingPayment 25554 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:44,884 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25554) - success
+2025-11-09 13:50:44,885 - sync_service - INFO - ✅ Successfully patched payment 25554
+2025-11-09 13:50:44,886 - sync_service - INFO - Step 2: Cancelling payment 25554...
+2025-11-09 13:50:45,832 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25554)/Cancel - success
+2025-11-09 13:50:45,835 - sync_service - INFO - ✅ Successfully cancelled payment 25554
+2025-11-09 13:50:45,835 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494136533058...
+2025-11-09 13:50:45,835 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:46,343 - sync_service - INFO - 
+--- Processing Payment 25555 ---
+2025-11-09 13:50:46,344 - sync_service - INFO - Shopify Order ID: 6494142726210
+2025-11-09 13:50:46,345 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:46,346 - sync_service - INFO - Store: local
+2025-11-09 13:50:46,346 - sync_service - INFO - Step 1: Patching IncomingPayment 25555 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:47,077 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25555) - success
+2025-11-09 13:50:47,078 - sync_service - INFO - ✅ Successfully patched payment 25555
+2025-11-09 13:50:47,079 - sync_service - INFO - Step 2: Cancelling payment 25555...
+2025-11-09 13:50:48,063 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25555)/Cancel - success
+2025-11-09 13:50:48,065 - sync_service - INFO - ✅ Successfully cancelled payment 25555
+2025-11-09 13:50:48,066 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494142726210...
+2025-11-09 13:50:48,066 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:48,574 - sync_service - INFO - 
+--- Processing Payment 25556 ---
+2025-11-09 13:50:48,575 - sync_service - INFO - Shopify Order ID: 6494146658370
+2025-11-09 13:50:48,575 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:48,576 - sync_service - INFO - Store: local
+2025-11-09 13:50:48,577 - sync_service - INFO - Step 1: Patching IncomingPayment 25556 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:49,293 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25556) - success
+2025-11-09 13:50:49,294 - sync_service - INFO - ✅ Successfully patched payment 25556
+2025-11-09 13:50:49,295 - sync_service - INFO - Step 2: Cancelling payment 25556...
+2025-11-09 13:50:50,320 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25556)/Cancel - success
+2025-11-09 13:50:50,322 - sync_service - INFO - ✅ Successfully cancelled payment 25556
+2025-11-09 13:50:50,323 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494146658370...
+2025-11-09 13:50:50,324 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:50,841 - sync_service - INFO - 
+--- Processing Payment 25557 ---
+2025-11-09 13:50:50,843 - sync_service - INFO - Shopify Order ID: 6494152917058
+2025-11-09 13:50:50,844 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:50,845 - sync_service - INFO - Store: local
+2025-11-09 13:50:50,846 - sync_service - INFO - Step 1: Patching IncomingPayment 25557 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:51,883 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25557) - success
+2025-11-09 13:50:51,884 - sync_service - INFO - ✅ Successfully patched payment 25557
+2025-11-09 13:50:51,884 - sync_service - INFO - Step 2: Cancelling payment 25557...
+2025-11-09 13:50:52,883 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25557)/Cancel - success
+2025-11-09 13:50:52,884 - sync_service - INFO - ✅ Successfully cancelled payment 25557
+2025-11-09 13:50:52,885 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494152917058...
+2025-11-09 13:50:52,886 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:53,399 - sync_service - INFO - 
+--- Processing Payment 25558 ---
+2025-11-09 13:50:53,401 - sync_service - INFO - Shopify Order ID: 6494155243586
+2025-11-09 13:50:53,402 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:53,403 - sync_service - INFO - Store: local
+2025-11-09 13:50:53,404 - sync_service - INFO - Step 1: Patching IncomingPayment 25558 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:54,129 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25558) - success
+2025-11-09 13:50:54,130 - sync_service - INFO - ✅ Successfully patched payment 25558
+2025-11-09 13:50:54,131 - sync_service - INFO - Step 2: Cancelling payment 25558...
+2025-11-09 13:50:55,088 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25558)/Cancel - success
+2025-11-09 13:50:55,090 - sync_service - INFO - ✅ Successfully cancelled payment 25558
+2025-11-09 13:50:55,091 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494155243586...
+2025-11-09 13:50:55,092 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:55,594 - sync_service - INFO - 
+--- Processing Payment 25559 ---
+2025-11-09 13:50:55,595 - sync_service - INFO - Shopify Order ID: 6494156750914
+2025-11-09 13:50:55,597 - sync_service - INFO - Currency: EGP
+2025-11-09 13:50:55,597 - sync_service - INFO - Store: local
+2025-11-09 13:50:55,598 - sync_service - INFO - Step 1: Patching IncomingPayment 25559 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:56,314 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25559) - success
+2025-11-09 13:50:56,315 - sync_service - INFO - ✅ Successfully patched payment 25559
+2025-11-09 13:50:56,316 - sync_service - INFO - Step 2: Cancelling payment 25559...
+2025-11-09 13:50:57,287 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25559)/Cancel - success
+2025-11-09 13:50:57,289 - sync_service - INFO - ✅ Successfully cancelled payment 25559
+2025-11-09 13:50:57,289 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494156750914...
+2025-11-09 13:50:57,290 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:50:57,796 - sync_service - INFO - 
+--- Processing Payment 25560 ---
+2025-11-09 13:50:57,797 - sync_service - INFO - Shopify Order ID: 7076618141786
+2025-11-09 13:50:57,798 - sync_service - INFO - Currency: USD
+2025-11-09 13:50:57,799 - sync_service - INFO - Store: international
+2025-11-09 13:50:57,799 - sync_service - INFO - Step 1: Patching IncomingPayment 25560 to clear U_Shopify_Order_ID...
+2025-11-09 13:50:58,590 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25560) - success
+2025-11-09 13:50:58,591 - sync_service - INFO - ✅ Successfully patched payment 25560
+2025-11-09 13:50:58,592 - sync_service - INFO - Step 2: Cancelling payment 25560...
+2025-11-09 13:50:59,590 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25560)/Cancel - success
+2025-11-09 13:50:59,592 - sync_service - INFO - ✅ Successfully cancelled payment 25560
+2025-11-09 13:50:59,593 - sync_service - INFO - Step 3: Removing tags from Shopify order 7076618141786...
+2025-11-09 13:50:59,594 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:50:59,595 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/7076618141786'}}, 'response': None, 'status': None}
+2025-11-09 13:50:59,944 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/7076618141786', 'name': '#1028', 'tags': ['sap_invoice_26367', 'sap_invoice_synced', 'sap_payment_25560', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:50:59,945 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:50:59,946 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/7076618141786', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:51:00,368 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/7076618141786', 'name': '#1028', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:51:00,369 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/7076618141786 in store international
+2025-11-09 13:51:00,370 - sync_service - INFO - ✅ Successfully removed tags from order 7076618141786
+2025-11-09 13:51:00,877 - sync_service - INFO - 
+--- Processing Payment 25561 ---
+2025-11-09 13:51:00,878 - sync_service - INFO - Shopify Order ID: 6494157242434
+2025-11-09 13:51:00,880 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:00,881 - sync_service - INFO - Store: local
+2025-11-09 13:51:00,882 - sync_service - INFO - Step 1: Patching IncomingPayment 25561 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:01,609 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25561) - success
+2025-11-09 13:51:01,611 - sync_service - INFO - ✅ Successfully patched payment 25561
+2025-11-09 13:51:01,612 - sync_service - INFO - Step 2: Cancelling payment 25561...
+2025-11-09 13:51:02,567 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25561)/Cancel - success
+2025-11-09 13:51:02,569 - sync_service - INFO - ✅ Successfully cancelled payment 25561
+2025-11-09 13:51:02,570 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494157242434...
+2025-11-09 13:51:02,570 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:03,073 - sync_service - INFO - 
+--- Processing Payment 25562 ---
+2025-11-09 13:51:03,074 - sync_service - INFO - Shopify Order ID: 6494273667138
+2025-11-09 13:51:03,075 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:03,076 - sync_service - INFO - Store: local
+2025-11-09 13:51:03,077 - sync_service - INFO - Step 1: Patching IncomingPayment 25562 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:03,794 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25562) - success
+2025-11-09 13:51:03,796 - sync_service - INFO - ✅ Successfully patched payment 25562
+2025-11-09 13:51:03,796 - sync_service - INFO - Step 2: Cancelling payment 25562...
+2025-11-09 13:51:04,735 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25562)/Cancel - success
+2025-11-09 13:51:04,736 - sync_service - INFO - ✅ Successfully cancelled payment 25562
+2025-11-09 13:51:04,737 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494273667138...
+2025-11-09 13:51:04,738 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:05,245 - sync_service - INFO - 
+--- Processing Payment 25563 ---
+2025-11-09 13:51:05,247 - sync_service - INFO - Shopify Order ID: 6494503665730
+2025-11-09 13:51:05,248 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:05,249 - sync_service - INFO - Store: local
+2025-11-09 13:51:05,250 - sync_service - INFO - Step 1: Patching IncomingPayment 25563 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:05,938 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25563) - success
+2025-11-09 13:51:05,938 - sync_service - INFO - ✅ Successfully patched payment 25563
+2025-11-09 13:51:05,939 - sync_service - INFO - Step 2: Cancelling payment 25563...
+2025-11-09 13:51:06,864 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25563)/Cancel - success
+2025-11-09 13:51:06,865 - sync_service - INFO - ✅ Successfully cancelled payment 25563
+2025-11-09 13:51:06,865 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494503665730...
+2025-11-09 13:51:06,866 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:07,371 - sync_service - INFO - 
+--- Processing Payment 25564 ---
+2025-11-09 13:51:07,372 - sync_service - INFO - Shopify Order ID: 6494543904834
+2025-11-09 13:51:07,373 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:07,373 - sync_service - INFO - Store: local
+2025-11-09 13:51:07,374 - sync_service - INFO - Step 1: Patching IncomingPayment 25564 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:08,056 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25564) - success
+2025-11-09 13:51:08,058 - sync_service - INFO - ✅ Successfully patched payment 25564
+2025-11-09 13:51:08,059 - sync_service - INFO - Step 2: Cancelling payment 25564...
+2025-11-09 13:51:09,021 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25564)/Cancel - success
+2025-11-09 13:51:09,022 - sync_service - INFO - ✅ Successfully cancelled payment 25564
+2025-11-09 13:51:09,022 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494543904834...
+2025-11-09 13:51:09,023 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:09,537 - sync_service - INFO - 
+--- Processing Payment 25565 ---
+2025-11-09 13:51:09,539 - sync_service - INFO - Shopify Order ID: 6494595383362
+2025-11-09 13:51:09,540 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:09,541 - sync_service - INFO - Store: local
+2025-11-09 13:51:09,542 - sync_service - INFO - Step 1: Patching IncomingPayment 25565 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:10,240 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25565) - success
+2025-11-09 13:51:10,242 - sync_service - INFO - ✅ Successfully patched payment 25565
+2025-11-09 13:51:10,244 - sync_service - INFO - Step 2: Cancelling payment 25565...
+2025-11-09 13:51:11,179 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25565)/Cancel - success
+2025-11-09 13:51:11,180 - sync_service - INFO - ✅ Successfully cancelled payment 25565
+2025-11-09 13:51:11,181 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494595383362...
+2025-11-09 13:51:11,182 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:11,683 - sync_service - INFO - 
+--- Processing Payment 25566 ---
+2025-11-09 13:51:11,685 - sync_service - INFO - Shopify Order ID: 6494622941250
+2025-11-09 13:51:11,686 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:11,687 - sync_service - INFO - Store: local
+2025-11-09 13:51:11,688 - sync_service - INFO - Step 1: Patching IncomingPayment 25566 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:12,535 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25566) - success
+2025-11-09 13:51:12,537 - sync_service - INFO - ✅ Successfully patched payment 25566
+2025-11-09 13:51:12,537 - sync_service - INFO - Step 2: Cancelling payment 25566...
+2025-11-09 13:51:13,484 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25566)/Cancel - success
+2025-11-09 13:51:13,489 - sync_service - INFO - ✅ Successfully cancelled payment 25566
+2025-11-09 13:51:13,493 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494622941250...
+2025-11-09 13:51:13,495 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:14,005 - sync_service - INFO - 
+--- Processing Payment 25567 ---
+2025-11-09 13:51:14,006 - sync_service - INFO - Shopify Order ID: 6494650269762
+2025-11-09 13:51:14,007 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:14,008 - sync_service - INFO - Store: local
+2025-11-09 13:51:14,009 - sync_service - INFO - Step 1: Patching IncomingPayment 25567 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:14,705 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25567) - success
+2025-11-09 13:51:14,707 - sync_service - INFO - ✅ Successfully patched payment 25567
+2025-11-09 13:51:14,709 - sync_service - INFO - Step 2: Cancelling payment 25567...
+2025-11-09 13:51:15,670 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25567)/Cancel - success
+2025-11-09 13:51:15,671 - sync_service - INFO - ✅ Successfully cancelled payment 25567
+2025-11-09 13:51:15,672 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494650269762...
+2025-11-09 13:51:15,673 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:16,184 - sync_service - INFO - 
+--- Processing Payment 25568 ---
+2025-11-09 13:51:16,185 - sync_service - INFO - Shopify Order ID: 6494655676482
+2025-11-09 13:51:16,186 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:16,187 - sync_service - INFO - Store: local
+2025-11-09 13:51:16,187 - sync_service - INFO - Step 1: Patching IncomingPayment 25568 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:16,922 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25568) - success
+2025-11-09 13:51:16,924 - sync_service - INFO - ✅ Successfully patched payment 25568
+2025-11-09 13:51:16,925 - sync_service - INFO - Step 2: Cancelling payment 25568...
+2025-11-09 13:51:17,876 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25568)/Cancel - success
+2025-11-09 13:51:17,878 - sync_service - INFO - ✅ Successfully cancelled payment 25568
+2025-11-09 13:51:17,879 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494655676482...
+2025-11-09 13:51:17,879 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:18,387 - sync_service - INFO - 
+--- Processing Payment 25569 ---
+2025-11-09 13:51:18,387 - sync_service - INFO - Shopify Order ID: 6494664458306
+2025-11-09 13:51:18,388 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:18,388 - sync_service - INFO - Store: local
+2025-11-09 13:51:18,389 - sync_service - INFO - Step 1: Patching IncomingPayment 25569 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:19,079 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25569) - success
+2025-11-09 13:51:19,080 - sync_service - INFO - ✅ Successfully patched payment 25569
+2025-11-09 13:51:19,080 - sync_service - INFO - Step 2: Cancelling payment 25569...
+2025-11-09 13:51:20,021 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25569)/Cancel - success
+2025-11-09 13:51:20,025 - sync_service - INFO - ✅ Successfully cancelled payment 25569
+2025-11-09 13:51:20,026 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494664458306...
+2025-11-09 13:51:20,027 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:20,537 - sync_service - INFO - 
+--- Processing Payment 25570 ---
+2025-11-09 13:51:20,539 - sync_service - INFO - Shopify Order ID: 6494675501122
+2025-11-09 13:51:20,541 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:20,542 - sync_service - INFO - Store: local
+2025-11-09 13:51:20,543 - sync_service - INFO - Step 1: Patching IncomingPayment 25570 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:21,244 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25570) - success
+2025-11-09 13:51:21,246 - sync_service - INFO - ✅ Successfully patched payment 25570
+2025-11-09 13:51:21,247 - sync_service - INFO - Step 2: Cancelling payment 25570...
+2025-11-09 13:51:22,330 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25570)/Cancel - success
+2025-11-09 13:51:22,331 - sync_service - INFO - ✅ Successfully cancelled payment 25570
+2025-11-09 13:51:22,331 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494675501122...
+2025-11-09 13:51:22,332 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:22,838 - sync_service - INFO - 
+--- Processing Payment 25571 ---
+2025-11-09 13:51:22,839 - sync_service - INFO - Shopify Order ID: 6494693851202
+2025-11-09 13:51:22,839 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:22,840 - sync_service - INFO - Store: local
+2025-11-09 13:51:22,840 - sync_service - INFO - Step 1: Patching IncomingPayment 25571 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:23,515 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25571) - success
+2025-11-09 13:51:23,516 - sync_service - INFO - ✅ Successfully patched payment 25571
+2025-11-09 13:51:23,517 - sync_service - INFO - Step 2: Cancelling payment 25571...
+2025-11-09 13:51:24,462 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25571)/Cancel - success
+2025-11-09 13:51:24,464 - sync_service - INFO - ✅ Successfully cancelled payment 25571
+2025-11-09 13:51:24,465 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494693851202...
+2025-11-09 13:51:24,465 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:24,980 - sync_service - INFO - 
+--- Processing Payment 25572 ---
+2025-11-09 13:51:24,981 - sync_service - INFO - Shopify Order ID: 6494726553666
+2025-11-09 13:51:24,981 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:24,982 - sync_service - INFO - Store: local
+2025-11-09 13:51:24,983 - sync_service - INFO - Step 1: Patching IncomingPayment 25572 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:25,685 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25572) - success
+2025-11-09 13:51:25,687 - sync_service - INFO - ✅ Successfully patched payment 25572
+2025-11-09 13:51:25,689 - sync_service - INFO - Step 2: Cancelling payment 25572...
+2025-11-09 13:51:26,610 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25572)/Cancel - success
+2025-11-09 13:51:26,611 - sync_service - INFO - ✅ Successfully cancelled payment 25572
+2025-11-09 13:51:26,612 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494726553666...
+2025-11-09 13:51:26,613 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:27,124 - sync_service - INFO - 
+--- Processing Payment 25573 ---
+2025-11-09 13:51:27,125 - sync_service - INFO - Shopify Order ID: 6494746083394
+2025-11-09 13:51:27,126 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:27,128 - sync_service - INFO - Store: local
+2025-11-09 13:51:27,129 - sync_service - INFO - Step 1: Patching IncomingPayment 25573 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:27,833 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25573) - success
+2025-11-09 13:51:27,834 - sync_service - INFO - ✅ Successfully patched payment 25573
+2025-11-09 13:51:27,835 - sync_service - INFO - Step 2: Cancelling payment 25573...
+2025-11-09 13:51:28,755 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25573)/Cancel - success
+2025-11-09 13:51:28,757 - sync_service - INFO - ✅ Successfully cancelled payment 25573
+2025-11-09 13:51:28,758 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494746083394...
+2025-11-09 13:51:28,759 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:29,275 - sync_service - INFO - 
+--- Processing Payment 25574 ---
+2025-11-09 13:51:29,276 - sync_service - INFO - Shopify Order ID: 6494761648194
+2025-11-09 13:51:29,277 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:29,279 - sync_service - INFO - Store: local
+2025-11-09 13:51:29,279 - sync_service - INFO - Step 1: Patching IncomingPayment 25574 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:29,992 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25574) - success
+2025-11-09 13:51:29,994 - sync_service - INFO - ✅ Successfully patched payment 25574
+2025-11-09 13:51:29,995 - sync_service - INFO - Step 2: Cancelling payment 25574...
+2025-11-09 13:51:30,935 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25574)/Cancel - success
+2025-11-09 13:51:30,937 - sync_service - INFO - ✅ Successfully cancelled payment 25574
+2025-11-09 13:51:30,938 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494761648194...
+2025-11-09 13:51:30,939 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:31,448 - sync_service - INFO - 
+--- Processing Payment 25575 ---
+2025-11-09 13:51:31,449 - sync_service - INFO - Shopify Order ID: 6494762369090
+2025-11-09 13:51:31,450 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:31,450 - sync_service - INFO - Store: local
+2025-11-09 13:51:31,451 - sync_service - INFO - Step 1: Patching IncomingPayment 25575 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:32,150 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25575) - success
+2025-11-09 13:51:32,152 - sync_service - INFO - ✅ Successfully patched payment 25575
+2025-11-09 13:51:32,153 - sync_service - INFO - Step 2: Cancelling payment 25575...
+2025-11-09 13:51:33,093 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25575)/Cancel - success
+2025-11-09 13:51:33,095 - sync_service - INFO - ✅ Successfully cancelled payment 25575
+2025-11-09 13:51:33,096 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494762369090...
+2025-11-09 13:51:33,097 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:33,610 - sync_service - INFO - 
+--- Processing Payment 25576 ---
+2025-11-09 13:51:33,611 - sync_service - INFO - Shopify Order ID: 6494791598146
+2025-11-09 13:51:33,613 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:33,614 - sync_service - INFO - Store: local
+2025-11-09 13:51:33,615 - sync_service - INFO - Step 1: Patching IncomingPayment 25576 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:34,365 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25576) - success
+2025-11-09 13:51:34,366 - sync_service - INFO - ✅ Successfully patched payment 25576
+2025-11-09 13:51:34,367 - sync_service - INFO - Step 2: Cancelling payment 25576...
+2025-11-09 13:51:35,346 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25576)/Cancel - success
+2025-11-09 13:51:35,348 - sync_service - INFO - ✅ Successfully cancelled payment 25576
+2025-11-09 13:51:35,349 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494791598146...
+2025-11-09 13:51:35,350 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:35,857 - sync_service - INFO - 
+--- Processing Payment 25577 ---
+2025-11-09 13:51:35,859 - sync_service - INFO - Shopify Order ID: 6494803361858
+2025-11-09 13:51:35,860 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:35,861 - sync_service - INFO - Store: local
+2025-11-09 13:51:35,862 - sync_service - INFO - Step 1: Patching IncomingPayment 25577 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:36,610 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25577) - success
+2025-11-09 13:51:36,612 - sync_service - INFO - ✅ Successfully patched payment 25577
+2025-11-09 13:51:36,613 - sync_service - INFO - Step 2: Cancelling payment 25577...
+2025-11-09 13:51:37,641 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25577)/Cancel - success
+2025-11-09 13:51:37,642 - sync_service - INFO - ✅ Successfully cancelled payment 25577
+2025-11-09 13:51:37,643 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494803361858...
+2025-11-09 13:51:37,644 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:38,147 - sync_service - INFO - 
+--- Processing Payment 25578 ---
+2025-11-09 13:51:38,148 - sync_service - INFO - Shopify Order ID: 6494866702402
+2025-11-09 13:51:38,148 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:38,149 - sync_service - INFO - Store: local
+2025-11-09 13:51:38,150 - sync_service - INFO - Step 1: Patching IncomingPayment 25578 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:38,893 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25578) - success
+2025-11-09 13:51:38,894 - sync_service - INFO - ✅ Successfully patched payment 25578
+2025-11-09 13:51:38,895 - sync_service - INFO - Step 2: Cancelling payment 25578...
+2025-11-09 13:51:39,880 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25578)/Cancel - success
+2025-11-09 13:51:39,881 - sync_service - INFO - ✅ Successfully cancelled payment 25578
+2025-11-09 13:51:39,881 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494866702402...
+2025-11-09 13:51:39,882 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:40,394 - sync_service - INFO - 
+--- Processing Payment 25579 ---
+2025-11-09 13:51:40,396 - sync_service - INFO - Shopify Order ID: 6494870143042
+2025-11-09 13:51:40,397 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:40,398 - sync_service - INFO - Store: local
+2025-11-09 13:51:40,399 - sync_service - INFO - Step 1: Patching IncomingPayment 25579 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:41,101 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25579) - success
+2025-11-09 13:51:41,106 - sync_service - INFO - ✅ Successfully patched payment 25579
+2025-11-09 13:51:41,108 - sync_service - INFO - Step 2: Cancelling payment 25579...
+2025-11-09 13:51:42,088 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25579)/Cancel - success
+2025-11-09 13:51:42,090 - sync_service - INFO - ✅ Successfully cancelled payment 25579
+2025-11-09 13:51:42,090 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494870143042...
+2025-11-09 13:51:42,091 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:42,595 - sync_service - INFO - 
+--- Processing Payment 25580 ---
+2025-11-09 13:51:42,595 - sync_service - INFO - Shopify Order ID: 6495006785602
+2025-11-09 13:51:42,597 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:42,597 - sync_service - INFO - Store: local
+2025-11-09 13:51:42,599 - sync_service - INFO - Step 1: Patching IncomingPayment 25580 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:44,741 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25580) - success
+2025-11-09 13:51:44,742 - sync_service - INFO - ✅ Successfully patched payment 25580
+2025-11-09 13:51:44,743 - sync_service - INFO - Step 2: Cancelling payment 25580...
+2025-11-09 13:51:45,944 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25580)/Cancel - success
+2025-11-09 13:51:45,945 - sync_service - INFO - ✅ Successfully cancelled payment 25580
+2025-11-09 13:51:45,947 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495006785602...
+2025-11-09 13:51:45,947 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:46,455 - sync_service - INFO - 
+--- Processing Payment 25581 ---
+2025-11-09 13:51:46,457 - sync_service - INFO - Shopify Order ID: 6495064326210
+2025-11-09 13:51:46,458 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:46,459 - sync_service - INFO - Store: local
+2025-11-09 13:51:46,460 - sync_service - INFO - Step 1: Patching IncomingPayment 25581 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:48,106 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25581) - success
+2025-11-09 13:51:48,107 - sync_service - INFO - ✅ Successfully patched payment 25581
+2025-11-09 13:51:48,108 - sync_service - INFO - Step 2: Cancelling payment 25581...
+2025-11-09 13:51:50,134 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25581)/Cancel - success
+2025-11-09 13:51:50,136 - sync_service - INFO - ✅ Successfully cancelled payment 25581
+2025-11-09 13:51:50,137 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495064326210...
+2025-11-09 13:51:50,138 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:50,655 - sync_service - INFO - 
+--- Processing Payment 25582 ---
+2025-11-09 13:51:50,657 - sync_service - INFO - Shopify Order ID: 6495076548674
+2025-11-09 13:51:50,659 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:50,660 - sync_service - INFO - Store: local
+2025-11-09 13:51:50,661 - sync_service - INFO - Step 1: Patching IncomingPayment 25582 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:52,183 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25582) - success
+2025-11-09 13:51:52,185 - sync_service - INFO - ✅ Successfully patched payment 25582
+2025-11-09 13:51:52,186 - sync_service - INFO - Step 2: Cancelling payment 25582...
+2025-11-09 13:51:53,118 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25582)/Cancel - success
+2025-11-09 13:51:53,120 - sync_service - INFO - ✅ Successfully cancelled payment 25582
+2025-11-09 13:51:53,121 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495076548674...
+2025-11-09 13:51:53,121 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:53,625 - sync_service - INFO - 
+--- Processing Payment 25583 ---
+2025-11-09 13:51:53,626 - sync_service - INFO - Shopify Order ID: 6495084052546
+2025-11-09 13:51:53,628 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:53,628 - sync_service - INFO - Store: local
+2025-11-09 13:51:53,629 - sync_service - INFO - Step 1: Patching IncomingPayment 25583 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:54,360 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25583) - success
+2025-11-09 13:51:54,362 - sync_service - INFO - ✅ Successfully patched payment 25583
+2025-11-09 13:51:54,363 - sync_service - INFO - Step 2: Cancelling payment 25583...
+2025-11-09 13:51:55,315 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25583)/Cancel - success
+2025-11-09 13:51:55,316 - sync_service - INFO - ✅ Successfully cancelled payment 25583
+2025-11-09 13:51:55,317 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495084052546...
+2025-11-09 13:51:55,318 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:55,826 - sync_service - INFO - 
+--- Processing Payment 25584 ---
+2025-11-09 13:51:55,827 - sync_service - INFO - Shopify Order ID: 6495088771138
+2025-11-09 13:51:55,828 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:55,829 - sync_service - INFO - Store: local
+2025-11-09 13:51:55,830 - sync_service - INFO - Step 1: Patching IncomingPayment 25584 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:56,785 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25584) - success
+2025-11-09 13:51:56,787 - sync_service - INFO - ✅ Successfully patched payment 25584
+2025-11-09 13:51:56,788 - sync_service - INFO - Step 2: Cancelling payment 25584...
+2025-11-09 13:51:57,845 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25584)/Cancel - success
+2025-11-09 13:51:57,847 - sync_service - INFO - ✅ Successfully cancelled payment 25584
+2025-11-09 13:51:57,848 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495088771138...
+2025-11-09 13:51:57,849 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:51:58,355 - sync_service - INFO - 
+--- Processing Payment 25585 ---
+2025-11-09 13:51:58,357 - sync_service - INFO - Shopify Order ID: 6495182585922
+2025-11-09 13:51:58,358 - sync_service - INFO - Currency: EGP
+2025-11-09 13:51:58,359 - sync_service - INFO - Store: local
+2025-11-09 13:51:58,361 - sync_service - INFO - Step 1: Patching IncomingPayment 25585 to clear U_Shopify_Order_ID...
+2025-11-09 13:51:59,058 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25585) - success
+2025-11-09 13:51:59,059 - sync_service - INFO - ✅ Successfully patched payment 25585
+2025-11-09 13:51:59,061 - sync_service - INFO - Step 2: Cancelling payment 25585...
+2025-11-09 13:52:00,074 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25585)/Cancel - success
+2025-11-09 13:52:00,076 - sync_service - INFO - ✅ Successfully cancelled payment 25585
+2025-11-09 13:52:00,077 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495182585922...
+2025-11-09 13:52:00,077 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:00,591 - sync_service - INFO - 
+--- Processing Payment 25588 ---
+2025-11-09 13:52:00,593 - sync_service - INFO - Shopify Order ID: 6494436032578
+2025-11-09 13:52:00,594 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:00,595 - sync_service - INFO - Store: local
+2025-11-09 13:52:00,596 - sync_service - INFO - Step 1: Patching IncomingPayment 25588 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:01,286 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25588) - success
+2025-11-09 13:52:01,288 - sync_service - INFO - ✅ Successfully patched payment 25588
+2025-11-09 13:52:01,291 - sync_service - INFO - Step 2: Cancelling payment 25588...
+2025-11-09 13:52:02,302 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25588)/Cancel - success
+2025-11-09 13:52:02,306 - sync_service - INFO - ✅ Successfully cancelled payment 25588
+2025-11-09 13:52:02,309 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494436032578...
+2025-11-09 13:52:02,311 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:02,822 - sync_service - INFO - 
+--- Processing Payment 25589 ---
+2025-11-09 13:52:02,824 - sync_service - INFO - Shopify Order ID: 6494509432898
+2025-11-09 13:52:02,825 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:02,827 - sync_service - INFO - Store: local
+2025-11-09 13:52:02,828 - sync_service - INFO - Step 1: Patching IncomingPayment 25589 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:03,528 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25589) - success
+2025-11-09 13:52:03,530 - sync_service - INFO - ✅ Successfully patched payment 25589
+2025-11-09 13:52:03,531 - sync_service - INFO - Step 2: Cancelling payment 25589...
+2025-11-09 13:52:04,497 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25589)/Cancel - success
+2025-11-09 13:52:04,499 - sync_service - INFO - ✅ Successfully cancelled payment 25589
+2025-11-09 13:52:04,500 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494509432898...
+2025-11-09 13:52:04,501 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:05,013 - sync_service - INFO - 
+--- Processing Payment 25590 ---
+2025-11-09 13:52:05,027 - sync_service - INFO - Shopify Order ID: 6494530994242
+2025-11-09 13:52:05,029 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:05,030 - sync_service - INFO - Store: local
+2025-11-09 13:52:05,031 - sync_service - INFO - Step 1: Patching IncomingPayment 25590 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:05,728 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25590) - success
+2025-11-09 13:52:05,730 - sync_service - INFO - ✅ Successfully patched payment 25590
+2025-11-09 13:52:05,731 - sync_service - INFO - Step 2: Cancelling payment 25590...
+2025-11-09 13:52:06,691 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25590)/Cancel - success
+2025-11-09 13:52:06,692 - sync_service - INFO - ✅ Successfully cancelled payment 25590
+2025-11-09 13:52:06,693 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494530994242...
+2025-11-09 13:52:06,694 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:07,211 - sync_service - INFO - 
+--- Processing Payment 25591 ---
+2025-11-09 13:52:07,213 - sync_service - INFO - Shopify Order ID: 6494533222466
+2025-11-09 13:52:07,214 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:07,215 - sync_service - INFO - Store: local
+2025-11-09 13:52:07,216 - sync_service - INFO - Step 1: Patching IncomingPayment 25591 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:07,912 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25591) - success
+2025-11-09 13:52:07,913 - sync_service - INFO - ✅ Successfully patched payment 25591
+2025-11-09 13:52:07,914 - sync_service - INFO - Step 2: Cancelling payment 25591...
+2025-11-09 13:52:08,845 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25591)/Cancel - success
+2025-11-09 13:52:08,846 - sync_service - INFO - ✅ Successfully cancelled payment 25591
+2025-11-09 13:52:08,847 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494533222466...
+2025-11-09 13:52:08,848 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:09,362 - sync_service - INFO - 
+--- Processing Payment 25592 ---
+2025-11-09 13:52:09,363 - sync_service - INFO - Shopify Order ID: 6494562156610
+2025-11-09 13:52:09,364 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:09,365 - sync_service - INFO - Store: local
+2025-11-09 13:52:09,366 - sync_service - INFO - Step 1: Patching IncomingPayment 25592 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:10,062 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25592) - success
+2025-11-09 13:52:10,064 - sync_service - INFO - ✅ Successfully patched payment 25592
+2025-11-09 13:52:10,065 - sync_service - INFO - Step 2: Cancelling payment 25592...
+2025-11-09 13:52:10,994 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25592)/Cancel - success
+2025-11-09 13:52:10,996 - sync_service - INFO - ✅ Successfully cancelled payment 25592
+2025-11-09 13:52:10,997 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494562156610...
+2025-11-09 13:52:10,998 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:11,512 - sync_service - INFO - 
+--- Processing Payment 25593 ---
+2025-11-09 13:52:11,514 - sync_service - INFO - Shopify Order ID: 6494613110850
+2025-11-09 13:52:11,515 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:11,516 - sync_service - INFO - Store: local
+2025-11-09 13:52:11,517 - sync_service - INFO - Step 1: Patching IncomingPayment 25593 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:12,231 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25593) - success
+2025-11-09 13:52:12,232 - sync_service - INFO - ✅ Successfully patched payment 25593
+2025-11-09 13:52:12,234 - sync_service - INFO - Step 2: Cancelling payment 25593...
+2025-11-09 13:52:13,194 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25593)/Cancel - success
+2025-11-09 13:52:13,195 - sync_service - INFO - ✅ Successfully cancelled payment 25593
+2025-11-09 13:52:13,196 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494613110850...
+2025-11-09 13:52:13,197 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:13,699 - sync_service - INFO - 
+--- Processing Payment 25594 ---
+2025-11-09 13:52:13,700 - sync_service - INFO - Shopify Order ID: 6494619828290
+2025-11-09 13:52:13,702 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:13,703 - sync_service - INFO - Store: local
+2025-11-09 13:52:13,704 - sync_service - INFO - Step 1: Patching IncomingPayment 25594 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:14,417 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25594) - success
+2025-11-09 13:52:14,418 - sync_service - INFO - ✅ Successfully patched payment 25594
+2025-11-09 13:52:14,419 - sync_service - INFO - Step 2: Cancelling payment 25594...
+2025-11-09 13:52:15,387 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25594)/Cancel - success
+2025-11-09 13:52:15,389 - sync_service - INFO - ✅ Successfully cancelled payment 25594
+2025-11-09 13:52:15,390 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494619828290...
+2025-11-09 13:52:15,390 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:15,902 - sync_service - INFO - 
+--- Processing Payment 25595 ---
+2025-11-09 13:52:15,903 - sync_service - INFO - Shopify Order ID: 6494621663298
+2025-11-09 13:52:15,906 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:15,906 - sync_service - INFO - Store: local
+2025-11-09 13:52:15,908 - sync_service - INFO - Step 1: Patching IncomingPayment 25595 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:16,649 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25595) - success
+2025-11-09 13:52:16,650 - sync_service - INFO - ✅ Successfully patched payment 25595
+2025-11-09 13:52:16,651 - sync_service - INFO - Step 2: Cancelling payment 25595...
+2025-11-09 13:52:17,710 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25595)/Cancel - success
+2025-11-09 13:52:17,712 - sync_service - INFO - ✅ Successfully cancelled payment 25595
+2025-11-09 13:52:17,713 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494621663298...
+2025-11-09 13:52:17,714 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:18,228 - sync_service - INFO - 
+--- Processing Payment 25596 ---
+2025-11-09 13:52:18,230 - sync_service - INFO - Shopify Order ID: 6494621728834
+2025-11-09 13:52:18,232 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:18,233 - sync_service - INFO - Store: local
+2025-11-09 13:52:18,234 - sync_service - INFO - Step 1: Patching IncomingPayment 25596 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:19,110 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25596) - success
+2025-11-09 13:52:19,111 - sync_service - INFO - ✅ Successfully patched payment 25596
+2025-11-09 13:52:19,112 - sync_service - INFO - Step 2: Cancelling payment 25596...
+2025-11-09 13:52:20,069 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25596)/Cancel - success
+2025-11-09 13:52:20,071 - sync_service - INFO - ✅ Successfully cancelled payment 25596
+2025-11-09 13:52:20,072 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494621728834...
+2025-11-09 13:52:20,072 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:20,587 - sync_service - INFO - 
+--- Processing Payment 25597 ---
+2025-11-09 13:52:20,589 - sync_service - INFO - Shopify Order ID: 6494630740034
+2025-11-09 13:52:20,591 - sync_service - INFO - Currency: EGP
+2025-11-09 13:52:20,592 - sync_service - INFO - Store: local
+2025-11-09 13:52:20,593 - sync_service - INFO - Step 1: Patching IncomingPayment 25597 to clear U_Shopify_Order_ID...
+2025-11-09 13:52:21,286 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25597) - success
+2025-11-09 13:52:21,290 - sync_service - INFO - ✅ Successfully patched payment 25597
+2025-11-09 13:52:21,293 - sync_service - INFO - Step 2: Cancelling payment 25597...
+2025-11-09 13:52:22,759 - sync_service - INFO - API log added to SAP: sap - IncomingPayments(25597)/Cancel - success
+2025-11-09 13:52:22,760 - sync_service - INFO - ✅ Successfully cancelled payment 25597
+2025-11-09 13:52:22,761 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494630740034...
+2025-11-09 13:52:22,762 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: Store local not found or not enabled
+2025-11-09 13:52:23,269 - sync_service - INFO - 
+✅ Completed processing 45 payments
+2025-11-09 13:52:23,272 - sync_service - INFO - 
+================================================================================
+2025-11-09 13:52:23,273 - sync_service - INFO - Processing Invoices
+2025-11-09 13:52:23,275 - sync_service - INFO - ================================================================================
+2025-11-09 13:52:23,276 - sync_service - INFO - Fetching invoices from SAP...
+2025-11-09 13:52:24,069 - sync_service - INFO - API log added to SAP: sap - Invoices?$select=DocEntry,DocCurrency,U_Shopify_Order_ID&$filter=CreationDate eq '2025-11-09' and NumAtCard ne null - success
+2025-11-09 13:52:24,070 - sync_service - INFO - Found 45 invoices to process
+2025-11-09 13:52:24,071 - sync_service - INFO - 
+--- Processing Invoice 26357 ---
+2025-11-09 13:52:24,072 - sync_service - INFO - Shopify Order ID: 7075678027866
+2025-11-09 13:52:24,073 - sync_service - INFO - Currency: USD
+2025-11-09 13:52:24,073 - sync_service - INFO - Step 1: Patching Invoice 26357 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:52:25,005 - sync_service - INFO - API log added to SAP: sap - Invoices(26357) - success
+2025-11-09 13:52:25,007 - sync_service - INFO - ✅ Successfully patched invoice 26357
+2025-11-09 13:52:25,007 - sync_service - INFO - Step 2: Cancelling invoice 26357...
+2025-11-09 13:54:58,840 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-11-09 13:54:58,841 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-09 13:54:58,842 - sync_service - INFO - ================================================================================
+2025-11-09 13:54:58,842 - sync_service - INFO - SAP Invoice Cancellation Script
+2025-11-09 13:54:58,843 - sync_service - INFO - This script will:
+2025-11-09 13:54:58,843 - sync_service - INFO - 1. Fetch invoices from SAP
+2025-11-09 13:54:58,844 - sync_service - INFO - 2. Patch them to clear Shopify Order ID fields
+2025-11-09 13:54:58,844 - sync_service - INFO - 3. Cancel the invoices
+2025-11-09 13:54:58,844 - sync_service - INFO - 4. Remove tags from Shopify orders
+2025-11-09 13:54:58,845 - sync_service - INFO - ================================================================================
+2025-11-09 13:54:58,845 - sync_service - INFO - ================================================================================
+2025-11-09 13:54:58,845 - sync_service - INFO - Processing Invoices
+2025-11-09 13:54:58,846 - sync_service - INFO - ================================================================================
+2025-11-09 13:54:58,846 - sync_service - INFO - Fetching invoices from SAP...
+2025-11-09 13:54:59,724 - sync_service - INFO - SAP login successful
+2025-11-09 13:55:01,617 - sync_service - INFO - SAP logging client login successful
+2025-11-09 13:55:02,413 - sync_service - INFO - API log added to SAP: sap - Invoices?$select=DocEntry,DocCurrency,U_Shopify_Order_ID&$filter=CreationDate eq '2025-11-09' and NumAtCard ne null - success
+2025-11-09 13:55:02,414 - sync_service - INFO - Found 44 invoices to process
+2025-11-09 13:55:02,415 - sync_service - INFO - 
+--- Processing Invoice 26367 ---
+2025-11-09 13:55:02,416 - sync_service - INFO - Shopify Order ID: 7076618141786
+2025-11-09 13:55:02,417 - sync_service - INFO - Currency: USD
+2025-11-09 13:55:02,417 - sync_service - INFO - Store: international
+2025-11-09 13:55:02,418 - sync_service - INFO - Step 1: Patching Invoice 26367 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:55:04,440 - sync_service - INFO - API log added to SAP: sap - Invoices(26367) - success
+2025-11-09 13:55:04,442 - sync_service - INFO - ✅ Successfully patched invoice 26367
+2025-11-09 13:55:04,443 - sync_service - INFO - Step 2: Cancelling invoice 26367...
+2025-11-09 13:55:07,589 - sync_service - INFO - API log added to SAP: sap - Invoices(26367)/Cancel - failure
+2025-11-09 13:55:07,590 - sync_service - ERROR - Failed to cancel invoice 26367: HTTP 400: {
+   "error" : {
+      "code" : -1116,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "(130028) Please Fill the Discount Reason"
+      }
+   }
+}
+
+2025-11-09 13:55:07,591 - sync_service - INFO - 
+--- Processing Invoice 26358 ---
+2025-11-09 13:55:07,591 - sync_service - INFO - Shopify Order ID: 7080076607578
+2025-11-09 13:55:07,592 - sync_service - INFO - Currency: USD
+2025-11-09 13:55:07,592 - sync_service - INFO - Store: international
+2025-11-09 13:55:07,593 - sync_service - INFO - Step 1: Patching Invoice 26358 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:55:09,112 - sync_service - INFO - API log added to SAP: sap - Invoices(26358) - success
+2025-11-09 13:55:09,114 - sync_service - INFO - ✅ Successfully patched invoice 26358
+2025-11-09 13:55:09,115 - sync_service - INFO - Step 2: Cancelling invoice 26358...
+2025-11-09 13:55:11,173 - sync_service - INFO - API log added to SAP: sap - Invoices(26358)/Cancel - success
+2025-11-09 13:55:11,175 - sync_service - INFO - ✅ Successfully cancelled invoice 26358
+2025-11-09 13:55:11,176 - sync_service - INFO - Step 3: Removing tags from Shopify order 7080076607578...
+2025-11-09 13:55:11,176 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:55:11,177 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/7080076607578'}}, 'response': None, 'status': None}
+2025-11-09 13:55:11,538 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/7080076607578', 'name': '#1030', 'tags': []}}, 'status': 'success'}
+2025-11-09 13:55:11,539 - sync_service - INFO - Executing GraphQL query for store: international
+2025-11-09 13:55:11,540 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/7080076607578', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:55:11,947 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_international', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/7080076607578', 'name': '#1030', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:55:11,948 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/7080076607578 in store international
+2025-11-09 13:55:11,949 - sync_service - INFO - ✅ Successfully removed tags from order 7080076607578
+2025-11-09 13:55:12,452 - sync_service - INFO - 
+--- Processing Invoice 26360 ---
+2025-11-09 13:55:12,453 - sync_service - INFO - Shopify Order ID: 6494118182978
+2025-11-09 13:55:12,454 - sync_service - INFO - Currency: EGP
+2025-11-09 13:55:12,455 - sync_service - INFO - Store: local
+2025-11-09 13:55:12,455 - sync_service - INFO - Step 1: Patching Invoice 26360 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:55:13,340 - sync_service - INFO - API log added to SAP: sap - Invoices(26360) - success
+2025-11-09 13:55:13,342 - sync_service - INFO - ✅ Successfully patched invoice 26360
+2025-11-09 13:55:13,343 - sync_service - INFO - Step 2: Cancelling invoice 26360...
+2025-11-09 13:55:14,676 - sync_service - INFO - API log added to SAP: sap - Invoices(26360)/Cancel - success
+2025-11-09 13:55:14,678 - sync_service - INFO - ✅ Successfully cancelled invoice 26360
+2025-11-09 13:55:14,679 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494118182978...
+2025-11-09 13:55:14,680 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:55:14,681 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494118182978'}}, 'response': None, 'status': None}
+2025-11-09 13:55:24,695 - sync_service - ERROR - GraphQL query error for store local: 
+2025-11-09 13:55:25,450 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - failure
+2025-11-09 13:55:25,451 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: GraphQL query error for store local: 
+2025-11-09 13:55:25,969 - sync_service - INFO - 
+--- Processing Invoice 26361 ---
+2025-11-09 13:55:25,970 - sync_service - INFO - Shopify Order ID: 6494136533058
+2025-11-09 13:55:25,971 - sync_service - INFO - Currency: EGP
+2025-11-09 13:55:25,971 - sync_service - INFO - Store: local
+2025-11-09 13:55:25,972 - sync_service - INFO - Step 1: Patching Invoice 26361 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:55:27,107 - sync_service - INFO - API log added to SAP: sap - Invoices(26361) - success
+2025-11-09 13:55:27,108 - sync_service - INFO - ✅ Successfully patched invoice 26361
+2025-11-09 13:55:27,109 - sync_service - INFO - Step 2: Cancelling invoice 26361...
+2025-11-09 13:55:29,362 - sync_service - INFO - API log added to SAP: sap - Invoices(26361)/Cancel - success
+2025-11-09 13:55:29,363 - sync_service - INFO - ✅ Successfully cancelled invoice 26361
+2025-11-09 13:55:29,364 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494136533058...
+2025-11-09 13:55:29,364 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:55:29,364 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494136533058'}}, 'response': None, 'status': None}
+2025-11-09 13:55:39,371 - sync_service - ERROR - GraphQL query error for store local: 
+2025-11-09 13:55:40,612 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - failure
+2025-11-09 13:55:40,613 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: GraphQL query error for store local: 
+2025-11-09 13:55:41,128 - sync_service - INFO - 
+--- Processing Invoice 26362 ---
+2025-11-09 13:55:41,128 - sync_service - INFO - Shopify Order ID: 6494142726210
+2025-11-09 13:55:41,130 - sync_service - INFO - Currency: EGP
+2025-11-09 13:55:41,131 - sync_service - INFO - Store: local
+2025-11-09 13:55:41,132 - sync_service - INFO - Step 1: Patching Invoice 26362 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:55:43,222 - sync_service - INFO - API log added to SAP: sap - Invoices(26362) - success
+2025-11-09 13:55:43,223 - sync_service - INFO - ✅ Successfully patched invoice 26362
+2025-11-09 13:55:43,224 - sync_service - INFO - Step 2: Cancelling invoice 26362...
+2025-11-09 13:55:46,223 - sync_service - INFO - API log added to SAP: sap - Invoices(26362)/Cancel - failure
+2025-11-09 13:55:46,224 - sync_service - ERROR - Failed to cancel invoice 26362: HTTP 400: {
+   "error" : {
+      "code" : -1116,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "(130028) Please Fill the Discount Reason"
+      }
+   }
+}
+
+2025-11-09 13:55:46,225 - sync_service - INFO - 
+--- Processing Invoice 26363 ---
+2025-11-09 13:55:46,226 - sync_service - INFO - Shopify Order ID: 6494146658370
+2025-11-09 13:55:46,226 - sync_service - INFO - Currency: EGP
+2025-11-09 13:55:46,227 - sync_service - INFO - Store: local
+2025-11-09 13:55:46,228 - sync_service - INFO - Step 1: Patching Invoice 26363 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:55:47,183 - sync_service - INFO - API log added to SAP: sap - Invoices(26363) - success
+2025-11-09 13:55:47,184 - sync_service - INFO - ✅ Successfully patched invoice 26363
+2025-11-09 13:55:47,185 - sync_service - INFO - Step 2: Cancelling invoice 26363...
+2025-11-09 13:55:49,174 - sync_service - INFO - API log added to SAP: sap - Invoices(26363)/Cancel - success
+2025-11-09 13:55:49,175 - sync_service - INFO - ✅ Successfully cancelled invoice 26363
+2025-11-09 13:55:49,175 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494146658370...
+2025-11-09 13:55:49,176 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:55:49,177 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494146658370'}}, 'response': None, 'status': None}
+2025-11-09 13:55:59,192 - sync_service - ERROR - GraphQL query error for store local: 
+2025-11-09 13:55:59,694 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - failure
+2025-11-09 13:55:59,695 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: GraphQL query error for store local: 
+2025-11-09 13:56:00,205 - sync_service - INFO - 
+--- Processing Invoice 26364 ---
+2025-11-09 13:56:00,206 - sync_service - INFO - Shopify Order ID: 6494152917058
+2025-11-09 13:56:00,207 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:00,207 - sync_service - INFO - Store: local
+2025-11-09 13:56:00,208 - sync_service - INFO - Step 1: Patching Invoice 26364 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:01,086 - sync_service - INFO - API log added to SAP: sap - Invoices(26364) - success
+2025-11-09 13:56:01,088 - sync_service - INFO - ✅ Successfully patched invoice 26364
+2025-11-09 13:56:01,089 - sync_service - INFO - Step 2: Cancelling invoice 26364...
+2025-11-09 13:56:02,353 - sync_service - INFO - API log added to SAP: sap - Invoices(26364)/Cancel - success
+2025-11-09 13:56:02,354 - sync_service - INFO - ✅ Successfully cancelled invoice 26364
+2025-11-09 13:56:02,354 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494152917058...
+2025-11-09 13:56:02,354 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:02,355 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494152917058'}}, 'response': None, 'status': None}
+2025-11-09 13:56:02,768 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494152917058', 'name': '#1985', 'tags': ['sap_invoice_26364', 'sap_invoice_synced', 'sap_payment_25557', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:02,769 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:02,770 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494152917058', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:03,221 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494152917058', 'name': '#1985', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:03,222 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494152917058 in store local
+2025-11-09 13:56:03,223 - sync_service - INFO - ✅ Successfully removed tags from order 6494152917058
+2025-11-09 13:56:03,736 - sync_service - INFO - 
+--- Processing Invoice 26365 ---
+2025-11-09 13:56:03,738 - sync_service - INFO - Shopify Order ID: 6494155243586
+2025-11-09 13:56:03,740 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:03,741 - sync_service - INFO - Store: local
+2025-11-09 13:56:03,742 - sync_service - INFO - Step 1: Patching Invoice 26365 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:04,676 - sync_service - INFO - API log added to SAP: sap - Invoices(26365) - success
+2025-11-09 13:56:04,678 - sync_service - INFO - ✅ Successfully patched invoice 26365
+2025-11-09 13:56:04,679 - sync_service - INFO - Step 2: Cancelling invoice 26365...
+2025-11-09 13:56:06,148 - sync_service - INFO - API log added to SAP: sap - Invoices(26365)/Cancel - success
+2025-11-09 13:56:06,149 - sync_service - INFO - ✅ Successfully cancelled invoice 26365
+2025-11-09 13:56:06,150 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494155243586...
+2025-11-09 13:56:06,151 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:06,152 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494155243586'}}, 'response': None, 'status': None}
+2025-11-09 13:56:06,533 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494155243586', 'name': '#1988', 'tags': ['sap_invoice_26365', 'sap_invoice_synced', 'sap_payment_25558', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:06,534 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:06,535 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494155243586', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:06,966 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494155243586', 'name': '#1988', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:06,967 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494155243586 in store local
+2025-11-09 13:56:06,968 - sync_service - INFO - ✅ Successfully removed tags from order 6494155243586
+2025-11-09 13:56:07,480 - sync_service - INFO - 
+--- Processing Invoice 26366 ---
+2025-11-09 13:56:07,481 - sync_service - INFO - Shopify Order ID: 6494156750914
+2025-11-09 13:56:07,482 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:07,483 - sync_service - INFO - Store: local
+2025-11-09 13:56:07,483 - sync_service - INFO - Step 1: Patching Invoice 26366 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:08,437 - sync_service - INFO - API log added to SAP: sap - Invoices(26366) - success
+2025-11-09 13:56:08,439 - sync_service - INFO - ✅ Successfully patched invoice 26366
+2025-11-09 13:56:08,440 - sync_service - INFO - Step 2: Cancelling invoice 26366...
+2025-11-09 13:56:09,776 - sync_service - INFO - API log added to SAP: sap - Invoices(26366)/Cancel - success
+2025-11-09 13:56:09,777 - sync_service - INFO - ✅ Successfully cancelled invoice 26366
+2025-11-09 13:56:09,778 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494156750914...
+2025-11-09 13:56:09,779 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:09,779 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494156750914'}}, 'response': None, 'status': None}
+2025-11-09 13:56:17,609 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494156750914', 'name': '#1989', 'tags': ['sap_invoice_26366', 'sap_invoice_synced', 'sap_payment_25559', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:17,610 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:17,611 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494156750914', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:18,072 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494156750914', 'name': '#1989', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:18,073 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494156750914 in store local
+2025-11-09 13:56:18,074 - sync_service - INFO - ✅ Successfully removed tags from order 6494156750914
+2025-11-09 13:56:18,584 - sync_service - INFO - 
+--- Processing Invoice 26368 ---
+2025-11-09 13:56:18,584 - sync_service - INFO - Shopify Order ID: 6494157242434
+2025-11-09 13:56:18,585 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:18,585 - sync_service - INFO - Store: local
+2025-11-09 13:56:18,586 - sync_service - INFO - Step 1: Patching Invoice 26368 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:19,509 - sync_service - INFO - API log added to SAP: sap - Invoices(26368) - success
+2025-11-09 13:56:19,510 - sync_service - INFO - ✅ Successfully patched invoice 26368
+2025-11-09 13:56:19,511 - sync_service - INFO - Step 2: Cancelling invoice 26368...
+2025-11-09 13:56:20,749 - sync_service - INFO - API log added to SAP: sap - Invoices(26368)/Cancel - success
+2025-11-09 13:56:20,750 - sync_service - INFO - ✅ Successfully cancelled invoice 26368
+2025-11-09 13:56:20,750 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494157242434...
+2025-11-09 13:56:20,751 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:20,751 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494157242434'}}, 'response': None, 'status': None}
+2025-11-09 13:56:21,145 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494157242434', 'name': '#1990', 'tags': ['sap_invoice_26368', 'sap_invoice_synced', 'sap_payment_25561', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:21,146 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:21,147 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494157242434', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:21,617 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494157242434', 'name': '#1990', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:21,617 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494157242434 in store local
+2025-11-09 13:56:21,618 - sync_service - INFO - ✅ Successfully removed tags from order 6494157242434
+2025-11-09 13:56:22,125 - sync_service - INFO - 
+--- Processing Invoice 26369 ---
+2025-11-09 13:56:22,126 - sync_service - INFO - Shopify Order ID: 6494273667138
+2025-11-09 13:56:22,127 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:22,128 - sync_service - INFO - Store: local
+2025-11-09 13:56:22,129 - sync_service - INFO - Step 1: Patching Invoice 26369 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:23,384 - sync_service - INFO - API log added to SAP: sap - Invoices(26369) - success
+2025-11-09 13:56:23,386 - sync_service - INFO - ✅ Successfully patched invoice 26369
+2025-11-09 13:56:23,387 - sync_service - INFO - Step 2: Cancelling invoice 26369...
+2025-11-09 13:56:24,565 - sync_service - INFO - API log added to SAP: sap - Invoices(26369)/Cancel - success
+2025-11-09 13:56:24,566 - sync_service - INFO - ✅ Successfully cancelled invoice 26369
+2025-11-09 13:56:24,567 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494273667138...
+2025-11-09 13:56:24,567 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:24,568 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494273667138'}}, 'response': None, 'status': None}
+2025-11-09 13:56:24,951 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494273667138', 'name': '#2046', 'tags': ['sap_invoice_26369', 'sap_invoice_synced', 'sap_payment_25562', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:24,952 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:24,953 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494273667138', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:25,418 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494273667138', 'name': '#2046', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:25,419 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494273667138 in store local
+2025-11-09 13:56:25,420 - sync_service - INFO - ✅ Successfully removed tags from order 6494273667138
+2025-11-09 13:56:25,932 - sync_service - INFO - 
+--- Processing Invoice 26395 ---
+2025-11-09 13:56:25,933 - sync_service - INFO - Shopify Order ID: 6494436032578
+2025-11-09 13:56:25,934 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:25,935 - sync_service - INFO - Store: local
+2025-11-09 13:56:25,936 - sync_service - INFO - Step 1: Patching Invoice 26395 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:27,006 - sync_service - INFO - API log added to SAP: sap - Invoices(26395) - success
+2025-11-09 13:56:27,007 - sync_service - INFO - ✅ Successfully patched invoice 26395
+2025-11-09 13:56:27,008 - sync_service - INFO - Step 2: Cancelling invoice 26395...
+2025-11-09 13:56:28,317 - sync_service - INFO - API log added to SAP: sap - Invoices(26395)/Cancel - success
+2025-11-09 13:56:28,319 - sync_service - INFO - ✅ Successfully cancelled invoice 26395
+2025-11-09 13:56:28,320 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494436032578...
+2025-11-09 13:56:28,321 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:28,321 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494436032578'}}, 'response': None, 'status': None}
+2025-11-09 13:56:29,072 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494436032578', 'name': '#2055', 'tags': ['sap_invoice_26395', 'sap_invoice_synced', 'sap_payment_25588', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:29,074 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:29,075 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494436032578', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:29,593 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494436032578', 'name': '#2055', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:29,594 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494436032578 in store local
+2025-11-09 13:56:29,595 - sync_service - INFO - ✅ Successfully removed tags from order 6494436032578
+2025-11-09 13:56:30,104 - sync_service - INFO - 
+--- Processing Invoice 26370 ---
+2025-11-09 13:56:30,105 - sync_service - INFO - Shopify Order ID: 6494503665730
+2025-11-09 13:56:30,107 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:30,108 - sync_service - INFO - Store: local
+2025-11-09 13:56:30,109 - sync_service - INFO - Step 1: Patching Invoice 26370 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:31,073 - sync_service - INFO - API log added to SAP: sap - Invoices(26370) - success
+2025-11-09 13:56:31,074 - sync_service - INFO - ✅ Successfully patched invoice 26370
+2025-11-09 13:56:31,075 - sync_service - INFO - Step 2: Cancelling invoice 26370...
+2025-11-09 13:56:32,485 - sync_service - INFO - API log added to SAP: sap - Invoices(26370)/Cancel - success
+2025-11-09 13:56:32,487 - sync_service - INFO - ✅ Successfully cancelled invoice 26370
+2025-11-09 13:56:32,488 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494503665730...
+2025-11-09 13:56:32,489 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:32,490 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494503665730'}}, 'response': None, 'status': None}
+2025-11-09 13:56:32,856 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494503665730', 'name': '#2058', 'tags': ['sap_invoice_26370', 'sap_invoice_synced', 'sap_payment_25563', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:32,858 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:32,859 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494503665730', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:33,325 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494503665730', 'name': '#2058', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:33,326 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494503665730 in store local
+2025-11-09 13:56:33,326 - sync_service - INFO - ✅ Successfully removed tags from order 6494503665730
+2025-11-09 13:56:33,838 - sync_service - INFO - 
+--- Processing Invoice 26396 ---
+2025-11-09 13:56:33,839 - sync_service - INFO - Shopify Order ID: 6494509432898
+2025-11-09 13:56:33,840 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:33,841 - sync_service - INFO - Store: local
+2025-11-09 13:56:33,842 - sync_service - INFO - Step 1: Patching Invoice 26396 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:34,762 - sync_service - INFO - API log added to SAP: sap - Invoices(26396) - success
+2025-11-09 13:56:34,762 - sync_service - INFO - ✅ Successfully patched invoice 26396
+2025-11-09 13:56:34,763 - sync_service - INFO - Step 2: Cancelling invoice 26396...
+2025-11-09 13:56:35,977 - sync_service - INFO - API log added to SAP: sap - Invoices(26396)/Cancel - success
+2025-11-09 13:56:35,979 - sync_service - INFO - ✅ Successfully cancelled invoice 26396
+2025-11-09 13:56:35,980 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494509432898...
+2025-11-09 13:56:35,981 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:35,982 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494509432898'}}, 'response': None, 'status': None}
+2025-11-09 13:56:40,501 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494509432898', 'name': '#2059', 'tags': ['sap_invoice_26396', 'sap_invoice_synced', 'sap_payment_25589', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:40,502 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:40,503 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494509432898', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:40,940 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494509432898', 'name': '#2059', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:40,942 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494509432898 in store local
+2025-11-09 13:56:40,943 - sync_service - INFO - ✅ Successfully removed tags from order 6494509432898
+2025-11-09 13:56:41,446 - sync_service - INFO - 
+--- Processing Invoice 26397 ---
+2025-11-09 13:56:41,447 - sync_service - INFO - Shopify Order ID: 6494530994242
+2025-11-09 13:56:41,449 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:41,449 - sync_service - INFO - Store: local
+2025-11-09 13:56:41,451 - sync_service - INFO - Step 1: Patching Invoice 26397 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:42,380 - sync_service - INFO - API log added to SAP: sap - Invoices(26397) - success
+2025-11-09 13:56:42,385 - sync_service - INFO - ✅ Successfully patched invoice 26397
+2025-11-09 13:56:42,386 - sync_service - INFO - Step 2: Cancelling invoice 26397...
+2025-11-09 13:56:43,782 - sync_service - INFO - API log added to SAP: sap - Invoices(26397)/Cancel - success
+2025-11-09 13:56:43,784 - sync_service - INFO - ✅ Successfully cancelled invoice 26397
+2025-11-09 13:56:43,785 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494530994242...
+2025-11-09 13:56:43,785 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:43,786 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494530994242'}}, 'response': None, 'status': None}
+2025-11-09 13:56:44,160 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494530994242', 'name': '#2060', 'tags': ['sap_invoice_26397', 'sap_invoice_synced', 'sap_payment_25590', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:44,161 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:44,162 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494530994242', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:44,635 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494530994242', 'name': '#2060', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:44,636 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494530994242 in store local
+2025-11-09 13:56:44,637 - sync_service - INFO - ✅ Successfully removed tags from order 6494530994242
+2025-11-09 13:56:45,146 - sync_service - INFO - 
+--- Processing Invoice 26398 ---
+2025-11-09 13:56:45,147 - sync_service - INFO - Shopify Order ID: 6494533222466
+2025-11-09 13:56:45,148 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:45,149 - sync_service - INFO - Store: local
+2025-11-09 13:56:45,150 - sync_service - INFO - Step 1: Patching Invoice 26398 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:46,052 - sync_service - INFO - API log added to SAP: sap - Invoices(26398) - success
+2025-11-09 13:56:46,053 - sync_service - INFO - ✅ Successfully patched invoice 26398
+2025-11-09 13:56:46,054 - sync_service - INFO - Step 2: Cancelling invoice 26398...
+2025-11-09 13:56:47,302 - sync_service - INFO - API log added to SAP: sap - Invoices(26398)/Cancel - success
+2025-11-09 13:56:47,303 - sync_service - INFO - ✅ Successfully cancelled invoice 26398
+2025-11-09 13:56:47,304 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494533222466...
+2025-11-09 13:56:47,305 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:47,306 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494533222466'}}, 'response': None, 'status': None}
+2025-11-09 13:56:51,976 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494533222466', 'name': '#2061', 'tags': ['sap_invoice_26398', 'sap_invoice_synced', 'sap_payment_25591', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:56:51,978 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:51,979 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494533222466', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:56:52,469 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494533222466', 'name': '#2061', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:56:52,470 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494533222466 in store local
+2025-11-09 13:56:52,471 - sync_service - INFO - ✅ Successfully removed tags from order 6494533222466
+2025-11-09 13:56:52,981 - sync_service - INFO - 
+--- Processing Invoice 26371 ---
+2025-11-09 13:56:52,984 - sync_service - INFO - Shopify Order ID: 6494543904834
+2025-11-09 13:56:52,985 - sync_service - INFO - Currency: EGP
+2025-11-09 13:56:52,986 - sync_service - INFO - Store: local
+2025-11-09 13:56:52,986 - sync_service - INFO - Step 1: Patching Invoice 26371 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:56:55,258 - sync_service - INFO - API log added to SAP: sap - Invoices(26371) - success
+2025-11-09 13:56:55,259 - sync_service - INFO - ✅ Successfully patched invoice 26371
+2025-11-09 13:56:55,260 - sync_service - INFO - Step 2: Cancelling invoice 26371...
+2025-11-09 13:56:57,392 - sync_service - INFO - API log added to SAP: sap - Invoices(26371)/Cancel - success
+2025-11-09 13:56:57,394 - sync_service - INFO - ✅ Successfully cancelled invoice 26371
+2025-11-09 13:56:57,395 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494543904834...
+2025-11-09 13:56:57,396 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:56:57,397 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494543904834'}}, 'response': None, 'status': None}
+2025-11-09 13:57:03,424 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494543904834', 'name': '#2062', 'tags': ['sap_invoice_26371', 'sap_invoice_synced', 'sap_payment_25564', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:03,425 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:03,426 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494543904834', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:03,926 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494543904834', 'name': '#2062', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:03,927 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494543904834 in store local
+2025-11-09 13:57:03,928 - sync_service - INFO - ✅ Successfully removed tags from order 6494543904834
+2025-11-09 13:57:04,430 - sync_service - INFO - 
+--- Processing Invoice 26399 ---
+2025-11-09 13:57:04,431 - sync_service - INFO - Shopify Order ID: 6494562156610
+2025-11-09 13:57:04,433 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:04,434 - sync_service - INFO - Store: local
+2025-11-09 13:57:04,435 - sync_service - INFO - Step 1: Patching Invoice 26399 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:05,407 - sync_service - INFO - API log added to SAP: sap - Invoices(26399) - success
+2025-11-09 13:57:05,409 - sync_service - INFO - ✅ Successfully patched invoice 26399
+2025-11-09 13:57:05,409 - sync_service - INFO - Step 2: Cancelling invoice 26399...
+2025-11-09 13:57:06,966 - sync_service - INFO - API log added to SAP: sap - Invoices(26399)/Cancel - success
+2025-11-09 13:57:06,967 - sync_service - INFO - ✅ Successfully cancelled invoice 26399
+2025-11-09 13:57:06,968 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494562156610...
+2025-11-09 13:57:06,969 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:06,969 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494562156610'}}, 'response': None, 'status': None}
+2025-11-09 13:57:07,344 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494562156610', 'name': '#2065', 'tags': ['sap_invoice_26399', 'sap_invoice_synced', 'sap_payment_25592', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:07,345 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:07,345 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494562156610', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:07,770 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494562156610', 'name': '#2065', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:07,772 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494562156610 in store local
+2025-11-09 13:57:07,773 - sync_service - INFO - ✅ Successfully removed tags from order 6494562156610
+2025-11-09 13:57:08,277 - sync_service - INFO - 
+--- Processing Invoice 26372 ---
+2025-11-09 13:57:08,277 - sync_service - INFO - Shopify Order ID: 6494595383362
+2025-11-09 13:57:08,278 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:08,278 - sync_service - INFO - Store: local
+2025-11-09 13:57:08,279 - sync_service - INFO - Step 1: Patching Invoice 26372 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:11,604 - sync_service - INFO - API log added to SAP: sap - Invoices(26372) - success
+2025-11-09 13:57:11,606 - sync_service - INFO - ✅ Successfully patched invoice 26372
+2025-11-09 13:57:11,606 - sync_service - INFO - Step 2: Cancelling invoice 26372...
+2025-11-09 13:57:13,257 - sync_service - INFO - API log added to SAP: sap - Invoices(26372)/Cancel - failure
+2025-11-09 13:57:13,258 - sync_service - ERROR - Failed to cancel invoice 26372: HTTP 400: {
+   "error" : {
+      "code" : -1116,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "(130028) Please Fill the Discount Reason"
+      }
+   }
+}
+
+2025-11-09 13:57:13,259 - sync_service - INFO - 
+--- Processing Invoice 26400 ---
+2025-11-09 13:57:13,260 - sync_service - INFO - Shopify Order ID: 6494613110850
+2025-11-09 13:57:13,261 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:13,261 - sync_service - INFO - Store: local
+2025-11-09 13:57:13,262 - sync_service - INFO - Step 1: Patching Invoice 26400 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:15,697 - sync_service - INFO - API log added to SAP: sap - Invoices(26400) - success
+2025-11-09 13:57:15,699 - sync_service - INFO - ✅ Successfully patched invoice 26400
+2025-11-09 13:57:15,701 - sync_service - INFO - Step 2: Cancelling invoice 26400...
+2025-11-09 13:57:17,216 - sync_service - INFO - API log added to SAP: sap - Invoices(26400)/Cancel - success
+2025-11-09 13:57:17,217 - sync_service - INFO - ✅ Successfully cancelled invoice 26400
+2025-11-09 13:57:17,219 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494613110850...
+2025-11-09 13:57:17,219 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:17,220 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494613110850'}}, 'response': None, 'status': None}
+2025-11-09 13:57:17,582 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494613110850', 'name': '#2068', 'tags': ['sap_invoice_26400', 'sap_invoice_synced', 'sap_payment_25593', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:17,582 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:17,582 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494613110850', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:17,997 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494613110850', 'name': '#2068', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:17,998 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494613110850 in store local
+2025-11-09 13:57:17,999 - sync_service - INFO - ✅ Successfully removed tags from order 6494613110850
+2025-11-09 13:57:18,512 - sync_service - INFO - 
+--- Processing Invoice 26401 ---
+2025-11-09 13:57:18,514 - sync_service - INFO - Shopify Order ID: 6494619828290
+2025-11-09 13:57:18,515 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:18,516 - sync_service - INFO - Store: local
+2025-11-09 13:57:18,517 - sync_service - INFO - Step 1: Patching Invoice 26401 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:19,351 - sync_service - INFO - API log added to SAP: sap - Invoices(26401) - success
+2025-11-09 13:57:19,352 - sync_service - INFO - ✅ Successfully patched invoice 26401
+2025-11-09 13:57:19,352 - sync_service - INFO - Step 2: Cancelling invoice 26401...
+2025-11-09 13:57:20,669 - sync_service - INFO - API log added to SAP: sap - Invoices(26401)/Cancel - success
+2025-11-09 13:57:20,670 - sync_service - INFO - ✅ Successfully cancelled invoice 26401
+2025-11-09 13:57:20,671 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494619828290...
+2025-11-09 13:57:20,672 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:20,673 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494619828290'}}, 'response': None, 'status': None}
+2025-11-09 13:57:28,678 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494619828290', 'name': '#2071', 'tags': ['sap_invoice_26401', 'sap_invoice_synced', 'sap_payment_25594', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:28,679 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:28,681 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494619828290', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:29,127 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494619828290', 'name': '#2071', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:29,128 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494619828290 in store local
+2025-11-09 13:57:29,130 - sync_service - INFO - ✅ Successfully removed tags from order 6494619828290
+2025-11-09 13:57:29,642 - sync_service - INFO - 
+--- Processing Invoice 26402 ---
+2025-11-09 13:57:29,643 - sync_service - INFO - Shopify Order ID: 6494621663298
+2025-11-09 13:57:29,644 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:29,646 - sync_service - INFO - Store: local
+2025-11-09 13:57:29,647 - sync_service - INFO - Step 1: Patching Invoice 26402 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:30,503 - sync_service - INFO - API log added to SAP: sap - Invoices(26402) - success
+2025-11-09 13:57:30,505 - sync_service - INFO - ✅ Successfully patched invoice 26402
+2025-11-09 13:57:30,506 - sync_service - INFO - Step 2: Cancelling invoice 26402...
+2025-11-09 13:57:31,810 - sync_service - INFO - API log added to SAP: sap - Invoices(26402)/Cancel - success
+2025-11-09 13:57:31,811 - sync_service - INFO - ✅ Successfully cancelled invoice 26402
+2025-11-09 13:57:31,812 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494621663298...
+2025-11-09 13:57:31,812 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:31,813 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494621663298'}}, 'response': None, 'status': None}
+2025-11-09 13:57:32,204 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494621663298', 'name': '#2072', 'tags': ['sap_invoice_26402', 'sap_invoice_synced', 'sap_payment_25595', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:32,205 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:32,205 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494621663298', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:32,661 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494621663298', 'name': '#2072', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:32,662 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494621663298 in store local
+2025-11-09 13:57:32,663 - sync_service - INFO - ✅ Successfully removed tags from order 6494621663298
+2025-11-09 13:57:33,168 - sync_service - INFO - 
+--- Processing Invoice 26403 ---
+2025-11-09 13:57:33,169 - sync_service - INFO - Shopify Order ID: 6494621728834
+2025-11-09 13:57:33,169 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:33,170 - sync_service - INFO - Store: local
+2025-11-09 13:57:33,171 - sync_service - INFO - Step 1: Patching Invoice 26403 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:34,076 - sync_service - INFO - API log added to SAP: sap - Invoices(26403) - success
+2025-11-09 13:57:34,078 - sync_service - INFO - ✅ Successfully patched invoice 26403
+2025-11-09 13:57:34,079 - sync_service - INFO - Step 2: Cancelling invoice 26403...
+2025-11-09 13:57:35,691 - sync_service - INFO - API log added to SAP: sap - Invoices(26403)/Cancel - success
+2025-11-09 13:57:35,692 - sync_service - INFO - ✅ Successfully cancelled invoice 26403
+2025-11-09 13:57:35,693 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494621728834...
+2025-11-09 13:57:35,694 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:35,694 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494621728834'}}, 'response': None, 'status': None}
+2025-11-09 13:57:36,061 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494621728834', 'name': '#2073', 'tags': ['sap_invoice_26403', 'sap_invoice_synced', 'sap_payment_25596', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:36,062 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:36,063 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494621728834', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:36,499 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494621728834', 'name': '#2073', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:36,500 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494621728834 in store local
+2025-11-09 13:57:36,501 - sync_service - INFO - ✅ Successfully removed tags from order 6494621728834
+2025-11-09 13:57:37,007 - sync_service - INFO - 
+--- Processing Invoice 26373 ---
+2025-11-09 13:57:37,009 - sync_service - INFO - Shopify Order ID: 6494622941250
+2025-11-09 13:57:37,010 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:37,011 - sync_service - INFO - Store: local
+2025-11-09 13:57:37,012 - sync_service - INFO - Step 1: Patching Invoice 26373 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:37,930 - sync_service - INFO - API log added to SAP: sap - Invoices(26373) - success
+2025-11-09 13:57:37,931 - sync_service - INFO - ✅ Successfully patched invoice 26373
+2025-11-09 13:57:37,932 - sync_service - INFO - Step 2: Cancelling invoice 26373...
+2025-11-09 13:57:39,198 - sync_service - INFO - API log added to SAP: sap - Invoices(26373)/Cancel - success
+2025-11-09 13:57:39,199 - sync_service - INFO - ✅ Successfully cancelled invoice 26373
+2025-11-09 13:57:39,200 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494622941250...
+2025-11-09 13:57:39,200 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:39,201 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494622941250'}}, 'response': None, 'status': None}
+2025-11-09 13:57:40,099 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494622941250', 'name': '#2074', 'tags': ['sap_invoice_26373', 'sap_invoice_synced', 'sap_payment_25566', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:40,100 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:40,100 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494622941250', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:40,537 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494622941250', 'name': '#2074', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:40,537 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494622941250 in store local
+2025-11-09 13:57:40,538 - sync_service - INFO - ✅ Successfully removed tags from order 6494622941250
+2025-11-09 13:57:41,051 - sync_service - INFO - 
+--- Processing Invoice 26404 ---
+2025-11-09 13:57:41,052 - sync_service - INFO - Shopify Order ID: 6494630740034
+2025-11-09 13:57:41,053 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:41,055 - sync_service - INFO - Store: local
+2025-11-09 13:57:41,055 - sync_service - INFO - Step 1: Patching Invoice 26404 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:42,538 - sync_service - INFO - API log added to SAP: sap - Invoices(26404) - success
+2025-11-09 13:57:42,540 - sync_service - INFO - ✅ Successfully patched invoice 26404
+2025-11-09 13:57:42,540 - sync_service - INFO - Step 2: Cancelling invoice 26404...
+2025-11-09 13:57:44,260 - sync_service - INFO - API log added to SAP: sap - Invoices(26404)/Cancel - failure
+2025-11-09 13:57:44,261 - sync_service - ERROR - Failed to cancel invoice 26404: HTTP 400: {
+   "error" : {
+      "code" : -1116,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "(130028) Please Fill the Discount Reason"
+      }
+   }
+}
+
+2025-11-09 13:57:44,262 - sync_service - INFO - 
+--- Processing Invoice 26374 ---
+2025-11-09 13:57:44,262 - sync_service - INFO - Shopify Order ID: 6494650269762
+2025-11-09 13:57:44,263 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:44,264 - sync_service - INFO - Store: local
+2025-11-09 13:57:44,265 - sync_service - INFO - Step 1: Patching Invoice 26374 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:45,494 - sync_service - INFO - API log added to SAP: sap - Invoices(26374) - success
+2025-11-09 13:57:45,495 - sync_service - INFO - ✅ Successfully patched invoice 26374
+2025-11-09 13:57:45,496 - sync_service - INFO - Step 2: Cancelling invoice 26374...
+2025-11-09 13:57:46,808 - sync_service - INFO - API log added to SAP: sap - Invoices(26374)/Cancel - success
+2025-11-09 13:57:46,810 - sync_service - INFO - ✅ Successfully cancelled invoice 26374
+2025-11-09 13:57:46,810 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494650269762...
+2025-11-09 13:57:46,811 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:46,812 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494650269762'}}, 'response': None, 'status': None}
+2025-11-09 13:57:51,535 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494650269762', 'name': '#2076', 'tags': ['sap_invoice_26374', 'sap_invoice_synced', 'sap_payment_25567', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:51,536 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:51,537 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494650269762', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:51,974 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494650269762', 'name': '#2076', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:51,975 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494650269762 in store local
+2025-11-09 13:57:51,976 - sync_service - INFO - ✅ Successfully removed tags from order 6494650269762
+2025-11-09 13:57:52,484 - sync_service - INFO - 
+--- Processing Invoice 26375 ---
+2025-11-09 13:57:52,486 - sync_service - INFO - Shopify Order ID: 6494655676482
+2025-11-09 13:57:52,487 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:52,488 - sync_service - INFO - Store: local
+2025-11-09 13:57:52,490 - sync_service - INFO - Step 1: Patching Invoice 26375 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:53,398 - sync_service - INFO - API log added to SAP: sap - Invoices(26375) - success
+2025-11-09 13:57:53,400 - sync_service - INFO - ✅ Successfully patched invoice 26375
+2025-11-09 13:57:53,401 - sync_service - INFO - Step 2: Cancelling invoice 26375...
+2025-11-09 13:57:54,681 - sync_service - INFO - API log added to SAP: sap - Invoices(26375)/Cancel - success
+2025-11-09 13:57:54,682 - sync_service - INFO - ✅ Successfully cancelled invoice 26375
+2025-11-09 13:57:54,684 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494655676482...
+2025-11-09 13:57:54,684 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:54,685 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494655676482'}}, 'response': None, 'status': None}
+2025-11-09 13:57:55,086 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494655676482', 'name': '#2077', 'tags': ['sap_invoice_26375', 'sap_invoice_synced', 'sap_payment_25568', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:55,087 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:55,088 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494655676482', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:55,576 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494655676482', 'name': '#2077', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:55,577 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494655676482 in store local
+2025-11-09 13:57:55,578 - sync_service - INFO - ✅ Successfully removed tags from order 6494655676482
+2025-11-09 13:57:56,091 - sync_service - INFO - 
+--- Processing Invoice 26376 ---
+2025-11-09 13:57:56,093 - sync_service - INFO - Shopify Order ID: 6494664458306
+2025-11-09 13:57:56,093 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:56,094 - sync_service - INFO - Store: local
+2025-11-09 13:57:56,095 - sync_service - INFO - Step 1: Patching Invoice 26376 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:57:56,943 - sync_service - INFO - API log added to SAP: sap - Invoices(26376) - success
+2025-11-09 13:57:56,944 - sync_service - INFO - ✅ Successfully patched invoice 26376
+2025-11-09 13:57:56,945 - sync_service - INFO - Step 2: Cancelling invoice 26376...
+2025-11-09 13:57:58,160 - sync_service - INFO - API log added to SAP: sap - Invoices(26376)/Cancel - success
+2025-11-09 13:57:58,161 - sync_service - INFO - ✅ Successfully cancelled invoice 26376
+2025-11-09 13:57:58,162 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494664458306...
+2025-11-09 13:57:58,163 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:58,164 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494664458306'}}, 'response': None, 'status': None}
+2025-11-09 13:57:58,549 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494664458306', 'name': '#2078', 'tags': ['sap_invoice_26376', 'sap_invoice_synced', 'sap_payment_25569', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:57:58,550 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:57:58,551 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494664458306', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:57:59,002 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494664458306', 'name': '#2078', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:57:59,003 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494664458306 in store local
+2025-11-09 13:57:59,004 - sync_service - INFO - ✅ Successfully removed tags from order 6494664458306
+2025-11-09 13:57:59,506 - sync_service - INFO - 
+--- Processing Invoice 26377 ---
+2025-11-09 13:57:59,507 - sync_service - INFO - Shopify Order ID: 6494675501122
+2025-11-09 13:57:59,508 - sync_service - INFO - Currency: EGP
+2025-11-09 13:57:59,509 - sync_service - INFO - Store: local
+2025-11-09 13:57:59,509 - sync_service - INFO - Step 1: Patching Invoice 26377 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:00,384 - sync_service - INFO - API log added to SAP: sap - Invoices(26377) - success
+2025-11-09 13:58:00,386 - sync_service - INFO - ✅ Successfully patched invoice 26377
+2025-11-09 13:58:00,387 - sync_service - INFO - Step 2: Cancelling invoice 26377...
+2025-11-09 13:58:01,779 - sync_service - INFO - API log added to SAP: sap - Invoices(26377)/Cancel - success
+2025-11-09 13:58:01,781 - sync_service - INFO - ✅ Successfully cancelled invoice 26377
+2025-11-09 13:58:01,782 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494675501122...
+2025-11-09 13:58:01,782 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:01,783 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494675501122'}}, 'response': None, 'status': None}
+2025-11-09 13:58:02,158 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494675501122', 'name': '#2080', 'tags': ['sap_invoice_26377', 'sap_invoice_synced', 'sap_payment_25570', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:02,159 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:02,160 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494675501122', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:02,590 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494675501122', 'name': '#2080', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:02,591 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494675501122 in store local
+2025-11-09 13:58:02,592 - sync_service - INFO - ✅ Successfully removed tags from order 6494675501122
+2025-11-09 13:58:03,102 - sync_service - INFO - 
+--- Processing Invoice 26378 ---
+2025-11-09 13:58:03,103 - sync_service - INFO - Shopify Order ID: 6494693851202
+2025-11-09 13:58:03,105 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:03,106 - sync_service - INFO - Store: local
+2025-11-09 13:58:03,107 - sync_service - INFO - Step 1: Patching Invoice 26378 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:03,946 - sync_service - INFO - API log added to SAP: sap - Invoices(26378) - success
+2025-11-09 13:58:03,947 - sync_service - INFO - ✅ Successfully patched invoice 26378
+2025-11-09 13:58:03,948 - sync_service - INFO - Step 2: Cancelling invoice 26378...
+2025-11-09 13:58:05,150 - sync_service - INFO - API log added to SAP: sap - Invoices(26378)/Cancel - success
+2025-11-09 13:58:05,152 - sync_service - INFO - ✅ Successfully cancelled invoice 26378
+2025-11-09 13:58:05,152 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494693851202...
+2025-11-09 13:58:05,153 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:05,154 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494693851202'}}, 'response': None, 'status': None}
+2025-11-09 13:58:05,548 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494693851202', 'name': '#2083', 'tags': ['sap_invoice_26378', 'sap_invoice_synced', 'sap_payment_25571', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:05,549 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:05,550 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494693851202', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:06,205 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494693851202', 'name': '#2083', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:06,206 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494693851202 in store local
+2025-11-09 13:58:06,207 - sync_service - INFO - ✅ Successfully removed tags from order 6494693851202
+2025-11-09 13:58:06,724 - sync_service - INFO - 
+--- Processing Invoice 26379 ---
+2025-11-09 13:58:06,726 - sync_service - INFO - Shopify Order ID: 6494726553666
+2025-11-09 13:58:06,727 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:06,728 - sync_service - INFO - Store: local
+2025-11-09 13:58:06,729 - sync_service - INFO - Step 1: Patching Invoice 26379 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:07,683 - sync_service - INFO - API log added to SAP: sap - Invoices(26379) - success
+2025-11-09 13:58:07,685 - sync_service - INFO - ✅ Successfully patched invoice 26379
+2025-11-09 13:58:07,686 - sync_service - INFO - Step 2: Cancelling invoice 26379...
+2025-11-09 13:58:08,994 - sync_service - INFO - API log added to SAP: sap - Invoices(26379)/Cancel - success
+2025-11-09 13:58:08,996 - sync_service - INFO - ✅ Successfully cancelled invoice 26379
+2025-11-09 13:58:08,997 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494726553666...
+2025-11-09 13:58:08,998 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:08,999 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494726553666'}}, 'response': None, 'status': None}
+2025-11-09 13:58:16,605 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494726553666', 'name': '#2086', 'tags': ['sap_invoice_26379', 'sap_invoice_synced', 'sap_payment_25572', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:16,607 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:16,609 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494726553666', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:17,501 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494726553666', 'name': '#2086', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:17,502 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494726553666 in store local
+2025-11-09 13:58:17,502 - sync_service - INFO - ✅ Successfully removed tags from order 6494726553666
+2025-11-09 13:58:18,007 - sync_service - INFO - 
+--- Processing Invoice 26380 ---
+2025-11-09 13:58:18,008 - sync_service - INFO - Shopify Order ID: 6494746083394
+2025-11-09 13:58:18,009 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:18,010 - sync_service - INFO - Store: local
+2025-11-09 13:58:18,011 - sync_service - INFO - Step 1: Patching Invoice 26380 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:18,853 - sync_service - INFO - API log added to SAP: sap - Invoices(26380) - success
+2025-11-09 13:58:18,855 - sync_service - INFO - ✅ Successfully patched invoice 26380
+2025-11-09 13:58:18,856 - sync_service - INFO - Step 2: Cancelling invoice 26380...
+2025-11-09 13:58:20,193 - sync_service - INFO - API log added to SAP: sap - Invoices(26380)/Cancel - success
+2025-11-09 13:58:20,194 - sync_service - INFO - ✅ Successfully cancelled invoice 26380
+2025-11-09 13:58:20,195 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494746083394...
+2025-11-09 13:58:20,196 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:20,197 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494746083394'}}, 'response': None, 'status': None}
+2025-11-09 13:58:20,596 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494746083394', 'name': '#2088', 'tags': ['sap_invoice_26380', 'sap_invoice_synced', 'sap_payment_25573', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:20,598 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:20,598 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494746083394', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:21,050 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494746083394', 'name': '#2088', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:21,051 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494746083394 in store local
+2025-11-09 13:58:21,052 - sync_service - INFO - ✅ Successfully removed tags from order 6494746083394
+2025-11-09 13:58:21,568 - sync_service - INFO - 
+--- Processing Invoice 26381 ---
+2025-11-09 13:58:21,569 - sync_service - INFO - Shopify Order ID: 6494761648194
+2025-11-09 13:58:21,571 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:21,572 - sync_service - INFO - Store: local
+2025-11-09 13:58:21,573 - sync_service - INFO - Step 1: Patching Invoice 26381 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:22,474 - sync_service - INFO - API log added to SAP: sap - Invoices(26381) - success
+2025-11-09 13:58:22,475 - sync_service - INFO - ✅ Successfully patched invoice 26381
+2025-11-09 13:58:22,476 - sync_service - INFO - Step 2: Cancelling invoice 26381...
+2025-11-09 13:58:23,755 - sync_service - INFO - API log added to SAP: sap - Invoices(26381)/Cancel - success
+2025-11-09 13:58:23,757 - sync_service - INFO - ✅ Successfully cancelled invoice 26381
+2025-11-09 13:58:23,758 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494761648194...
+2025-11-09 13:58:23,758 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:23,759 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494761648194'}}, 'response': None, 'status': None}
+2025-11-09 13:58:24,124 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494761648194', 'name': '#2089', 'tags': ['sap_invoice_26381', 'sap_invoice_synced', 'sap_payment_25574', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:24,125 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:24,126 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494761648194', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:24,618 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494761648194', 'name': '#2089', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:24,619 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494761648194 in store local
+2025-11-09 13:58:24,620 - sync_service - INFO - ✅ Successfully removed tags from order 6494761648194
+2025-11-09 13:58:25,131 - sync_service - INFO - 
+--- Processing Invoice 26382 ---
+2025-11-09 13:58:25,131 - sync_service - INFO - Shopify Order ID: 6494762369090
+2025-11-09 13:58:25,134 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:25,134 - sync_service - INFO - Store: local
+2025-11-09 13:58:25,135 - sync_service - INFO - Step 1: Patching Invoice 26382 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:25,949 - sync_service - INFO - API log added to SAP: sap - Invoices(26382) - success
+2025-11-09 13:58:25,951 - sync_service - INFO - ✅ Successfully patched invoice 26382
+2025-11-09 13:58:25,952 - sync_service - INFO - Step 2: Cancelling invoice 26382...
+2025-11-09 13:58:27,098 - sync_service - INFO - API log added to SAP: sap - Invoices(26382)/Cancel - success
+2025-11-09 13:58:27,099 - sync_service - INFO - ✅ Successfully cancelled invoice 26382
+2025-11-09 13:58:27,100 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494762369090...
+2025-11-09 13:58:27,101 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:27,103 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494762369090'}}, 'response': None, 'status': None}
+2025-11-09 13:58:27,515 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494762369090', 'name': '#2090', 'tags': ['sap_invoice_26382', 'sap_invoice_synced', 'sap_payment_25575', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:27,516 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:27,517 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494762369090', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:27,928 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494762369090', 'name': '#2090', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:27,929 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494762369090 in store local
+2025-11-09 13:58:27,930 - sync_service - INFO - ✅ Successfully removed tags from order 6494762369090
+2025-11-09 13:58:28,443 - sync_service - INFO - 
+--- Processing Invoice 26383 ---
+2025-11-09 13:58:28,444 - sync_service - INFO - Shopify Order ID: 6494791598146
+2025-11-09 13:58:28,445 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:28,446 - sync_service - INFO - Store: local
+2025-11-09 13:58:28,447 - sync_service - INFO - Step 1: Patching Invoice 26383 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:29,324 - sync_service - INFO - API log added to SAP: sap - Invoices(26383) - success
+2025-11-09 13:58:29,325 - sync_service - INFO - ✅ Successfully patched invoice 26383
+2025-11-09 13:58:29,326 - sync_service - INFO - Step 2: Cancelling invoice 26383...
+2025-11-09 13:58:30,499 - sync_service - INFO - API log added to SAP: sap - Invoices(26383)/Cancel - failure
+2025-11-09 13:58:30,500 - sync_service - ERROR - Failed to cancel invoice 26383: HTTP 400: {
+   "error" : {
+      "code" : -1116,
+      "message" : {
+         "lang" : "en-us",
+         "value" : "(130028) Please Fill the Discount Reason"
+      }
+   }
+}
+
+2025-11-09 13:58:30,501 - sync_service - INFO - 
+--- Processing Invoice 26384 ---
+2025-11-09 13:58:30,502 - sync_service - INFO - Shopify Order ID: 6494803361858
+2025-11-09 13:58:30,503 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:30,503 - sync_service - INFO - Store: local
+2025-11-09 13:58:30,504 - sync_service - INFO - Step 1: Patching Invoice 26384 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:31,420 - sync_service - INFO - API log added to SAP: sap - Invoices(26384) - success
+2025-11-09 13:58:31,422 - sync_service - INFO - ✅ Successfully patched invoice 26384
+2025-11-09 13:58:31,423 - sync_service - INFO - Step 2: Cancelling invoice 26384...
+2025-11-09 13:58:32,605 - sync_service - INFO - API log added to SAP: sap - Invoices(26384)/Cancel - success
+2025-11-09 13:58:32,606 - sync_service - INFO - ✅ Successfully cancelled invoice 26384
+2025-11-09 13:58:32,607 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494803361858...
+2025-11-09 13:58:32,608 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:32,609 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494803361858'}}, 'response': None, 'status': None}
+2025-11-09 13:58:32,981 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494803361858', 'name': '#2096', 'tags': ['sap_invoice_26384', 'sap_invoice_synced', 'sap_payment_25577', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:32,982 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:32,983 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494803361858', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:42,991 - sync_service - ERROR - GraphQL query error for store local: 
+2025-11-09 13:58:43,310 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - failure
+2025-11-09 13:58:43,310 - sync_service - ERROR - ❌ Failed to remove tags from order gid://shopify/Order/6494803361858: GraphQL query error for store local: 
+2025-11-09 13:58:43,311 - sync_service - ERROR - ❌ Failed to remove tags: GraphQL query error for store local: 
+2025-11-09 13:58:43,819 - sync_service - INFO - 
+--- Processing Invoice 26385 ---
+2025-11-09 13:58:43,821 - sync_service - INFO - Shopify Order ID: 6494866702402
+2025-11-09 13:58:43,822 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:43,823 - sync_service - INFO - Store: local
+2025-11-09 13:58:43,824 - sync_service - INFO - Step 1: Patching Invoice 26385 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:44,641 - sync_service - INFO - API log added to SAP: sap - Invoices(26385) - success
+2025-11-09 13:58:44,643 - sync_service - INFO - ✅ Successfully patched invoice 26385
+2025-11-09 13:58:44,644 - sync_service - INFO - Step 2: Cancelling invoice 26385...
+2025-11-09 13:58:45,824 - sync_service - INFO - API log added to SAP: sap - Invoices(26385)/Cancel - success
+2025-11-09 13:58:45,825 - sync_service - INFO - ✅ Successfully cancelled invoice 26385
+2025-11-09 13:58:45,827 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494866702402...
+2025-11-09 13:58:45,827 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:45,828 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494866702402'}}, 'response': None, 'status': None}
+2025-11-09 13:58:46,196 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6494866702402', 'name': '#2099', 'tags': ['sap_invoice_26385', 'sap_invoice_synced', 'sap_payment_25578', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:58:46,197 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:46,198 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6494866702402', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:58:46,647 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6494866702402', 'name': '#2099', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:58:46,648 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6494866702402 in store local
+2025-11-09 13:58:46,649 - sync_service - INFO - ✅ Successfully removed tags from order 6494866702402
+2025-11-09 13:58:47,154 - sync_service - INFO - 
+--- Processing Invoice 26386 ---
+2025-11-09 13:58:47,155 - sync_service - INFO - Shopify Order ID: 6494870143042
+2025-11-09 13:58:47,156 - sync_service - INFO - Currency: EGP
+2025-11-09 13:58:47,156 - sync_service - INFO - Store: local
+2025-11-09 13:58:47,157 - sync_service - INFO - Step 1: Patching Invoice 26386 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:58:48,012 - sync_service - INFO - API log added to SAP: sap - Invoices(26386) - success
+2025-11-09 13:58:48,013 - sync_service - INFO - ✅ Successfully patched invoice 26386
+2025-11-09 13:58:48,014 - sync_service - INFO - Step 2: Cancelling invoice 26386...
+2025-11-09 13:58:49,211 - sync_service - INFO - API log added to SAP: sap - Invoices(26386)/Cancel - success
+2025-11-09 13:58:49,212 - sync_service - INFO - ✅ Successfully cancelled invoice 26386
+2025-11-09 13:58:49,213 - sync_service - INFO - Step 3: Removing tags from Shopify order 6494870143042...
+2025-11-09 13:58:49,214 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:58:49,215 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6494870143042'}}, 'response': None, 'status': None}
+2025-11-09 13:58:59,226 - sync_service - ERROR - GraphQL query error for store local: 
+2025-11-09 13:59:00,039 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - failure
+2025-11-09 13:59:00,040 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: GraphQL query error for store local: 
+2025-11-09 13:59:00,557 - sync_service - INFO - 
+--- Processing Invoice 26387 ---
+2025-11-09 13:59:00,558 - sync_service - INFO - Shopify Order ID: 6495006785602
+2025-11-09 13:59:00,560 - sync_service - INFO - Currency: EGP
+2025-11-09 13:59:00,561 - sync_service - INFO - Store: local
+2025-11-09 13:59:00,562 - sync_service - INFO - Step 1: Patching Invoice 26387 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:59:01,795 - sync_service - INFO - API log added to SAP: sap - Invoices(26387) - success
+2025-11-09 13:59:01,796 - sync_service - INFO - ✅ Successfully patched invoice 26387
+2025-11-09 13:59:01,797 - sync_service - INFO - Step 2: Cancelling invoice 26387...
+2025-11-09 13:59:03,397 - sync_service - INFO - API log added to SAP: sap - Invoices(26387)/Cancel - success
+2025-11-09 13:59:03,398 - sync_service - INFO - ✅ Successfully cancelled invoice 26387
+2025-11-09 13:59:03,399 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495006785602...
+2025-11-09 13:59:03,400 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:03,400 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6495006785602'}}, 'response': None, 'status': None}
+2025-11-09 13:59:03,774 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6495006785602', 'name': '#2109', 'tags': ['sap_invoice_26387', 'sap_invoice_synced', 'sap_payment_25580', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:59:03,775 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:03,776 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6495006785602', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:59:04,212 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6495006785602', 'name': '#2109', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:59:04,214 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6495006785602 in store local
+2025-11-09 13:59:04,215 - sync_service - INFO - ✅ Successfully removed tags from order 6495006785602
+2025-11-09 13:59:04,728 - sync_service - INFO - 
+--- Processing Invoice 26388 ---
+2025-11-09 13:59:04,729 - sync_service - INFO - Shopify Order ID: 6495064326210
+2025-11-09 13:59:04,730 - sync_service - INFO - Currency: EGP
+2025-11-09 13:59:04,730 - sync_service - INFO - Store: local
+2025-11-09 13:59:04,731 - sync_service - INFO - Step 1: Patching Invoice 26388 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:59:05,653 - sync_service - INFO - API log added to SAP: sap - Invoices(26388) - success
+2025-11-09 13:59:05,655 - sync_service - INFO - ✅ Successfully patched invoice 26388
+2025-11-09 13:59:05,655 - sync_service - INFO - Step 2: Cancelling invoice 26388...
+2025-11-09 13:59:07,292 - sync_service - INFO - API log added to SAP: sap - Invoices(26388)/Cancel - success
+2025-11-09 13:59:07,293 - sync_service - INFO - ✅ Successfully cancelled invoice 26388
+2025-11-09 13:59:07,294 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495064326210...
+2025-11-09 13:59:07,295 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:07,296 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6495064326210'}}, 'response': None, 'status': None}
+2025-11-09 13:59:17,306 - sync_service - ERROR - GraphQL query error for store local: 
+2025-11-09 13:59:17,625 - sync_service - INFO - API log added to SAP: shopify - /admin/api/graphql_local - failure
+2025-11-09 13:59:17,627 - sync_service - ERROR - ❌ Failed to remove tags: Failed to get order: GraphQL query error for store local: 
+2025-11-09 13:59:18,134 - sync_service - INFO - 
+--- Processing Invoice 26389 ---
+2025-11-09 13:59:18,135 - sync_service - INFO - Shopify Order ID: 6495076548674
+2025-11-09 13:59:18,136 - sync_service - INFO - Currency: EGP
+2025-11-09 13:59:18,136 - sync_service - INFO - Store: local
+2025-11-09 13:59:18,137 - sync_service - INFO - Step 1: Patching Invoice 26389 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:59:18,952 - sync_service - INFO - API log added to SAP: sap - Invoices(26389) - success
+2025-11-09 13:59:18,954 - sync_service - INFO - ✅ Successfully patched invoice 26389
+2025-11-09 13:59:18,955 - sync_service - INFO - Step 2: Cancelling invoice 26389...
+2025-11-09 13:59:20,102 - sync_service - INFO - API log added to SAP: sap - Invoices(26389)/Cancel - success
+2025-11-09 13:59:20,102 - sync_service - INFO - ✅ Successfully cancelled invoice 26389
+2025-11-09 13:59:20,103 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495076548674...
+2025-11-09 13:59:20,104 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:20,104 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6495076548674'}}, 'response': None, 'status': None}
+2025-11-09 13:59:20,475 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6495076548674', 'name': '#2114', 'tags': ['sap_invoice_26389', 'sap_invoice_synced', 'sap_payment_25582', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:59:20,476 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:20,476 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6495076548674', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:59:20,904 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6495076548674', 'name': '#2114', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:59:20,906 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6495076548674 in store local
+2025-11-09 13:59:20,907 - sync_service - INFO - ✅ Successfully removed tags from order 6495076548674
+2025-11-09 13:59:21,409 - sync_service - INFO - 
+--- Processing Invoice 26390 ---
+2025-11-09 13:59:21,410 - sync_service - INFO - Shopify Order ID: 6495084052546
+2025-11-09 13:59:21,412 - sync_service - INFO - Currency: EGP
+2025-11-09 13:59:21,413 - sync_service - INFO - Store: local
+2025-11-09 13:59:21,414 - sync_service - INFO - Step 1: Patching Invoice 26390 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:59:22,288 - sync_service - INFO - API log added to SAP: sap - Invoices(26390) - success
+2025-11-09 13:59:22,289 - sync_service - INFO - ✅ Successfully patched invoice 26390
+2025-11-09 13:59:22,290 - sync_service - INFO - Step 2: Cancelling invoice 26390...
+2025-11-09 13:59:23,548 - sync_service - INFO - API log added to SAP: sap - Invoices(26390)/Cancel - success
+2025-11-09 13:59:23,549 - sync_service - INFO - ✅ Successfully cancelled invoice 26390
+2025-11-09 13:59:23,550 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495084052546...
+2025-11-09 13:59:23,551 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:23,552 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6495084052546'}}, 'response': None, 'status': None}
+2025-11-09 13:59:23,913 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6495084052546', 'name': '#2115', 'tags': ['sap_invoice_26390', 'sap_invoice_synced', 'sap_payment_25583', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:59:23,914 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:23,915 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6495084052546', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:59:24,378 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6495084052546', 'name': '#2115', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:59:24,379 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6495084052546 in store local
+2025-11-09 13:59:24,380 - sync_service - INFO - ✅ Successfully removed tags from order 6495084052546
+2025-11-09 13:59:24,894 - sync_service - INFO - 
+--- Processing Invoice 26391 ---
+2025-11-09 13:59:24,896 - sync_service - INFO - Shopify Order ID: 6495088771138
+2025-11-09 13:59:24,897 - sync_service - INFO - Currency: EGP
+2025-11-09 13:59:24,898 - sync_service - INFO - Store: local
+2025-11-09 13:59:24,899 - sync_service - INFO - Step 1: Patching Invoice 26391 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:59:25,755 - sync_service - INFO - API log added to SAP: sap - Invoices(26391) - success
+2025-11-09 13:59:25,756 - sync_service - INFO - ✅ Successfully patched invoice 26391
+2025-11-09 13:59:25,757 - sync_service - INFO - Step 2: Cancelling invoice 26391...
+2025-11-09 13:59:26,984 - sync_service - INFO - API log added to SAP: sap - Invoices(26391)/Cancel - success
+2025-11-09 13:59:26,985 - sync_service - INFO - ✅ Successfully cancelled invoice 26391
+2025-11-09 13:59:26,986 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495088771138...
+2025-11-09 13:59:26,987 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:26,988 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6495088771138'}}, 'response': None, 'status': None}
+2025-11-09 13:59:27,357 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6495088771138', 'name': '#2116', 'tags': ['sap_invoice_26391', 'sap_invoice_synced', 'sap_payment_25584', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:59:27,358 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:27,359 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6495088771138', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:59:27,813 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6495088771138', 'name': '#2116', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:59:27,814 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6495088771138 in store local
+2025-11-09 13:59:27,815 - sync_service - INFO - ✅ Successfully removed tags from order 6495088771138
+2025-11-09 13:59:28,328 - sync_service - INFO - 
+--- Processing Invoice 26392 ---
+2025-11-09 13:59:28,329 - sync_service - INFO - Shopify Order ID: 6495182585922
+2025-11-09 13:59:28,330 - sync_service - INFO - Currency: EGP
+2025-11-09 13:59:28,332 - sync_service - INFO - Store: local
+2025-11-09 13:59:28,332 - sync_service - INFO - Step 1: Patching Invoice 26392 to clear NumAtCard and U_Shopify_Order_ID...
+2025-11-09 13:59:29,329 - sync_service - INFO - API log added to SAP: sap - Invoices(26392) - success
+2025-11-09 13:59:29,331 - sync_service - INFO - ✅ Successfully patched invoice 26392
+2025-11-09 13:59:29,332 - sync_service - INFO - Step 2: Cancelling invoice 26392...
+2025-11-09 13:59:30,603 - sync_service - INFO - API log added to SAP: sap - Invoices(26392)/Cancel - success
+2025-11-09 13:59:30,605 - sync_service - INFO - ✅ Successfully cancelled invoice 26392
+2025-11-09 13:59:30,606 - sync_service - INFO - Step 3: Removing tags from Shopify order 6495182585922...
+2025-11-09 13:59:30,607 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:30,608 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        query getOrder($id: ID!) {\n            order(id: $id) {\n                id\n                name\n                tags\n            }\n        }\n        ', 'variables': {'id': 'gid://shopify/Order/6495182585922'}}, 'response': None, 'status': None}
+2025-11-09 13:59:35,019 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'order': {'id': 'gid://shopify/Order/6495182585922', 'name': '#2119', 'tags': ['sap_invoice_26392', 'sap_invoice_synced', 'sap_payment_25585', 'sap_payment_synced']}}, 'status': 'success'}
+2025-11-09 13:59:35,020 - sync_service - INFO - Executing GraphQL query for store: local
+2025-11-09 13:59:35,021 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': {'query': '\n        mutation orderUpdate($input: OrderInput!) {\n            orderUpdate(input: $input) {\n                order {\n                    id\n                    name\n                    tags\n                }\n                userErrors {\n                    field\n                    message\n                }\n            }\n        }\n        ', 'variables': {'input': {'id': 'gid://shopify/Order/6495182585922', 'tags': []}}}, 'response': None, 'status': None}
+2025-11-09 13:59:35,464 - sync_service - INFO - API Call: {'service': 'shopify', 'endpoint': 'graphql_local', 'request': None, 'response': {'orderUpdate': {'order': {'id': 'gid://shopify/Order/6495182585922', 'name': '#2119', 'tags': []}, 'userErrors': []}}, 'status': 'success'}
+2025-11-09 13:59:35,465 - sync_service - INFO - ✅ Removed all tags from order gid://shopify/Order/6495182585922 in store local
+2025-11-09 13:59:35,465 - sync_service - INFO - ✅ Successfully removed tags from order 6495182585922
+2025-11-09 13:59:35,971 - sync_service - INFO - 
+✅ Completed processing 44 invoices
+2025-11-09 13:59:35,972 - sync_service - INFO - 
+================================================================================
+2025-11-09 13:59:35,973 - sync_service - INFO - SUMMARY
+2025-11-09 13:59:35,973 - sync_service - INFO - ================================================================================
+2025-11-09 13:59:35,974 - sync_service - INFO - Invoices processed: 44
+2025-11-09 13:59:35,975 - sync_service - INFO - ================================================================================
+2025-11-09 13:59:35,976 - sync_service - INFO - ✅ All operations completed successfully!
