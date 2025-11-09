@@ -19,7 +19,7 @@
                 "timeout": 45,
                 "currency": "EGP",
                 "price_list": 1,
-                "enabled": false
+                "enabled": true
             },
             "international": {
                 "name": "International Store",

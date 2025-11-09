@@ -6,6 +6,7 @@ Handles parent items and variants based on SAP master data structure
 
 import asyncio
 import json
+import sys
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from app.services.sap.client import sap_client
@@ -45,6 +46,12 @@ class ColorMetaobjectMapper:
         except Exception as e:
             logger.error(f"Error saving color mappings: {str(e)}")
     
+    def reload_mappings(self):
+        """Reload color mappings from disk"""
+        self.mappings = self._load_mappings()
+        total_colors = sum(len(store_mappings) for store_mappings in self.mappings.values())
+        logger.info(f"✅ Color mappings reloaded from disk: {len(self.mappings)} stores, {total_colors} total colors")
+    
     def get_color_metaobject_id(self, store_key: str, color_name: str) -> Optional[str]:
         """
         Get metaobject ID for a color in a specific store
@@ -64,10 +71,48 @@ class ColorMetaobjectMapper:
         Returns mapping of color handle -> metaobject ID
         """
         logger.info(f"Building color metaobject mapping for store: {store_key}")
-        result = await multi_store_shopify_client.get_color_metaobjects(store_key)
         
-        if result["msg"] != "success":
-            logger.error(f"Failed to get color metaobjects for store {store_key}: {result.get('error')}")
+        # Add retry logic for GraphQL query (similar to other sync processes)
+        max_retries = 3
+        retry_delay = 2  # Start with 2 seconds
+        
+        result = None
+        for attempt in range(max_retries):
+            try:
+                result = await multi_store_shopify_client.get_color_metaobjects(store_key)
+                
+                if result["msg"] == "success":
+                    break  # Success, exit retry loop
+                else:
+                    # Check if this is a retryable error
+                    error_msg = result.get("error", "").lower() if result else "Unknown error"
+                    logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed for store {store_key}: {error_msg}")
+                    
+                    # Check if error is retryable (timeout, rate limit, network issues, etc.)
+                    retryable_keywords = ["timeout", "rate limit", "temporary", "network", "connection", "graphql query error"]
+                    is_retryable = any(keyword in error_msg for keyword in retryable_keywords)
+                    
+                    if is_retryable and attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        # Non-retryable error or last attempt, break
+                        break
+                        
+            except Exception as e:
+                logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception for store {store_key}: {str(e)}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
+        
+        if result is None or result["msg"] != "success":
+            error_msg = result.get('error', 'Unknown error') if result else 'No response'
+            logger.error(f"Failed to get color metaobjects for store {store_key} after {max_retries} attempts: {error_msg}")
             return {}
         
         color_mapping = {}
@@ -1422,4 +1467,51 @@ class MultiStoreNewItemsSync:
             return {"msg": "failure", "error": str(e)}
 
 # Create singleton instance
-multi_store_new_items_sync = MultiStoreNewItemsSync() 
+multi_store_new_items_sync = MultiStoreNewItemsSync()
+
+
+async def main():
+    """Main function to run color metaobjects sync"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Color Metaobjects Sync")
+    parser.add_argument(
+        "--sync-color-metaobjects",
+        action="store_true",
+        help="Sync color metaobject mappings for all enabled stores"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.sync_color_metaobjects or len(sys.argv) == 1:
+        # If no arguments or --sync-color-metaobjects flag, run the sync
+        try:
+            result = await color_mapper.sync_all_stores()
+            
+            if result["msg"] == "success":
+                print("✅ Color metaobjects sync completed successfully")
+                print()
+                
+                for store_key, store_result in result.get("results", {}).items():
+                    if store_result.get("success"):
+                        print(f"   ✅ {store_key}: {store_result.get('color_count', 0)} colors mapped")
+                    else:
+                        print(f"   ❌ {store_key}: {store_result.get('error', 'Unknown error')}")
+                
+                total_colors = sum(r.get("color_count", 0) for r in result.get("results", {}).values())
+                print()
+                print(f"   Total colors mapped: {total_colors}")
+                print(f"   Mapping file: {color_mapper.mapping_file}")
+            else:
+                print(f"❌ Color metaobjects sync failed: {result.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            print(f"❌ Unexpected error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    asyncio.run(main()) 

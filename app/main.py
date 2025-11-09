@@ -411,6 +411,14 @@ class ShopifySAPSync:
                         if "local_entries" in result:
                             logger.info(f"   - Local entries: {result.get('local_entries', 0)}")
                             logger.info(f"   - International entries: {result.get('international_entries', 0)}")
+                        
+                        # Reload configurations.json from disk
+                        try:
+                            from app.core.config import configs
+                            configs.reload_config()
+                            logger.info("✅ Configuration file reloaded after freight sync")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to reload configuration: {str(e)}")
                     else:
                         logger.error(f"❌ Freight sync failed: {result.get('error')}")
                 
@@ -464,6 +472,14 @@ class ShopifySAPSync:
                         logger.info(f"✅ Color metaobjects sync completed successfully")
                         logger.info(f"   - Stores processed: {result.get('processed', 0)}")
                         logger.info(f"   - Total colors mapped: {result.get('total_colors', 0)}")
+                        
+                        # Reload color mappings from disk
+                        try:
+                            from app.sync.new_items_multi_store import color_mapper
+                            color_mapper.reload_mappings()
+                            logger.info("✅ Color mappings reloaded after sync")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to reload color mappings: {str(e)}")
                     else:
                         logger.error(f"❌ Color metaobjects sync failed: {result.get('error')}")
                 
@@ -484,7 +500,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "item_changes", "price_changes", "freight_prices", "sales_orders", "payment_recovery", "returns", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "freight_prices", "color_metaobjects", "sales_orders", "payment_recovery", "returns", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(

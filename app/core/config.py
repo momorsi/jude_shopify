@@ -32,6 +32,15 @@ class AdvancedSettings:
         
         with open(config_file) as json_file:
             self.configuration_data = json.load(json_file)
+    
+    def reload_config(self):
+        """Reload configuration from disk"""
+        from app.utils.logging import logger
+        self.load_config()
+        # Update the module-level config_data
+        global config_data
+        config_data = self.configuration_data
+        logger.info("✅ Configuration reloaded from disk")
 
 configs = AdvancedSettings()
 configs.load_config()
@@ -470,5 +479,13 @@ class ConfigSettings(BaseSettings):
         """Get the gift card item code from SAP configuration"""
         sap_config = self.get_sap_config()
         return sap_config.get('custom_giftcard', '')
+    
+    def reload(self):
+        """Reload configuration settings from disk"""
+        from app.utils.logging import logger
+        configs.reload_config()
+        # Note: Class attributes won't update automatically, but config_data will be fresh
+        # For settings that use config_data directly (like freight_config), they will see updates
+        logger.info("✅ ConfigSettings reloaded - some settings may require restart to take full effect")
 
 config_settings = ConfigSettings() 

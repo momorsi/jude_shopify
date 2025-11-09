@@ -47,6 +47,19 @@ class OrdersSalesSync:
                         fulfillmentOrders(first: 10) {
                             edges {
                                 node {
+                                    lineItems(first: 100) {
+                                        edges {
+                                            node {
+                                                id
+                                                lineItem {
+                                                    id                                            
+                                                    sku
+                                                    currentQuantity
+                                                    quantity                                            
+                                                }
+                                            }
+                                        }
+                                    }
                                     assignedLocation {
                                         location {
                                             id
@@ -366,6 +379,46 @@ class OrdersSalesSync:
                         else:
                             logger.warning(f"PICK_UP order detected but no location mapping found for location {location_id}, using default warehouse code")
             
+            # Build fulfillment location mapping for PICK_UP orders
+            # Maps lineItem.id -> {location_id, warehouse_code, quantity}
+            fulfillment_location_map = {}
+            
+            if fulfillment_orders:
+                for fulfillment_edge in fulfillment_orders:
+                    fulfillment = fulfillment_edge.get("node", {})
+                    delivery_method = fulfillment.get("deliveryMethod", {})
+                    
+                    # Only process PICK_UP fulfillment orders
+                    if delivery_method.get("methodType") == "PICK_UP":
+                        assigned_location = fulfillment.get("assignedLocation", {})
+                        location = assigned_location.get("location", {})
+                        
+                        if location and location.get("id"):
+                            # Extract location ID
+                            location_gid = location["id"]
+                            location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                            
+                            # Get warehouse code from location mapping
+                            location_mapping = config_settings.get_location_mapping_for_location(store_key, location_id)
+                            warehouse_code = location_mapping.get('warehouse', 'SW') if location_mapping else 'SW'
+                            
+                            # Process line items in this fulfillment order
+                            fulfillment_line_items = fulfillment.get("lineItems", {}).get("edges", [])
+                            for line_item_edge in fulfillment_line_items:
+                                line_item_node = line_item_edge.get("node", {})
+                                line_item_ref = line_item_node.get("lineItem", {})
+                                line_item_id = line_item_ref.get("id", "")
+                                quantity = line_item_node.get("quantity", 0)
+                                
+                                if line_item_id:
+                                    # Store mapping using full GraphQL ID to match against order lineItems
+                                    fulfillment_location_map[line_item_id] = {
+                                        "location_id": location_id,
+                                        "warehouse_code": warehouse_code,
+                                        "quantity": quantity
+                                    }
+                                    logger.info(f"Mapped line item {line_item_id} to location {location_id} (warehouse: {warehouse_code}, qty: {quantity}) for PICK_UP fulfillment")
+            
             # Map line items with discount information
             line_items = []
             for item_edge in order_node["lineItems"]["edges"]:
@@ -457,11 +510,21 @@ class OrdersSalesSync:
                 else:
                     item_code = "ACC-0000001"  # Default item only if no SKU available
                 
-                # Get warehouse code based on order location (use location-based warehouse if available)
-                # For pickup orders, use the pickup location warehouse code
-                if pickup_warehouse_code:
+                # Get warehouse code based on fulfillment location or order location
+                # Check if this line item has a specific fulfillment location (PICK_UP)
+                line_item_id = item.get("id", "")
+                warehouse_code = None
+                
+                if line_item_id and line_item_id in fulfillment_location_map:
+                    # Use warehouse code from fulfillment location
+                    fulfillment_info = fulfillment_location_map[line_item_id]
+                    warehouse_code = fulfillment_info["warehouse_code"]
+                    logger.info(f"Using fulfillment location warehouse '{warehouse_code}' for line item {line_item_id} (location: {fulfillment_info['location_id']})")
+                elif pickup_warehouse_code:
+                    # Fallback to pickup warehouse code (for backward compatibility with single-location orders)
                     warehouse_code = pickup_warehouse_code
                 else:
+                    # Use default warehouse code logic
                     warehouse_code = costing_codes.get('Warehouse', config_settings.get_warehouse_code_for_order(store_key, order_node))
                 
                 # Check if this is a gift card line item

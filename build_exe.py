@@ -83,6 +83,19 @@ pause
                 shutil.copy2("configurations.json", dist_dir)
                 print("📋 Configuration file copied to dist directory")
             
+            # Copy color metaobject mappings file to dist
+            import json
+            if Path("color_metaobject_mappings.json").exists():
+                shutil.copy2("color_metaobject_mappings.json", dist_dir)
+                print("🎨 Color metaobject mappings file copied to dist directory")
+            else:
+                # Create empty file if it doesn't exist
+                empty_mappings = {"local": {}, "international": {}}
+                mappings_path = dist_dir / "color_metaobject_mappings.json"
+                with open(mappings_path, 'w', encoding='utf-8') as f:
+                    json.dump(empty_mappings, f, indent=4, ensure_ascii=False)
+                print("🎨 Created empty color metaobject mappings file in dist directory")
+            
             print("\n🎉 Build completed successfully!")
             print("📁 Output directory: dist/")
             print("🚀 To run: double-click run_continuous_sync.bat or ShopifySAPIntegration.exe")

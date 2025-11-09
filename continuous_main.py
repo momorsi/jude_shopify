@@ -78,6 +78,9 @@ class ContinuousSyncRunner:
         if config_settings.freight_prices_enabled:
             enabled_syncs.append(f"🚚 Freight Prices: Daily at {config_settings.freight_prices_run_time} ({config_settings.freight_prices_timezone})")
         
+        if config_settings.color_metaobjects_enabled:
+            enabled_syncs.append(f"🎨 Color Metaobjects: Daily at {config_settings.color_metaobjects_run_time} ({config_settings.color_metaobjects_timezone})")
+        
         if not enabled_syncs:
             print("❌ No sync processes are enabled in configuration!")
             print("Please enable at least one sync in configurations.json")
