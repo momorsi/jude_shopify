@@ -19,7 +19,7 @@
                 "timeout": 45,
                 "currency": "EGP",
                 "price_list": 1,
-                "enabled": true
+                "enabled": false
             },
             "international": {
                 "name": "International Store",
@@ -322,14 +322,14 @@
         },
         "sales": {            
             "orders": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 15,
-                "batch_size": 10,
+                "batch_size": 1,
                 "from_date": "2025-10-30",
                 "channel": "web"
             },
             "payment_recovery": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 30,
                 "batch_size": 50,
                 "from_date": "2025-10-30",

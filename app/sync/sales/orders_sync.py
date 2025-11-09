@@ -380,21 +380,66 @@ class OrdersSalesSync:
                     logger.info(f"Skipping gift card line item for POS refund: {item.get('name')} - Amount: {item.get('originalUnitPriceSet', {}).get('shopMoney', {}).get('amount', 0)}")
                     continue
                 
-                # Get pricing information with priority: compareAtPrice > originalUnitPriceSet > variant price
+                # Get pricing information with priority: order-time prices > variant prices
+                # CRITICAL: Use order-time prices (originalUnitPriceSet/discountedUnitPriceSet) 
+                # to ensure correct pricing even if product prices changed after order
                 original_price = Decimal("0.00")
                 sale_price = Decimal("0.00")
                 
-                # First, try to get compareAtPrice (original price before sale)
-                if item.get("variant") and item["variant"].get("compareAtPrice"):
+                # PRIORITY 1: Use order-time prices (actual prices at time of order)
+                # This is critical for orders placed during sales that have since ended
+                if item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
+                    original_unit_price = Decimal(item["originalUnitPriceSet"]["shopMoney"]["amount"])
+                    
+                    # Get the discounted price (what was actually paid)
+                    if item.get("discountedUnitPriceSet") and item["discountedUnitPriceSet"].get("shopMoney"):
+                        discounted_unit_price = Decimal(item["discountedUnitPriceSet"]["shopMoney"]["amount"])
+                        sale_price = discounted_unit_price
+                        
+                        # Determine the original price before discount
+                        # If discounted < originalUnitPriceSet, there was a discount applied
+                        if discounted_unit_price < original_unit_price:
+                            # There was a discount - use originalUnitPriceSet as the original price
+                            original_price = original_unit_price
+                        else:
+                            # No additional discount beyond sale price
+                            # Try to get the true original from variant compareAtPrice if available
+                            if item.get("variant") and item["variant"].get("compareAtPrice"):
+                                variant_compare = Decimal(item["variant"]["compareAtPrice"])
+                                # Use variant compareAtPrice as original if it's higher than what was paid
+                                # This handles the case where a sale ended and prices changed
+                                if variant_compare > discounted_unit_price:
+                                    original_price = variant_compare
+                                else:
+                                    original_price = original_unit_price
+                            else:
+                                original_price = original_unit_price
+                    else:
+                        # No discountedUnitPriceSet - check if variant compareAtPrice shows original price
+                        if item.get("variant") and item["variant"].get("compareAtPrice"):
+                            variant_compare = Decimal(item["variant"]["compareAtPrice"])
+                            # If variant compareAtPrice is higher, it's the original price before sale
+                            if variant_compare > original_unit_price:
+                                original_price = variant_compare
+                                sale_price = original_unit_price  # What was paid
+                            else:
+                                # No sale, prices are equal
+                                original_price = original_unit_price
+                                sale_price = original_unit_price
+                        else:
+                            # No variant info, use originalUnitPriceSet for both
+                            original_price = original_unit_price
+                            sale_price = original_unit_price
+                
+                # PRIORITY 2: Fallback to variant compareAtPrice (current prices) - only if no order-time prices
+                elif item.get("variant") and item["variant"].get("compareAtPrice"):
                     original_price = Decimal(item["variant"]["compareAtPrice"])
-                    # Get the current sale price
                     if item.get("variant") and item["variant"].get("price"):
                         sale_price = Decimal(item["variant"]["price"])
-                # Fallback to original unit price set
-                elif item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
-                    original_price = Decimal(item["originalUnitPriceSet"]["shopMoney"]["amount"])
-                    sale_price = original_price  # No sale, so sale price = original price
-                # Final fallback to variant price
+                    else:
+                        sale_price = original_price
+                
+                # PRIORITY 3: Final fallback to variant price
                 elif item.get("variant") and item["variant"].get("price"):
                     original_price = Decimal(item["variant"]["price"])
                     sale_price = original_price  # No sale, so sale price = original price
