@@ -202,18 +202,51 @@ class InventorySync:
                         else:
                             # Update existing inventory
                             logger.info(f"Updating inventory for item {item_code} (variant {variant_id}) at location {location_id}")
-                            update_data = {
-                                "location_id": location_id,
-                                "inventory_item_id": variant_id,
-                                "available": int(available)
-                            }
-                            result = await multi_store_shopify_client.update_inventory_level(store_key, update_data)
-                            if result["msg"] != "success":
-                                log_status = "failure"
-                                log_error = result.get("error")
-                                errors += 1
-                            else:
+                            
+                            # Get current inventory level (including committed quantity) from Shopify before updating
+                            committed_qty = 0
+                            current_available_qty = None
+                            try:
+                                inventory_result = await multi_store_shopify_client.get_inventory_level(
+                                    store_key, variant_id, location_id
+                                )
+                                if inventory_result["msg"] == "success":
+                                    committed_qty = inventory_result.get("committed", 0)
+                                    current_available_qty = inventory_result.get("available", 0)
+                                    logger.info(f"Found {committed_qty} committed quantity and {current_available_qty} available quantity for item {item_code} at location {location_id}")
+                                else:
+                                    logger.warning(f"Could not fetch inventory level: {inventory_result.get('error')}, proceeding with update without adjustment")
+                            except Exception as e:
+                                logger.warning(f"Error fetching inventory level: {str(e)}, proceeding with update without adjustment")
+                            
+                            # Calculate adjusted quantity: SAP quantity - committed quantity in Shopify
+                            sap_qty = int(available)
+                            adjusted_qty = max(0, sap_qty - committed_qty)  # Ensure non-negative
+                            
+                            if committed_qty > 0:
+                                logger.info(f"Adjusting quantity: SAP={sap_qty}, Committed={committed_qty}, Setting={adjusted_qty}")
+                            
+                            # Check if adjusted quantity equals current available quantity - skip update if same
+                            if current_available_qty is not None and adjusted_qty == current_available_qty:
+                                logger.info(f"Skipping inventory update for item {item_code}: adjusted quantity ({adjusted_qty}) equals current available quantity in Shopify")
+                                # Treat as success without making API call
                                 success += 1
+                            else:
+                                # Proceed with update
+                                update_data = {
+                                    "location_id": location_id,
+                                    "inventory_item_id": variant_id,
+                                    "available": adjusted_qty  # Use adjusted quantity instead of raw SAP quantity
+                                }
+                                result = await multi_store_shopify_client.update_inventory_level(store_key, update_data)
+                                
+                                # Note: Logging still uses original SAP quantity (available) for SAP records
+                                if result["msg"] != "success":
+                                    log_status = "failure"
+                                    log_error = result.get("error")
+                                    errors += 1
+                                else:
+                                    success += 1
                                 
                     except Exception as e:
                         log_status = "failure"

@@ -16175,3 +16175,9 @@ Giza, Giza, Egypt
 2025-11-09 16:08:38,370 - sync_service - INFO - Color metaobject mapping sync completed for 2 stores
 2025-11-09 16:18:58,738 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
 2025-11-09 16:18:58,739 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-12 14:11:53,170 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-11-12 14:11:53,171 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-12 14:51:08,332 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-11-12 14:51:08,332 - sync_service - INFO - Initialized Shopify client for store: International Store (international)
+2025-11-12 15:00:21,465 - sync_service - INFO - Initialized Shopify client for store: Local Store (local)
+2025-11-12 15:00:21,465 - sync_service - INFO - Initialized Shopify client for store: International Store (international)

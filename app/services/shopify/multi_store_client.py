@@ -9,6 +9,7 @@ from app.core.config import config_settings
 from app.utils.logging import logger, log_api_call
 
 import json
+import asyncio
 from gql.transport.exceptions import TransportQueryError
 from typing import Dict, Any, Optional, List
 
@@ -270,6 +271,102 @@ class MultiStoreShopifyClient:
             error_msg = f"Error updating inventory level for store {store_key}: {str(e)}"
             logger.error(error_msg)
             return {"msg": "failure", "error": error_msg}
+    
+    async def get_inventory_level(self, store_key: str, inventory_item_id: str, location_id: str) -> Dict[str, Any]:
+        """
+        Get current inventory level including committed quantity for a specific location
+        Includes retry logic for handling transient failures (timeouts, etc.)
+        Returns: {"msg": "success", "available": int, "committed": int, "onHand": int} or error
+        """
+        if store_key not in self.clients:
+            return {"msg": "failure", "error": f"Store {store_key} not found or not enabled"}
+        
+        # Convert IDs to global format if they're not already
+        # Check if inventory_item_id is already in global format
+        if not inventory_item_id.startswith("gid://shopify/InventoryItem/"):
+            # Extract numeric ID if it's in a different format, or use as-is if it's just a number
+            inventory_item_id = f"gid://shopify/InventoryItem/{inventory_item_id}"
+        
+        # Check if location_id is already in global format
+        if not location_id.startswith("gid://shopify/Location/"):
+            # Extract numeric ID if it's in a different format, or use as-is if it's just a number
+            location_id = f"gid://shopify/Location/{location_id}"
+        
+        query = """
+        query getInventoryLevel($inventoryItemId: ID!, $locationId: ID!) {
+            inventoryItem(id: $inventoryItemId) {
+                inventoryLevel(locationId: $locationId) {
+                    id
+                    quantities(names: ["available", "on_hand", "committed"]) {
+                        name
+                        quantity
+                    }
+                }
+            }
+        }
+        """
+        
+        variables = {
+            "inventoryItemId": inventory_item_id,
+            "locationId": location_id
+        }
+        
+        # Retry logic for GraphQL query (similar to other sync processes)
+        max_retries = config_settings.retry_max_attempts
+        retry_delay = config_settings.retry_delay  # Start with configured delay
+        
+        for attempt in range(max_retries):
+            try:
+                result = await self.execute_query(store_key, query, variables)
+                
+                if result["msg"] == "success":
+                    data = result.get("data", {})
+                    inventory_item = data.get("inventoryItem", {})
+                    inventory_level = inventory_item.get("inventoryLevel")
+                    
+                    if inventory_level:
+                        # Parse quantities array to extract values
+                        quantities = inventory_level.get("quantities", [])
+                        quantity_map = {}
+                        for qty in quantities:
+                            quantity_map[qty.get("name")] = qty.get("quantity", 0)
+                        
+                        return {
+                            "msg": "success",
+                            "available": quantity_map.get("available", 0),
+                            "committed": quantity_map.get("committed", 0),
+                            "onHand": quantity_map.get("on_hand", 0)
+                        }
+                    else:
+                        return {"msg": "failure", "error": "Inventory level not found for this location"}
+                else:
+                    # Check if this is a retryable error
+                    error_msg = result.get("error", "").lower() if result else "Unknown error"
+                    logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed for inventory level query: {error_msg}")
+                    
+                    # Check if error is retryable (timeout, rate limit, network issues, etc.)
+                    retryable_keywords = ["timeout", "rate limit", "temporary", "network", "connection", "graphql query error"]
+                    is_retryable = any(keyword in error_msg for keyword in retryable_keywords)
+                    
+                    if is_retryable and attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        # Non-retryable error or last attempt, return failure
+                        return result
+                        
+            except Exception as e:
+                logger.error(f"Exception on attempt {attempt + 1}/{max_retries}: {str(e)}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    return {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
+        
+        return {"msg": "failure", "error": "All retry attempts failed"}
     
     async def get_locations(self, store_key: str) -> Dict[str, Any]:
         """
