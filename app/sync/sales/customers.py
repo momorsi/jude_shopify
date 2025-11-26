@@ -166,6 +166,9 @@ class CustomerManager:
         email = shopify_customer.get('email', '')
         phone = self._extract_phone_from_customer(shopify_customer)
         
+        last_name = '' if last_name is None else last_name
+        email = '' if email is None else email
+        
         # Generate SAP CardCode (you might want to implement a specific logic)
         card_code = self._generate_card_code(first_name, last_name)
         
@@ -181,7 +184,8 @@ class CustomerManager:
             "GroupCode": config_settings.get_group_code_for_location(location_analysis.get('location_mapping', {}) if location_analysis else {}),
             "Phone1": phone,
             "Cellular": phone,
-            "Currency": store_currency
+            "Currency": store_currency,
+            "EmailAddress": email
         }
         
         return customer_data

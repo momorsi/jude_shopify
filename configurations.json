@@ -29,7 +29,7 @@
                 "timeout": 45,
                 "currency": "USD",
                 "price_list": 7,
-                "enabled": true
+                "enabled": false
             }
         },
         "webhook_secret": "my_webhook_secret",
@@ -322,7 +322,7 @@
         },
         "sales": {            
             "orders": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 15,
                 "batch_size": 1,
                 "from_date": "2025-10-30",
@@ -336,7 +336,7 @@
                 "channel": "web"
             },
             "returns": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 20,
                 "batch_size": 10,
                 "from_date": "2025-10-30",

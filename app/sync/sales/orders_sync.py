@@ -703,7 +703,7 @@ class OrdersSalesSync:
                 #"U_Shopify_Fulfillment_Status": fulfillment_status,
                 "SalesPersonCode": location_analysis.get('location_mapping', {}).get('sales_employee', 28),
                 "DocumentLines": line_items,
-                "U_Pay_type": 1 if financial_status in ["PAID", "PARTIALLY_REFUNDED"] else 2 if store_key == "local" else 3,
+                "U_Pay_type": 1 if financial_status in ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"] else 2 if store_key == "local" else 3,
                 "U_Shopify_Order_ID": order_id_number,
                 "U_DeliveryAddress": delivery_address,
                 "U_BillingAddress": billing_address_str,
@@ -716,6 +716,11 @@ class OrdersSalesSync:
             if location_analysis.get('is_pos_order') and location_analysis.get('extracted_receipt_number'):
                 invoice_data["U_POS_Receipt_Number"] = location_analysis['extracted_receipt_number']
                 logger.info(f"Added POS receipt number to invoice: {location_analysis['extracted_receipt_number']}")
+            
+            # Add payment ID to U_CustomerName for online orders
+            if location_type == "online" and payment_info.get("payment_id") and payment_info.get("payment_id") != "Unknown":
+                invoice_data["U_CustomerName"] = payment_info["payment_id"]
+                logger.info(f"Added Paymob payment ID to invoice U_CustomerName: {payment_info['payment_id']}")
             
             # Handle order-level discounts
             discount_applications = order_node.get("discountApplications", {}).get("edges", [])
@@ -2698,7 +2703,7 @@ class OrdersSalesSync:
             # Check if order is paid and create incoming payment
             # Treat PARTIALLY_REFUNDED as PAID for payment processing (order was paid, then partially refunded)
             sap_payment_number = None
-            is_paid_for_payment_processing = financial_status in ["PAID", "PARTIALLY_REFUNDED"]
+            is_paid_for_payment_processing = financial_status in ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"]
             
             if is_paid_for_payment_processing:
                 if financial_status == "PARTIALLY_REFUNDED":

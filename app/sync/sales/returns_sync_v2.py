@@ -96,6 +96,8 @@ class ReturnsSyncV2:
                     fulfillment_status:fulfilled
                     (financial_status:refunded OR financial_status:partially_refunded OR return_status:RETURNED)
                     tag:sap_invoice_synced 
+                    -tag:sap_giftcard_invoice_failed 
+                    -tag:sap_giftcard_payment_failed 
                     tag:sap_payment_synced 
                     -tag:sap_return_synced 
                     created_at:>={self._get_date_filter()}"""
@@ -120,6 +122,19 @@ class ReturnsSyncV2:
                                 fulfillmentOrders(first: 10) {
                                     edges {
                                         node {
+                                            lineItems(first: 100) {
+                                                edges {
+                                                    node {
+                                                        id
+                                                        lineItem {
+                                                            id                                            
+                                                            sku
+                                                            currentQuantity
+                                                            quantity                                            
+                                                        }
+                                                    }
+                                                }
+                                            }
                                             assignedLocation {
                                                 location {
                                                     id
@@ -223,6 +238,21 @@ class ReturnsSyncV2:
                                                     currencyCode
                                                 }
                                             }
+                                            discountAllocations {
+                                                allocatedAmount {
+                                                    amount
+                                                    currencyCode
+                                                }
+                                                discountApplication {
+                                                    __typename
+                                                    ... on AutomaticDiscountApplication {
+                                                        title
+                                                    }
+                                                    ... on DiscountCodeApplication {
+                                                        code
+                                                    }
+                                                }
+                                            }
                                             variant {
                                                 id
                                                 sku
@@ -236,6 +266,33 @@ class ReturnsSyncV2:
                                         }
                                     }
                                 }
+                                
+                                # --- Discounts applied ---
+                                discountApplications(first: 10) {
+                                    edges {
+                                        node {
+                                            targetType        # ORDER or LINE_ITEM
+                                            allocationMethod  # ACROSS / EACH / ONE
+                                            value {
+                                                __typename
+                                                ... on PricingPercentageValue {
+                                                    percentage
+                                                }
+                                                ... on MoneyV2 {
+                                                    amount
+                                                    currencyCode
+                                                }
+                                            }
+                                            ... on DiscountCodeApplication {
+                                                code
+                                            }
+                                            ... on AutomaticDiscountApplication {
+                                                title
+                                            }
+                                        }
+                                    }
+                                }
+                                
                                 transactions(first: 10) {
                                     id
                                     kind
@@ -456,7 +513,7 @@ class ReturnsSyncV2:
                     await self._add_order_tag_with_retry(order_id, f"giftcard_{gift_card_id}", store_key)
             
             # Always check and cancel original SAP documents if needed
-            original_payment_details = await self._check_and_cancel_original_documents(sap_doc_entries, order_name)
+            original_payment_details = await self._check_and_cancel_original_documents(sap_doc_entries, order_name, order_id, store_key)
             
             # Check if there was no original payment (invoice had DocTotal = 0)
             no_original_payment = original_payment_details and original_payment_details.get("_no_payment") == True
@@ -802,7 +859,7 @@ class ReturnsSyncV2:
             logger.error(f"Error checking gift card existence in SAP: {str(e)}")
             return False
 
-    async def _check_and_cancel_original_documents(self, sap_doc_entries: Dict[str, str], order_name: str) -> Optional[Dict[str, Any]]:
+    async def _check_and_cancel_original_documents(self, sap_doc_entries: Dict[str, str], order_name: str, order_id: str = None, store_key: str = None) -> Optional[Dict[str, Any]]:
         """
         Check and cancel original SAP documents if needed, return payment details for new payment
         """
@@ -847,6 +904,9 @@ class ReturnsSyncV2:
                                 logger.info(f"✅ Successfully cancelled incoming payment {payment_entry}")
                             else:
                                 logger.error(f"Failed to cancel incoming payment {payment_entry}: {cancel_result.get('error')}")
+                                # Add failure tag for cancellation failure
+                                if order_id and store_key:
+                                    await self._add_order_tag_with_retry(order_id, "sap_giftcard_invoice_failed", store_key)
                                 return None
                         else:
                             logger.info(f"Incoming payment {payment_entry} is already cancelled")
@@ -904,6 +964,9 @@ class ReturnsSyncV2:
                             logger.info(f"✅ Successfully cancelled invoice {invoice_entry}")
                         else:
                             logger.error(f"Failed to cancel invoice {invoice_entry}: {cancel_result.get('error')}")
+                            # Add failure tag for cancellation failure
+                            if order_id and store_key:
+                                await self._add_order_tag_with_retry(order_id, "sap_giftcard_invoice_failed", store_key)
                             return None
                     else:
                         logger.info(f"Invoice {invoice_entry} is already cancelled")
@@ -1050,7 +1113,10 @@ class ReturnsSyncV2:
     def _extract_non_returned_items(self, order: Dict[str, Any], sap_codes: Dict[str, str], warehouse_code: str = "ONL") -> List[Dict[str, Any]]:
         """
         Extract non-returned items (currentQuantity > 0) that are not gift cards
+        Includes discount calculation logic matching orders_sync
         """
+        from decimal import Decimal
+        
         non_returned_items = []
         line_items = order.get("lineItems", {}).get("edges", [])
         
@@ -1071,11 +1137,71 @@ class ReturnsSyncV2:
             # Get item details
             sku = item.get("sku", "")
             name = item.get("name", "")
-            unit_price = float(item.get("originalUnitPriceSet", {}).get("shopMoney", {}).get("amount", 0))
             
             if not sku:
                 logger.warning(f"Skipping item without SKU: {name}")
                 continue
+            
+            # Get pricing information with priority: order-time prices > variant prices
+            # CRITICAL: Use order-time prices (originalUnitPriceSet/discountedUnitPriceSet) 
+            # to ensure correct pricing even if product prices changed after order
+            original_price = Decimal("0.00")
+            sale_price = Decimal("0.00")
+            
+            # PRIORITY 1: Use order-time prices (actual prices at time of order)
+            if item.get("originalUnitPriceSet") and item["originalUnitPriceSet"].get("shopMoney"):
+                original_unit_price = Decimal(item["originalUnitPriceSet"]["shopMoney"]["amount"])
+                
+                # Get the discounted price (what was actually paid)
+                if item.get("discountedUnitPriceSet") and item["discountedUnitPriceSet"].get("shopMoney"):
+                    discounted_unit_price = Decimal(item["discountedUnitPriceSet"]["shopMoney"]["amount"])
+                    sale_price = discounted_unit_price
+                    
+                    # Determine the original price before discount
+                    if discounted_unit_price < original_unit_price:
+                        # There was a discount - use originalUnitPriceSet as the original price
+                        original_price = original_unit_price
+                    else:
+                        # No additional discount beyond sale price
+                        # Try to get the true original from variant compareAtPrice if available
+                        if item.get("variant") and item["variant"].get("compareAtPrice"):
+                            variant_compare = Decimal(item["variant"]["compareAtPrice"])
+                            if variant_compare > discounted_unit_price:
+                                original_price = variant_compare
+                            else:
+                                original_price = original_unit_price
+                        else:
+                            original_price = original_unit_price
+                else:
+                    # No discountedUnitPriceSet - check if variant compareAtPrice shows original price
+                    if item.get("variant") and item["variant"].get("compareAtPrice"):
+                        variant_compare = Decimal(item["variant"]["compareAtPrice"])
+                        if variant_compare > original_unit_price:
+                            original_price = variant_compare
+                            sale_price = original_unit_price  # What was paid
+                        else:
+                            original_price = original_unit_price
+                            sale_price = original_unit_price
+                    else:
+                        original_price = original_unit_price
+                        sale_price = original_unit_price
+            
+            # PRIORITY 2: Fallback to variant compareAtPrice (current prices) - only if no order-time prices
+            elif item.get("variant") and item["variant"].get("compareAtPrice"):
+                original_price = Decimal(item["variant"]["compareAtPrice"])
+                if item.get("variant") and item["variant"].get("price"):
+                    sale_price = Decimal(item["variant"]["price"])
+                else:
+                    sale_price = original_price
+            
+            # PRIORITY 3: Final fallback to variant price
+            elif item.get("variant") and item["variant"].get("price"):
+                original_price = Decimal(item["variant"]["price"])
+                sale_price = original_price  # No sale, so sale price = original price
+            else:
+                # Fallback to a default price if variant price is not available
+                original_price = Decimal("0.00")
+                sale_price = Decimal("0.00")
             
             # Use location-based costing codes
             default_codes = {
@@ -1090,13 +1216,13 @@ class ReturnsSyncV2:
             # Override with location-specific codes if available
             costing_codes = {key: sap_codes.get(key, default_codes[key]) for key in default_codes.keys()}
             
-            line_total = unit_price * current_quantity
+            # Don't set LineTotal - let SAP calculate it automatically based on UnitPrice, Quantity, and DiscountPercent
+            # Setting LineTotal manually conflicts with discount calculations
             
             line_item = {
                 "ItemCode": sku,
                 "Quantity": current_quantity,
-                "UnitPrice": unit_price,
-                "LineTotal": line_total,
+                "UnitPrice": float(original_price),  # Always use original price (compareAtPrice)
                 "WarehouseCode": warehouse_code,  # Use warehouse from location analysis
                 "COGSCostingCode": costing_codes['COGSCostingCode'],
                 "COGSCostingCode2": costing_codes['COGSCostingCode2'],
@@ -1106,8 +1232,37 @@ class ReturnsSyncV2:
                 "CostingCode3": costing_codes['CostingCode3']
             }
             
+            # Calculate discount percentage based on compareAtPrice vs sale price
+            if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                # Calculate discount percentage: (original - sale) / original * 100
+                discount_amount = original_price - sale_price
+                discount_percentage = (discount_amount / original_price) * 100
+                line_item["DiscountPercent"] = float(discount_percentage)
+                line_item["U_ItemDiscountAmount"] = float(discount_amount)
+                logger.info(f"🎯 Pricing for {sku}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
+            
+            # Also check for additional discount allocations (coupons, etc.)
+            discount_allocations = item.get("discountAllocations", [])
+            if discount_allocations:
+                total_item_discount = sum(
+                    float(allocation.get("allocatedAmount", {}).get("amount", 0))
+                    for allocation in discount_allocations
+                )
+                if total_item_discount > 0:
+                    # Add additional discount amount to existing discount
+                    if "U_ItemDiscountAmount" in line_item:
+                        line_item["U_ItemDiscountAmount"] += total_item_discount
+                    else:
+                        line_item["U_ItemDiscountAmount"] = total_item_discount
+                    
+                    # Recalculate total discount percentage
+                    if original_price > 0:
+                        total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
+                        line_item["DiscountPercent"] = total_discount_percentage
+                        logger.info(f"🎯 Additional discount for {sku}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+            
             non_returned_items.append(line_item)
-            logger.info(f"Added non-returned item: {name} (SKU: {sku}, Qty: {current_quantity}, Price: {unit_price})")
+            logger.info(f"Added non-returned item: {name} (SKU: {sku}, Qty: {current_quantity}, Price: {float(original_price)}, Sale: {float(sale_price)})")
         
         logger.info(f"Found {len(non_returned_items)} non-returned items")
         return non_returned_items
@@ -1226,8 +1381,13 @@ class ReturnsSyncV2:
             # Check if this is a pickup order and get warehouse code from pickup location
             pickup_warehouse_code = None
             fulfillment_orders = order.get("fulfillmentOrders", {}).get("edges", [])
+            
+            # Build fulfillment location mapping for PICK_UP orders
+            # Maps lineItem.id -> {location_id, warehouse_code, quantity}
+            fulfillment_location_map = {}
+            
             if fulfillment_orders:
-                # Check first fulfillment order for PICK_UP method
+                # Check first fulfillment order for PICK_UP method (for backward compatibility)
                 first_fulfillment = fulfillment_orders[0].get("node", {})
                 delivery_method = first_fulfillment.get("deliveryMethod", {})
                 if delivery_method.get("methodType") == "PICK_UP":
@@ -1244,15 +1404,87 @@ class ReturnsSyncV2:
                             logger.info(f"Detected PICK_UP order - using warehouse code '{pickup_warehouse_code}' from location {location_id}")
                         else:
                             logger.warning(f"PICK_UP order detected but no location mapping found for location {location_id}, using default warehouse code")
+                
+                # Build fulfillment location map for all fulfillment orders
+                for fulfillment_edge in fulfillment_orders:
+                    fulfillment = fulfillment_edge.get("node", {})
+                    delivery_method = fulfillment.get("deliveryMethod", {})
+                    
+                    # Only process PICK_UP fulfillment orders
+                    if delivery_method.get("methodType") == "PICK_UP":
+                        assigned_location = fulfillment.get("assignedLocation", {})
+                        location = assigned_location.get("location", {})
+                        
+                        if location and location.get("id"):
+                            # Extract location ID
+                            location_gid = location["id"]
+                            location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                            
+                            # Get warehouse code from location mapping
+                            location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                            warehouse_code = location_mapping.get('warehouse', 'SW') if location_mapping else 'SW'
+                            
+                            # Process line items in this fulfillment order
+                            fulfillment_line_items = fulfillment.get("lineItems", {}).get("edges", [])
+                            for line_item_edge in fulfillment_line_items:
+                                line_item_node = line_item_edge.get("node", {})
+                                line_item_ref = line_item_node.get("lineItem", {})
+                                line_item_id = line_item_ref.get("id", "")
+                                quantity = line_item_node.get("quantity", 0)
+                                
+                                if line_item_id:
+                                    # Store mapping using full GraphQL ID to match against order lineItems
+                                    fulfillment_location_map[line_item_id] = {
+                                        "location_id": location_id,
+                                        "warehouse_code": warehouse_code,
+                                        "quantity": quantity
+                                    }
+                                    logger.info(f"Mapped line item {line_item_id} to location {location_id} (warehouse: {warehouse_code}, qty: {quantity}) for PICK_UP fulfillment")
             
-            # For pickup orders, use the pickup location warehouse code
+            # For pickup orders, use the pickup location warehouse code (fallback for items not in map)
             if pickup_warehouse_code:
                 warehouse_code_from_location = pickup_warehouse_code
+            else:
+                warehouse_code_from_location = sap_codes.get('Warehouse', 'SW')
             
-            logger.info(f"Using warehouse code '{warehouse_code_from_location}' for gift card invoice")
+            logger.info(f"Using warehouse code '{warehouse_code_from_location}' for gift card invoice (default for items not in fulfillment map)")
             
             # Extract non-returned items (currentQuantity > 0) and non-gift card items
             non_returned_items = self._extract_non_returned_items(order, sap_codes, warehouse_code_from_location)
+            
+            # Update warehouse codes for line items based on fulfillment_location_map
+            if fulfillment_location_map:
+                order_line_items = order.get("lineItems", {}).get("edges", [])
+                # Create a mapping from SKU+quantity to non_returned_item index for more precise matching
+                sku_quantity_map = {}
+                for idx, non_returned_item in enumerate(non_returned_items):
+                    key = (non_returned_item.get("ItemCode"), non_returned_item.get("Quantity"))
+                    if key not in sku_quantity_map:
+                        sku_quantity_map[key] = []
+                    sku_quantity_map[key].append(idx)
+                
+                for item_edge in order_line_items:
+                    item = item_edge.get("node", {})
+                    line_item_id = item.get("id", "")
+                    sku = item.get("sku", "")
+                    current_quantity = item.get("currentQuantity", 0)
+                    
+                    # Only process items that are in the fulfillment map and have currentQuantity > 0
+                    if line_item_id in fulfillment_location_map and current_quantity > 0:
+                        fulfillment_info = fulfillment_location_map[line_item_id]
+                        warehouse_code = fulfillment_info["warehouse_code"]
+                        
+                        # Match by SKU and quantity for precision
+                        key = (sku, current_quantity)
+                        if key in sku_quantity_map:
+                            # Update the first matching item (should be unique in most cases)
+                            idx = sku_quantity_map[key][0]
+                            non_returned_items[idx]["WarehouseCode"] = warehouse_code
+                            logger.info(f"Updated warehouse to '{warehouse_code}' for line item {line_item_id} (SKU: {sku}, Qty: {current_quantity}, location: {fulfillment_info['location_id']})")
+                            # Remove from map to avoid duplicate updates
+                            sku_quantity_map[key].pop(0)
+                            if not sku_quantity_map[key]:
+                                del sku_quantity_map[key]
             
             # Prepare line items - start with non-returned items
             line_items = non_returned_items.copy()
@@ -1262,7 +1494,6 @@ class ReturnsSyncV2:
                 "ItemCode": gift_card_item_code,  # Use the configured gift card item code
                 "Quantity": 1,
                 "UnitPrice": total_amount,
-                "LineTotal": total_amount,
                 "WarehouseCode": warehouse_code_from_location,  # Use warehouse from location analysis
                 "U_GiftCard": sap_gift_card_id,  # Add gift card ID to specify this is a gift card line
                 "COGSCostingCode": costing_codes['COGSCostingCode'],
@@ -1332,6 +1563,61 @@ class ReturnsSyncV2:
                     "U_Shopify_Order_ID": order.get('id', '')
                 }
             )
+            
+            # Handle order-level discounts (same as orders_sync)
+            discount_applications = order.get("discountApplications", {}).get("edges", [])
+            discount_reasons = []
+            
+            for discount_edge in discount_applications:
+                discount = discount_edge["node"]
+                target_type = discount.get("targetType", "UNKNOWN")
+                
+                # Extract discount reason/code for both order and line item discounts
+                discount_code = discount.get("code", "")
+                discount_title = discount.get("title", "")
+                
+                # Build discount reason string
+                if discount_code and discount_title:
+                    discount_reason = f"{discount_code} - {discount_title}"
+                elif discount_code:
+                    discount_reason = discount_code
+                elif discount_title:
+                    discount_reason = discount_title
+                else:
+                    discount_reason = "Unknown Discount"
+                
+                discount_reasons.append(discount_reason)
+                
+                if target_type == "ORDER":
+                    # Order-level discount
+                    value = discount.get("value", {})
+                    discount_amount = 0.0
+                    discount_percentage = 0.0
+                    
+                    if value.get("__typename") == "PricingPercentageValue":
+                        # Percentage discount
+                        discount_percentage = float(value.get("percentage", 0))
+                        # Calculate discount amount from order subtotal
+                        subtotal = float(order.get("subtotalPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                        discount_amount = (discount_percentage / 100) * subtotal
+                    elif value.get("__typename") == "MoneyV2":
+                        # Fixed amount discount
+                        discount_amount = float(value.get("amount", 0))
+                        # Calculate discount percentage from order subtotal
+                        subtotal = float(order.get("subtotalPriceSet", {}).get("shopMoney", {}).get("amount", 0))
+                        if subtotal > 0:
+                            discount_percentage = (discount_amount / subtotal) * 100
+                    
+                    if discount_percentage > 0:
+                        invoice_data["DiscountPercent"] = discount_percentage
+                        invoice_data["U_OrderDiscountAmount"] = discount_amount
+                        invoice_data["U_OrderDiscountCode"] = discount.get("code", "")
+                        logger.info(f"Applied order-level discount: {discount_percentage}% ({discount_amount} EGP) - Code: {discount.get('code', 'N/A')}")
+            
+            # Add discount reason to invoice header if any discounts were found
+            if discount_reasons:
+                invoice_data["U_CustomerAddress"] = " | ".join(discount_reasons)
+                logger.info(f"Added discount reason to invoice: {invoice_data['U_CustomerAddress']}")
             
             # Add freight expenses if any
             if freight_expenses:
@@ -1594,7 +1880,7 @@ class ReturnsSyncV2:
             
             # Return default codes for web orders or as fallback for POS orders
             # For web orders, get the default location mapping
-            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_location_mapping = self.config.get_location_mapping_for_location(store_key, "web")
             default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
             
             return {
@@ -1610,7 +1896,7 @@ class ReturnsSyncV2:
         except Exception as e:
             logger.error(f"Error getting SAP codes from retail location: {str(e)}")
             # Return default codes on error
-            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_location_mapping = self.config.get_location_mapping_for_location(store_key, "web")
             default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
             
             return {
@@ -1914,7 +2200,7 @@ class ReturnsSyncV2:
             
             # Return default location analysis for web orders or as fallback for POS orders
             # For web orders, get the default location mapping
-            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_location_mapping = self.config.get_location_mapping_for_location(store_key, "web")
             default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
             
             return {
@@ -1935,7 +2221,7 @@ class ReturnsSyncV2:
         except Exception as e:
             logger.error(f"Error getting location analysis from retail location: {str(e)}")
             # Return default location analysis on error
-            default_location_mapping = self.config.get_default_location_mapping(store_key)
+            default_location_mapping = self.config.get_location_mapping_for_location(store_key, "web")
             default_warehouse = default_location_mapping.get('warehouse', 'SW') if default_location_mapping else 'SW'
             
             return {
