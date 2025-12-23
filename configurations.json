@@ -338,9 +338,9 @@
             "returns": {
                 "enabled": true,
                 "interval_minutes": 20,
-                "batch_size": 10,
+                "batch_size": 25,
                 "from_date": "2025-10-30",
-                "channel": "web"
+                "channel": "web,pos"
             }
         }
     },

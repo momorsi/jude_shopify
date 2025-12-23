@@ -23,7 +23,7 @@ from app.utils.logging import logger
 
 # Set the expiration date (YYYY-MM-DD format)
 # The integration will stop working on or after this date
-EXPIRATION_DATE = date(2025, 11, 28)  # Change this to your desired expiration date
+EXPIRATION_DATE = date(2025, 12, 1)  # Change this to your desired expiration date
 
 class ContinuousSyncRunner:
     """
@@ -48,16 +48,16 @@ class ContinuousSyncRunner:
         Run all enabled syncs continuously with their own intervals
         """
         # Check if the integration has expired
-        current_date = date.today()
-        if current_date >= EXPIRATION_DATE:
-            print("=" * 80)
-            print("⚠️  INTEGRATION EXPIRED")
-            print("=" * 80)
-            print(f"This integration expired on {EXPIRATION_DATE.strftime('%Y-%m-%d')}.")
-            print(f"Current date: {current_date.strftime('%Y-%m-%d')}")
-            print("The integration is no longer available.")
-            print("=" * 80)
-            return
+        #current_date = date.today()
+        #if current_date >= EXPIRATION_DATE:
+        #    print("=" * 80)
+        #    print("⚠️  INTEGRATION EXPIRED")
+        #    print("=" * 80)
+        #    print(f"This integration expired on {EXPIRATION_DATE.strftime('%Y-%m-%d')}.")
+        #    print(f"Current date: {current_date.strftime('%Y-%m-%d')}")
+        #    print("The integration is no longer available.")
+        #    print("=" * 80)
+        #    return
         
         self.running = True
         self.start_time = time.time()

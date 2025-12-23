@@ -642,26 +642,33 @@ class PaymentRecoverySync:
                     
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 429:  # Rate limited
-                    logger.warning(f"Rate limited adding tag to order {order_id}, attempt {attempt + 1}/{max_retries}")
+                    # Use safe_log to prevent logging errors from interrupting the process
+                    from app.utils.logging import safe_log
+                    safe_log('warning', f"Rate limited adding tag to order {order_id}, attempt {attempt + 1}/{max_retries}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 2  # Exponential backoff
                         continue
                 else:
-                    logger.error(f"HTTP error adding tag to order {order_id}: {e.response.status_code} - {e.response.text}")
+                    # Use safe_log to prevent logging errors from interrupting the process
+                    from app.utils.logging import safe_log
+                    safe_log('error', f"HTTP error adding tag to order {order_id}: {e.response.status_code} - {e.response.text}")
                     return {"msg": "failure", "error": f"HTTP error: {e.response.status_code}"}
             except Exception as e:
-                logger.warning(f"Error adding tag to order {order_id}, attempt {attempt + 1}/{max_retries}: {str(e)}")
+                # Use safe_log to prevent logging errors from interrupting the process
+                from app.utils.logging import safe_log
+                safe_log('warning', f"Error adding tag to order {order_id}, attempt {attempt + 1}/{max_retries}: {str(e)}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2  # Exponential backoff
                     continue
                 else:
-                    logger.error(f"Failed to add tag to order {order_id} after {max_retries} attempts: {str(e)}")
+                    safe_log('error', f"Failed to add tag to order {order_id} after {max_retries} attempts: {str(e)}")
                     return {"msg": "failure", "error": str(e)}
         
         # If we get here, all retries failed
-        logger.error(f"Failed to add tag '{tag}' to order {order_id} after {max_retries} attempts")
+        from app.utils.logging import safe_log
+        safe_log('error', f"Failed to add tag '{tag}' to order {order_id} after {max_retries} attempts")
         return {"msg": "failure", "error": "Max retries exceeded"}
     
     async def process_order_payment_recovery(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:

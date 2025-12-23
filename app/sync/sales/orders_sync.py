@@ -641,17 +641,29 @@ class OrdersSalesSync:
                                 logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
                     
                     # Check if this is a gift card line item and add U_GiftCard field
-                    if is_gift_card_item and created_gift_cards:
-                        # Find matching gift card for this line item
-                        for gift_card_info in created_gift_cards:
-                            if (gift_card_info.get("sku") == item_code and 
-                                abs(gift_card_info.get("amount", 0) - float(original_price)) < 0.01):
-                                # This is a gift card line item, add the gift card ID
-                                line_item["U_GiftCard"] = gift_card_info.get("gift_card_id")
-                                logger.info(f"Added U_GiftCard field to line item: {gift_card_info.get('gift_card_id')} for amount: {float(original_price)}")
-                                # Remove from list to avoid duplicate matching
-                                created_gift_cards.remove(gift_card_info)
-                                break
+                    if is_gift_card_item:
+                        if not created_gift_cards:
+                            logger.warning(f"No gift cards available to match for gift card line item {item_code} with amount {original_price}")
+                        else:
+                            # Find matching gift card for this line item
+                            matched = False
+                            for gift_card_info in created_gift_cards:
+                                if (gift_card_info.get("sku") == item_code and 
+                                    abs(gift_card_info.get("amount", 0) - float(original_price)) < 0.01):
+                                    # This is a gift card line item, add the gift card ID
+                                    gift_card_id = gift_card_info.get("gift_card_id")
+                                    if gift_card_id:
+                                        line_item["U_GiftCard"] = gift_card_id
+                                        logger.info(f"Added U_GiftCard field to line item: {gift_card_id} for amount: {float(original_price)}")
+                                        # Remove from list to avoid duplicate matching
+                                        created_gift_cards.remove(gift_card_info)
+                                        matched = True
+                                        break
+                                    else:
+                                        logger.warning(f"Gift card info found but missing gift_card_id: {gift_card_info}")
+                            
+                            if not matched:
+                                logger.warning(f"Could not find matching gift card for line item {item_code} with amount {original_price}. Available gift cards: {[gc.get('gift_card_id', 'N/A') for gc in created_gift_cards]}")
                     
                     line_items.append(line_item)
             
@@ -946,7 +958,7 @@ class OrdersSalesSync:
                 }
             }
             """
-            query_string = f"createdAt:>={order_date}"
+            query_string = f"created_at:>={order_date}T00:00:00Z status:enabled"
             
             # Add retry logic for GraphQL queries
             max_retries = 3
@@ -1036,6 +1048,7 @@ class OrdersSalesSync:
             logger.warning(f"No gift cards found in Shopify for order {order_id} - will create with generated IDs")
             # Continue processing even if no Shopify gift cards found
             # This handles cases where gift cards might not be properly linked in Shopify
+            shopify_gift_cards = []  # Ensure it's an empty list, not None
         
         for gift_card in gift_cards:
             try:
@@ -2375,10 +2388,12 @@ class OrdersSalesSync:
                     
                 except Exception as e:
                     error_msg = f"Error adding tag to order {order_id}: {str(e)}"
-                    logger.error(error_msg)
+                    # Use safe_log to prevent logging errors from interrupting the process
+                    from app.utils.logging import safe_log
+                    safe_log('error', error_msg)
                     
                     if attempt < max_retries - 1:
-                        logger.warning(f"Attempt {attempt + 1} failed, retrying in {retry_delay} seconds...")
+                        safe_log('warning', f"Attempt {attempt + 1} failed, retrying in {retry_delay} seconds...")
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 2
                         continue
@@ -2389,7 +2404,9 @@ class OrdersSalesSync:
             
         except Exception as e:
             error_msg = f"Unexpected error adding tag to order {order_id}: {str(e)}"
-            logger.error(error_msg)
+            # Use safe_log to prevent logging errors from interrupting the process
+            from app.utils.logging import safe_log
+            safe_log('error', error_msg)
             return {"msg": "failure", "error": str(e)}
     
     async def process_order(self, store_key: str, shopify_order: Dict[str, Any]) -> Dict[str, Any]:

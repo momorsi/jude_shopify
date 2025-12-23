@@ -46,6 +46,41 @@ def setup_logging():
 # Create logger instance
 logger = setup_logging()
 
+def safe_log(level: str, message: str, *args, **kwargs):
+    """
+    Safely log a message, catching any file system errors during logging.
+    This prevents logging errors (e.g., during log rotation) from interrupting business logic.
+    
+    Args:
+        level: Log level ('error', 'warning', 'info', 'debug', 'critical')
+        message: Log message
+        *args, **kwargs: Additional arguments passed to logger method
+    """
+    try:
+        if level == 'error':
+            logger.error(message, *args, **kwargs)
+        elif level == 'warning':
+            logger.warning(message, *args, **kwargs)
+        elif level == 'info':
+            logger.info(message, *args, **kwargs)
+        elif level == 'debug':
+            logger.debug(message, *args, **kwargs)
+        elif level == 'critical':
+            logger.critical(message, *args, **kwargs)
+    except (OSError, IOError, FileNotFoundError) as e:
+        # If file logging fails (e.g., during rotation), fall back to console print
+        # This prevents logging errors from interrupting business logic
+        try:
+            print(f"[{level.upper()}] {message}")
+        except:
+            pass  # If even print fails, silently continue
+    except Exception as e:
+        # For any other logging error, try console print as fallback
+        try:
+            print(f"[{level.upper()}] {message}")
+        except:
+            pass  # If even print fails, silently continue
+
 def log_api_call(service: str, endpoint: str, request_data: dict = None, response_data: dict = None, status: str = None):
     """Log API calls with request and response data"""
     try:

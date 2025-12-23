@@ -321,7 +321,7 @@ class ReturnsSyncV2:
                 result = await self.shopify_client.execute_query(
                     store_key=store_key,
                     query=query,
-                    variables={"first": 10, "after": None, "query": filter_query}
+                    variables={"first": self.config.returns_batch_size, "after": None, "query": filter_query}
                 )
                 
                 logger.info(f"DEBUG: GraphQL result msg: {result.get('msg')}")
@@ -744,7 +744,7 @@ class ReturnsSyncV2:
             order_date = order_created_at.split("T")[0] if "T" in order_created_at else order_created_at
             query = """
             query getGiftCards($query: String!) {
-                giftCards(first: 50, query: $query) {
+                giftCards(first: 150, query: $query) {
                     edges {
                         node {
                             id   
@@ -766,7 +766,7 @@ class ReturnsSyncV2:
                 }
             }
             """
-            query_string = f"createdAt:>={order_date}"
+            query_string = f"created_at:>={order_date}T00:00:00Z status:enabled"
             
             # Add retry logic for GraphQL queries
             max_retries = 3
@@ -799,21 +799,45 @@ class ReturnsSyncV2:
                 logger.error(f"Failed to query gift cards: {result.get('error')}")
                 return []
             
+            # Add null checks before accessing nested data
+            if not result.get("data") or not result["data"].get("giftCards"):
+                logger.warning(f"No gift cards data found in result: {result}")
+                return []
+            
             gift_cards = []
-            for edge in result["data"]["giftCards"]["edges"]:
-                gift_card = edge["node"]
-                # Check if this gift card belongs to our order
-                order_info = gift_card.get("order")
-                if order_info and order_info.get("id") == f"gid://shopify/Order/{order_id}":
-                    gift_cards.append({
-                        "id": gift_card["id"],
-                        "order_id": order_id,
-                        "initial_value": float(gift_card["initialValue"]["amount"]),
-                        "currency": gift_card["initialValue"]["currencyCode"],
-                        "created_at": gift_card["createdAt"],
-                        "expires_on": gift_card.get("expiresOn"),
-                        "customer_email": gift_card.get("customer", {}).get("email", "")
-                    })
+            gift_cards_edges = result["data"]["giftCards"].get("edges", [])
+            for edge in gift_cards_edges:
+                try:
+                    gift_card = edge.get("node", {})
+                    if not gift_card:
+                        logger.warning(f"Empty gift card node found: {edge}")
+                        continue
+                    
+                    # Check if this gift card belongs to our order
+                    order_info = gift_card.get("order")
+                    if not order_info:
+                        logger.warning(f"No order info found for gift card: {gift_card.get('id', 'unknown')}")
+                        continue
+                        
+                    if order_info.get("id") == f"gid://shopify/Order/{order_id}":
+                        # Safely extract initialValue
+                        initial_value = gift_card.get("initialValue")
+                        if not initial_value:
+                            logger.warning(f"No initialValue found for gift card: {gift_card.get('id', 'unknown')}")
+                            continue
+                            
+                        gift_cards.append({
+                            "id": gift_card.get("id", ""),
+                            "order_id": order_id,
+                            "initial_value": float(initial_value.get("amount", 0)),
+                            "currency": initial_value.get("currencyCode", "EGP"),
+                            "created_at": gift_card.get("createdAt", ""),
+                            "expires_on": gift_card.get("expiresOn"),
+                            "customer_email": gift_card.get("customer", {}).get("email", "")
+                        })
+                except Exception as e:
+                    logger.error(f"Error processing gift card edge: {str(e)} - Edge: {edge}")
+                    continue
             
             logger.info(f"Found {len(gift_cards)} gift cards for order {order_id}")
             return gift_cards
