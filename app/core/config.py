@@ -471,6 +471,9 @@ class ConfigSettings(BaseSettings):
     retry_max_attempts: int = config_data['retry']['max_attempts']
     retry_delay: int = config_data['retry']['delay_seconds']
     
+    # Credit Cards Settings
+    credit_cards: Dict[str, str] = config_data['sap']['credit_cards']
+    
     def get_sap_config(self) -> Dict[str, Any]:
         """Get SAP configuration"""
         return config_data.get('sap', {})

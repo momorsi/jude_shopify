@@ -14,6 +14,7 @@ from app.sync.inventory import sync_stock_change_view
 from app.sync.sales.orders_sync import OrdersSalesSync
 from app.sync.sales.payment_recovery import PaymentRecoverySync
 from app.sync.sales.returns_sync_v2 import ReturnsSyncV2
+from app.sync.sales.returns_sync_v3 import ReturnsSyncV3
 from app.sync.item_changes import item_changes_sync
 from app.sync.price_changes import price_changes_sync
 from app.utils.logging import logger
@@ -29,7 +30,7 @@ class ShopifySAPSync:
 
         self.sales_orders_sync = OrdersSalesSync()
         self.payment_recovery_sync = PaymentRecoverySync()
-        self.returns_sync_v2 = ReturnsSyncV2()
+        self.returns_sync_v3 = ReturnsSyncV3()
         self.running = False
     
     async def run_new_items_sync(self) -> Dict[str, Any]:
@@ -69,7 +70,7 @@ class ShopifySAPSync:
         Run returns sync (Shopify → SAP)
         """
         logger.info("Starting returns sync...")
-        return await self.returns_sync_v2.sync_returns()
+        return await self.returns_sync_v3.sync_returns()
     
     async def run_item_changes_sync(self) -> Dict[str, Any]:
         """

@@ -7,7 +7,14 @@
         "password": "Azmjude$1",
         "language": "en_US",
         "timeout": 30,
-        "custom_giftcard": "SR-0000083"
+        "custom_giftcard": "SR-0000083",
+        "credit_cards": {
+            "1": "10801235",
+            "2": "10801249",
+            "3": "10801246",
+            "4": "10801231",
+            "5": "10801247"
+        }
     },
     "shopify": {
         "stores": {
@@ -48,7 +55,8 @@
                         "series": {
                             "invoices": 82,
                             "credit_notes": 85,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {
                             "local": {
@@ -73,7 +81,8 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -96,7 +105,8 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -119,7 +129,8 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -142,7 +153,8 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -165,7 +177,8 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -188,7 +201,8 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15
+                            "incoming_payments": 15,
+                            "outgoing_payments": 18
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -337,8 +351,8 @@
             },
             "returns": {
                 "enabled": true,
-                "interval_minutes": 20,
-                "batch_size": 25,
+                "interval_minutes": 5,
+                "batch_size": 3,
                 "from_date": "2025-10-30",
                 "channel": "web,pos"
             }
