@@ -469,6 +469,22 @@ class ReturnsSyncV3:
             logger.info(f"📋 Scenario 1: Processing store credit return for order {order_name}")
             logger.info(f"Credit Note total: {credit_note_total}")
             
+            # Get CardCode from credit note (always available) or fallback to invoice
+            customer_card_code = credit_note_data.get("CardCode")
+            if not customer_card_code:
+                # Fallback: get from original invoice
+                logger.warning(f"CardCode not found in credit note, getting from original invoice")
+                sap_doc_entries = self._extract_sap_doc_entries(order)
+                if sap_doc_entries and "invoice" in sap_doc_entries:
+                    invoice_entry = sap_doc_entries["invoice"]
+                    invoice_result = await self._get_original_invoice(invoice_entry)
+                    if invoice_result.get("success"):
+                        customer_card_code = invoice_result.get("card_code")
+            
+            if not customer_card_code:
+                logger.error(f"No CardCode found in credit note or invoice for order {order_name}")
+                return {"success": False, "error": "No CardCode found"}
+            
             # Extract Credit Note DocDate to use for Gift Card Invoice
             credit_note_doc_date = credit_note_data.get("DocDate")
             if not credit_note_doc_date:
@@ -552,10 +568,12 @@ class ReturnsSyncV3:
                 
                 # Create Gift Card Invoice (ONLY gift card line, amount = Credit Note total)
                 # Use Credit Note DocDate and SalesPersonCode for the invoice
+                # Pass customer_card_code from credit note/invoice
                 gift_card_invoice_result = await self._create_gift_card_invoice(
                     order, gift_card_id, credit_note_total, original_payment_details, 
                     store_key, store_config, doc_date=credit_note_doc_date, 
-                    sales_person_code=credit_note_sales_person
+                    sales_person_code=credit_note_sales_person,
+                    customer_card_code=customer_card_code
                 )
                 
                 if not gift_card_invoice_result.get("success"):
@@ -571,10 +589,11 @@ class ReturnsSyncV3:
                 await self._add_order_tag_with_retry(order_id, "sap_giftcard_invoice_synced", store_key)
             
             # Attempt reconciliation (will handle if already reconciled)
+            # Use customer_card_code from credit note/invoice (not from invoice_data which might not exist)
             reconciliation_result = await self._reconcile_credit_note_with_invoice(
                 credit_note_doc_entry, credit_note_data.get("TransNum"),
                 invoice_doc_entry, invoice_trans_num,
-                invoice_data.get("CardCode"), credit_note_total
+                customer_card_code, credit_note_total
             )
             
             if reconciliation_result.get("success"):
@@ -1006,20 +1025,24 @@ class ReturnsSyncV3:
     async def _create_gift_card_invoice(
         self, order: Dict[str, Any], gift_card_id: str, total_amount: float,
         original_payment_details: Dict[str, Any], store_key: str, store_config: Dict[str, Any],
-        doc_date: str = None, sales_person_code: int = None
+        doc_date: str = None, sales_person_code: int = None, customer_card_code: str = None
     ) -> Dict[str, Any]:
         """
         Create Gift Card Invoice with ONLY gift card line item
         Amount = Credit Note total
         doc_date: Optional DocDate to use (should match Credit Note DocDate). If not provided, uses order creation date.
         sales_person_code: Optional SalesPersonCode from original invoice or credit note. If not provided, uses location default.
+        customer_card_code: CardCode from credit note or invoice. If not provided, tries to get from payment details.
         """
         try:
             order_name = order.get("name", "")
-            customer_card_code = original_payment_details.get("CardCode")
+            
+            # Get CardCode from parameter (from credit note/invoice) or fallback to payment details
+            if not customer_card_code:
+                customer_card_code = original_payment_details.get("CardCode")
             
             if not customer_card_code:
-                logger.error(f"No CardCode found in payment details for order {order_name}")
+                logger.error(f"No CardCode found for order {order_name}")
                 return {"success": False, "error": "No CardCode found"}
             
             # Prepare gift card data for invoice line
@@ -1435,7 +1458,7 @@ class ReturnsSyncV3:
                 }
             }
             """
-            query_string = f"created_at:>={order_date}T00:00:00Z status:enabled"
+            query_string = f"created_at:>={order_date}T00:00:00Z"
             
             max_retries = 3
             retry_delay = 2
