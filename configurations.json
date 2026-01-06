@@ -13,7 +13,8 @@
             "2": "10801249",
             "3": "10801246",
             "4": "10801231",
-            "5": "10801247"
+            "5": "10801247",
+            "6": "10801240"
         }
     },
     "shopify": {
@@ -68,6 +69,9 @@
                             "international": {
                                 "N-Genius Online by Network": "10801237"
                             }
+                        },
+                        "credit": {
+                            "Gift Card": 6
                         }
                     },
                     "68605345858": {
@@ -90,7 +94,8 @@
                             "QNB POS": 2,
                             "Fawry POS": 3,
                             "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Paymob POS": 5,
+                            "Gift Card": 6
                         },
                         "cash": "10801226"
                     },
@@ -114,7 +119,8 @@
                             "QNB POS": 2,
                             "Fawry POS": 3,
                             "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Paymob POS": 5,
+                            "Gift Card": 6
                         },
                         "cash": "10801228"
                     },
@@ -138,7 +144,8 @@
                             "QNB POS": 2,
                             "Fawry POS": 3,
                             "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Paymob POS": 5,
+                            "Gift Card": 6
                         },
                         "cash": "10801239"
                     },
@@ -162,7 +169,8 @@
                             "QNB POS": 2,
                             "Fawry POS": 3,
                             "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Paymob POS": 5,
+                            "Gift Card": 6
                         },
                         "cash": "10801227"
                     },
@@ -186,7 +194,8 @@
                             "QNB POS": 2,
                             "Fawry POS": 3,
                             "Valu POS": 4,
-                            "Paymob POS": 5 
+                            "Paymob POS": 5,
+                            "Gift Card": 6
                         },
                         "cash": "10801229"
                     },
@@ -210,7 +219,8 @@
                             "QNB POS": 2,
                             "Fawry POS": 3,
                             "Valu POS": 4,
-                            "Paymob POS": 5                                                                                    
+                            "Paymob POS": 5,
+                            "Gift Card": 6                                                                                    
                         },
                         "cash": "10801248"
                     }
@@ -343,18 +353,23 @@
                 "channel": "web"
             },
             "payment_recovery": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 30,
                 "batch_size": 50,
                 "from_date": "2025-10-30",
                 "channel": "web"
             },
             "returns": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 5,
                 "batch_size": 3,
                 "from_date": "2025-10-30",
                 "channel": "web,pos"
+            },
+            "gift_card_expiry": {
+                "enabled": false,
+                "interval_minutes": 30,
+                "batch_size": 20
             }
         }
     },

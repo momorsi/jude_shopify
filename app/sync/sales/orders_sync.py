@@ -263,6 +263,7 @@ class OrdersSalesSync:
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
             query_filter = f"channel:{config_settings.sales_orders_channel} fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
+            
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -438,6 +439,7 @@ class OrdersSalesSync:
                 # to ensure correct pricing even if product prices changed after order
                 original_price = Decimal("0.00")
                 sale_price = Decimal("0.00")
+                discount_already_accounted = False  # Track if discount was calculated from discountedUnitPriceSet
                 
                 # PRIORITY 1: Use order-time prices (actual prices at time of order)
                 # This is critical for orders placed during sales that have since ended
@@ -454,6 +456,8 @@ class OrdersSalesSync:
                         if discounted_unit_price < original_unit_price:
                             # There was a discount - use originalUnitPriceSet as the original price
                             original_price = original_unit_price
+                            # Discount is already accounted for in discountedUnitPriceSet
+                            discount_already_accounted = True
                         else:
                             # No additional discount beyond sale price
                             # Try to get the true original from variant compareAtPrice if available
@@ -581,19 +585,28 @@ class OrdersSalesSync:
                             logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
                         
                         # Also check for additional discount allocations (coupons, etc.)
+                        # Only add discountAllocations if discount wasn't already accounted for in discountedUnitPriceSet
                         discount_allocations = item.get("discountAllocations", [])
-                        if discount_allocations:
+                        if discount_allocations and not discount_already_accounted:
                             total_item_discount = sum(
                                 float(allocation.get("allocatedAmount", {}).get("amount", 0))
                                 for allocation in discount_allocations
                             )
                             if total_item_discount > 0:
+                                # Add additional discount amount to existing discount
+                                if "U_ItemDiscountAmount" in line_item:
+                                    line_item["U_ItemDiscountAmount"] += total_item_discount
+                                else:
+                                    line_item["U_ItemDiscountAmount"] = total_item_discount
                                 
                                 # Recalculate total discount percentage
                                 if original_price > 0:
                                     total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
                                     line_item["DiscountPercent"] = total_discount_percentage
                                     logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+                        elif discount_allocations and discount_already_accounted:
+                            # Discount was already accounted for in discountedUnitPriceSet, so discountAllocations is redundant
+                            logger.info(f"🎯 Skipping discountAllocations for {item_code} - discount already accounted for in discountedUnitPriceSet")
                         
                         line_items.append(line_item)
                 else:
@@ -621,8 +634,9 @@ class OrdersSalesSync:
                         logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
                     
                     # Also check for additional discount allocations (coupons, etc.)
+                    # Only add discountAllocations if discount wasn't already accounted for in discountedUnitPriceSet
                     discount_allocations = item.get("discountAllocations", [])
-                    if discount_allocations:
+                    if discount_allocations and not discount_already_accounted:
                         total_item_discount = sum(
                             float(allocation.get("allocatedAmount", {}).get("amount", 0))
                             for allocation in discount_allocations
@@ -639,6 +653,9 @@ class OrdersSalesSync:
                                 total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
                                 line_item["DiscountPercent"] = total_discount_percentage
                                 logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+                    elif discount_allocations and discount_already_accounted:
+                        # Discount was already accounted for in discountedUnitPriceSet, so discountAllocations is redundant
+                        logger.info(f"🎯 Skipping discountAllocations for {item_code} - discount already accounted for in discountedUnitPriceSet")
                     
                     # Check if this is a gift card line item and add U_GiftCard field
                     if is_gift_card_item:
@@ -667,25 +684,9 @@ class OrdersSalesSync:
                     
                     line_items.append(line_item)
             
-            # Add gift card expense entries if any gift cards were used
+            # Extract payment info (needed for payment_id and other purposes)
+            # Gift cards are now handled as payment methods in incoming payment, not as invoice expenses
             payment_info = self._extract_payment_info(order_node)
-            gift_card_expenses = []
-            if payment_info.get("gift_cards"):
-                logger.info(f"🎁 Processing {len(payment_info['gift_cards'])} gift card redemption(s)")
-                for gift_card in payment_info["gift_cards"]:
-                    gift_card_expense = {
-                        "ExpenseCode": 2,  # Gift card expense code
-                        "LineTotal": -float(gift_card["amount"]),  # Negative amount
-                        "Remarks": f"Gift Card: {gift_card['last_characters']}",
-                        "U_GiftCard": gift_card["gift_card_id"],  # Add gift card ID to expense entry
-                        "DistributionRule": costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL",                                               
-                        "DistributionRule2": costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL",                                               
-                        "DistributionRule3": costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"   
-                    }
-                    gift_card_expenses.append(gift_card_expense)
-                    logger.info(f"🎁 Created gift card expense: {gift_card['last_characters']} - Amount: -{gift_card['amount']}")
-            else:
-                logger.info("🎁 No gift card redemptions found in this order")
             
             # Parse date
             doc_date = created_at.split("T")[0] if "T" in created_at else created_at
@@ -793,11 +794,7 @@ class OrdersSalesSync:
             if freight_expenses:
                 invoice_data["DocumentAdditionalExpenses"] = freight_expenses
             
-            # Add gift card expenses if any
-            if gift_card_expenses:
-                if "DocumentAdditionalExpenses" not in invoice_data:
-                    invoice_data["DocumentAdditionalExpenses"] = []
-                invoice_data["DocumentAdditionalExpenses"].extend(gift_card_expenses)
+            # Gift cards are now handled as payment methods in incoming payment, not as invoice expenses
             
             return invoice_data
             
@@ -1502,6 +1499,41 @@ class OrdersSalesSync:
                         logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
                 else:
                     logger.warning(f"No bank transfer account found for gateway: {gateway}")
+            
+            # Process gift cards as credit card payments
+            gift_cards = payment_info.get("gift_cards", [])
+            if gift_cards:
+                logger.info(f"🎁 Processing {len(gift_cards)} gift card payment(s) for POS order")
+                
+                # Get gift card credit card ID from config (not the SAP account)
+                gift_card_credit_id = None
+                if location_mapping and 'credit' in location_mapping:
+                    credit_accounts = location_mapping['credit']
+                    if 'Gift Card' in credit_accounts:
+                        gift_card_credit_id = credit_accounts['Gift Card']
+                
+                if not gift_card_credit_id:
+                    logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                else:
+                    for gift_card in gift_cards:
+                        # Calculate CardValidUntil (next month's last day)
+                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                        res = next_month - timedelta(days=next_month.day)
+                        
+                        cred_obj = {
+                            "CreditCard": gift_card_credit_id,
+                            "CreditCardNumber": gift_card.get('last_characters', 'Unknown'),
+                            "CardValidUntil": str(res.date()),
+                            "VoucherNum": gift_card.get('gift_card_id', 'Unknown'),
+                            "PaymentMethodCode": 1,
+                            "CreditSum": gift_card["amount"],
+                            "CreditCur": "EGP",
+                            "CreditType": "cr_Regular",
+                            "SplitPayments": "tNO"
+                        }
+                        calc_amount += gift_card["amount"]
+                        cred_array.append(cred_obj)
+                        logger.info(f"🎁 Added gift card payment: {gift_card.get('last_characters', 'Unknown')} - {gift_card['amount']} EGP")
 
             # Add credit cards array if we have any
             if cred_array:
@@ -1533,8 +1565,11 @@ class OrdersSalesSync:
         Prepare payment data for online orders using existing logic
         """
         try:
-            # Calculate payment amount excluding store credit
+            from datetime import datetime, timedelta
+            
+            # Calculate payment amount excluding store credit AND gift cards
             store_credit_amount = payment_info.get("store_credit", {}).get("amount", 0.0)
+            total_gift_card_amount = payment_info.get("total_gift_card_amount", 0.0)
             total_payment_amount = payment_info.get("total_payment_amount", 0.0)
             
             # Use total_payment_amount if available (multiple gateways), otherwise fall back to calculation
@@ -1542,71 +1577,123 @@ class OrdersSalesSync:
                 payment_amount = total_payment_amount
             else:
                 total_amount = float(order_node["totalPriceSet"]["shopMoney"]["amount"])
-                payment_amount = total_amount - store_credit_amount
+                payment_amount = total_amount - store_credit_amount - total_gift_card_amount
             
-            logger.info(f"💰 ONLINE PAYMENT CALCULATION: Payment Amount: {payment_amount} EGP | Store Credit: {store_credit_amount} EGP")
+            logger.info(f"💰 ONLINE PAYMENT CALCULATION: Payment Amount: {payment_amount} EGP | Store Credit: {store_credit_amount} EGP | Gift Cards: {total_gift_card_amount} EGP")
+            
+            # Initialize credit cards array for gift cards
+            cred_array = []
+            calc_amount = 0.0
+            
+            # Process gift cards as credit card payments
+            gift_cards = payment_info.get("gift_cards", [])
+            if gift_cards:
+                logger.info(f"🎁 Processing {len(gift_cards)} gift card payment(s) for online order")
+                location_mapping = location_analysis.get('location_mapping', {})
+                
+                # Get gift card credit card ID from config (not the SAP account)
+                gift_card_credit_id = None
+                if location_mapping and 'credit' in location_mapping:
+                    credit_accounts = location_mapping['credit']
+                    if 'Gift Card' in credit_accounts:
+                        gift_card_credit_id = credit_accounts['Gift Card']
+                
+                if not gift_card_credit_id:
+                    logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                else:
+                    for gift_card in gift_cards:
+                        # Calculate CardValidUntil (next month's last day)
+                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                        res = next_month - timedelta(days=next_month.day)
+                        
+                        cred_obj = {
+                            "CreditCard": gift_card_credit_id,
+                            "CreditCardNumber": gift_card.get('last_characters', 'Unknown'),
+                            "CardValidUntil": str(res.date()),
+                            "VoucherNum": gift_card.get('gift_card_id', 'Unknown'),
+                            "PaymentMethodCode": 1,
+                            "CreditSum": gift_card["amount"],
+                            "CreditCur": "EGP",
+                            "CreditType": "cr_Regular",
+                            "SplitPayments": "tNO"
+                        }
+                        cred_array.append(cred_obj)
+                        calc_amount += gift_card["amount"]
+                        logger.info(f"🎁 Added gift card payment: {gift_card.get('last_characters', 'Unknown')} - {gift_card['amount']} EGP")
             
             # Set payment method based on type and location
             if payment_type == "PaidOnline":
                 # Online payments - use location-based bank transfer account
-                payment_data["TransferSum"] = payment_amount
-                
-                # Get the actual gateway from payment info
-                gateway = payment_info.get('gateway', 'Paymob')
-                
-                # Get bank transfer account using new location-based method
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Online payment - using {gateway} account: {transfer_account}")
+                if payment_amount > 0:  # Only set if there's remaining amount after gift cards
+                    payment_data["TransferSum"] = payment_amount
+                    
+                    # Get the actual gateway from payment info
+                    gateway = payment_info.get('gateway', 'Paymob')
+                    
+                    # Get bank transfer account using new location-based method
+                    transfer_account = config_settings.get_bank_transfer_for_location(
+                        store_key, 
+                        location_analysis.get('location_mapping', {}), 
+                        gateway
+                    )
+                    
+                    payment_data["TransferAccount"] = transfer_account
+                    logger.info(f"Online payment - using {gateway} account: {transfer_account}")
                 
             elif payment_type == "COD":
                 # Cash on delivery - handle courier-specific accounts for online locations
-                payment_data["TransferSum"] = payment_amount
-                
-                # Extract courier name from metafields for COD payments
-                courier_name = ""
-                if location_type == "online":
-                    courier_name = self._extract_courier_from_metafields(order_node)
-                
-                # Get bank transfer account using new location-based method with courier
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    "Cash on Delivery (COD)",
-                    courier_name
-                )
-                
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
+                if payment_amount > 0:  # Only set if there's remaining amount after gift cards
+                    payment_data["TransferSum"] = payment_amount
+                    
+                    # Extract courier name from metafields for COD payments
+                    courier_name = ""
+                    if location_type == "online":
+                        courier_name = self._extract_courier_from_metafields(order_node)
+                    
+                    # Get bank transfer account using new location-based method with courier
+                    transfer_account = config_settings.get_bank_transfer_for_location(
+                        store_key, 
+                        location_analysis.get('location_mapping', {}), 
+                        "Cash on Delivery (COD)",
+                        courier_name
+                    )
+                    
+                    payment_data["TransferAccount"] = transfer_account
+                    logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
                 
             else:
                 # Default case - treat as online payment
-                payment_data["TransferSum"] = payment_amount
-                gateway = payment_info.get('gateway', 'Paymob')
-                
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Default payment - using {gateway} account: {transfer_account}")
+                if payment_amount > 0:  # Only set if there's remaining amount after gift cards
+                    payment_data["TransferSum"] = payment_amount
+                    gateway = payment_info.get('gateway', 'Paymob')
+                    
+                    transfer_account = config_settings.get_bank_transfer_for_location(
+                        store_key, 
+                        location_analysis.get('location_mapping', {}), 
+                        gateway
+                    )
+                    
+                    payment_data["TransferAccount"] = transfer_account
+                    logger.info(f"Default payment - using {gateway} account: {transfer_account}")
+            
+            # Add gift card credit cards array if we have any
+            if cred_array:
+                payment_data["PaymentCreditCards"] = cred_array
+            
+            # Calculate total payment amount (gateway payments + gift cards)
+            total_calc_amount = calc_amount + payment_amount
             
             # Create invoice object for payment
             inv_obj = {
                 "DocEntry": invoice_doc_entry,
-                "SumApplied": payment_amount,
+                "SumApplied": total_calc_amount,
                 "InvoiceType": "it_Invoice"
             }
             
             # Add invoice to payment data
             payment_data["PaymentInvoices"] = [inv_obj]
+            
+            logger.info(f"💰 ONLINE PAYMENT SUMMARY: Gateway: {payment_amount} EGP | Gift Cards: {calc_amount} EGP | Total: {total_calc_amount} EGP")
             
             return payment_data
             

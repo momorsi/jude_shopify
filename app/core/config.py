@@ -374,6 +374,41 @@ class ConfigSettings(BaseSettings):
             print(f"Error getting credit account for location: {str(e)}")
             return ""
     
+    def get_gift_card_account_for_location(self, store_key: str, location_mapping: Dict[str, Any]) -> str:
+        """
+        Get gift card account for a specific location
+        
+        Args:
+            store_key: Store key (local/international)
+            location_mapping: Location mapping from OrderLocationMapper
+            
+        Returns:
+            Gift card account code from credit_cards config, or empty string if not found
+        """
+        try:
+            location_type = self.get_location_type(location_mapping)
+            
+            # For store locations, check location-specific credit accounts
+            if location_type == "store" and location_mapping and 'credit' in location_mapping:
+                credit_accounts = location_mapping['credit']
+                if 'Gift Card' in credit_accounts:
+                    credit_card_id = str(credit_accounts['Gift Card'])
+                    # Get account from credit_cards mapping
+                    return self.credit_cards.get(credit_card_id, "")
+            
+            # For online locations, check if gift card is in credit section
+            if location_type == "online" and location_mapping and 'credit' in location_mapping:
+                credit_accounts = location_mapping['credit']
+                if 'Gift Card' in credit_accounts:
+                    credit_card_id = str(credit_accounts['Gift Card'])
+                    return self.credit_cards.get(credit_card_id, "")
+            
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting gift card account for location: {str(e)}")
+            return ""
+    
     # Legacy support for backward compatibility
     @property
     def shopify_shop_url(self) -> str:
@@ -456,6 +491,10 @@ class ConfigSettings(BaseSettings):
     returns_batch_size: int = config_data['sync']['sales']['returns']['batch_size']
     returns_from_date: str = config_data['sync']['sales']['returns']['from_date']
     returns_channel: str = config_data['sync']['sales']['returns']['channel']
+    # Gift Card Expiry Sync Settings
+    gift_card_expiry_enabled: bool = config_data['sync']['sales'].get('gift_card_expiry', {}).get('enabled', False)
+    gift_card_expiry_interval: int = config_data['sync']['sales'].get('gift_card_expiry', {}).get('interval_minutes', 30)
+    gift_card_expiry_batch_size: int = config_data['sync']['sales'].get('gift_card_expiry', {}).get('batch_size', 20)
     # Series configuration will be determined dynamically based on location mapping
     # Default fallback values (can be overridden by location-specific series)
     sales_series_invoices: int = config_data['shopify']['location_warehouse_mapping']['local']['locations']['web']['series']['invoices']

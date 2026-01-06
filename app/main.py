@@ -15,6 +15,7 @@ from app.sync.sales.orders_sync import OrdersSalesSync
 from app.sync.sales.payment_recovery import PaymentRecoverySync
 from app.sync.sales.returns_sync_v2 import ReturnsSyncV2
 from app.sync.sales.returns_sync_v3 import ReturnsSyncV3
+from app.sync.sales.gift_card_expiry_sync import GiftCardExpirySync
 from app.sync.item_changes import item_changes_sync
 from app.sync.price_changes import price_changes_sync
 from app.utils.logging import logger
@@ -31,6 +32,7 @@ class ShopifySAPSync:
         self.sales_orders_sync = OrdersSalesSync()
         self.payment_recovery_sync = PaymentRecoverySync()
         self.returns_sync_v3 = ReturnsSyncV3()
+        self.gift_card_expiry_sync = GiftCardExpirySync()
         self.running = False
     
     async def run_new_items_sync(self) -> Dict[str, Any]:
@@ -71,6 +73,13 @@ class ShopifySAPSync:
         """
         logger.info("Starting returns sync...")
         return await self.returns_sync_v3.sync_returns()
+    
+    async def run_gift_card_expiry_sync(self) -> Dict[str, Any]:
+        """
+        Run gift card expiry sync (Shopify → Shopify)
+        """
+        logger.info("Starting gift card expiry sync...")
+        return await self.gift_card_expiry_sync.sync_gift_card_expiry_all_stores()
     
     async def run_item_changes_sync(self) -> Dict[str, Any]:
         """
@@ -180,6 +189,9 @@ class ShopifySAPSync:
         if config_settings.returns_enabled:
             results["returns"] = await self.run_returns_sync()
         
+        if config_settings.gift_card_expiry_enabled:
+            results["gift_card_expiry"] = await self.run_gift_card_expiry_sync()
+        
         return {
             "msg": "success",
             "results": results,
@@ -226,6 +238,11 @@ class ShopifySAPSync:
                 "msg": "failure",
                 "error": "Returns sync is disabled in configuration"
             }
+        elif sync_type == "gift_card_expiry" and not config_settings.gift_card_expiry_enabled:
+            return {
+                "msg": "failure",
+                "error": "Gift card expiry sync is disabled in configuration"
+            }
         
         sync_functions = {
             "new_items": self.run_new_items_sync,
@@ -238,6 +255,7 @@ class ShopifySAPSync:
             "sales_orders": self.run_sales_orders_sync,
             "payment_recovery": self.run_payment_recovery_sync,
             "returns": self.run_returns_sync,
+            "gift_card_expiry": self.run_gift_card_expiry_sync,
             "all": self.run_all_syncs
         }
         
@@ -324,6 +342,13 @@ class ShopifySAPSync:
             )
             tasks.append(returns_task)
             logger.info(f"Returns sync scheduled to run every {config_settings.returns_interval} minutes")
+        
+        if config_settings.gift_card_expiry_enabled:
+            gift_card_expiry_task = asyncio.create_task(
+                self._run_sync_with_interval("gift_card_expiry", config_settings.gift_card_expiry_interval)
+            )
+            tasks.append(gift_card_expiry_task)
+            logger.info(f"Gift card expiry sync scheduled to run every {config_settings.gift_card_expiry_interval} minutes")
         
         if not tasks:
             logger.warning("No syncs are enabled in configuration")

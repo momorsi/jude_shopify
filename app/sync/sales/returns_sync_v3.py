@@ -117,6 +117,29 @@ class ReturnsSyncV3:
                                 retailLocation {
                                     id
                                 }
+                                fulfillmentOrders(first: 10) {
+                                    edges {
+                                        node {
+                                            assignedLocation {
+                                                location {
+                                                    id
+                                                }
+                                            }
+                                            deliveryMethod {
+                                                methodType
+                                            }
+                                            lineItems(first: 100) {
+                                                edges {
+                                                    node {
+                                                        lineItem {
+                                                            id
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 totalPriceSet {
                                     shopMoney {
                                         amount
@@ -973,8 +996,9 @@ class ReturnsSyncV3:
                 else:
                     logger.warning(f"No matching invoice line found for {item_code}, credit note line will have minimal fields")
             
-            # Get location analysis ONLY for series (not for warehouse/costing codes)
-            location_analysis = self._analyze_order_location_from_retail_location(order, store_key)
+            # Get location analysis for return location (not original purchase location)
+            # This ensures credit note Series uses the store where items were returned to
+            location_analysis = self._analyze_return_location_from_fulfillment_orders(order, store_key)
             
             # Prepare credit note header
             credit_note = {
@@ -1725,6 +1749,57 @@ class ReturnsSyncV3:
             logger.error(f"Error analyzing order location: {str(e)}")
             from order_location_mapper import OrderLocationMapper
             return OrderLocationMapper.analyze_order_source(order, store_key)
+
+    def _analyze_return_location_from_fulfillment_orders(self, order: Dict[str, Any], store_key: str) -> Dict[str, Any]:
+        """
+        Analyze return location from fulfillment orders (for returns to different stores)
+        This checks fulfillmentOrders to find where items were returned to, not where they were purchased from
+        Returns location mapping for the return location, or falls back to original order location
+        """
+        try:
+            fulfillment_orders = order.get("fulfillmentOrders", {}).get("edges", [])
+            
+            if not fulfillment_orders:
+                # No fulfillment orders, fallback to original order location
+                logger.info("No fulfillment orders found for return, using original order location")
+                return self._analyze_order_location_from_retail_location(order, store_key)
+            
+            # Check fulfillment orders for return location
+            # For returns, we look for fulfillment orders that indicate where items were returned to
+            for fulfillment_edge in fulfillment_orders:
+                fulfillment = fulfillment_edge.get("node", {})
+                delivery_method = fulfillment.get("deliveryMethod", {})
+                assigned_location = fulfillment.get("assignedLocation", {})
+                location = assigned_location.get("location", {})
+                
+                # Check if this fulfillment has a location (could be PICK_UP or other methods)
+                if location and location.get("id"):
+                    location_gid = location["id"]
+                    location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                    
+                    logger.info(f"Found return location from fulfillment order: {location_id} (method: {delivery_method.get('methodType', 'Unknown')})")
+                    
+                    # Get location mapping for this return location
+                    location_mapping = self.config.get_location_mapping_for_location(store_key, location_id)
+                    
+                    if location_mapping:
+                        logger.info(f"Using return location {location_id} for credit note Series")
+                        return {
+                            "location_id": location_id,
+                            "location_mapping": location_mapping,
+                            "is_pos_order": True,
+                            "is_return_location": True
+                        }
+                    else:
+                        logger.warning(f"No location mapping found for return location {location_id}, will fallback to original order location")
+            
+            # No return location found in fulfillment orders, fallback to original order location
+            logger.info("No return location found in fulfillment orders, using original order location")
+            return self._analyze_order_location_from_retail_location(order, store_key)
+            
+        except Exception as e:
+            logger.error(f"Error analyzing return location from fulfillment orders: {str(e)}")
+            return self._analyze_order_location_from_retail_location(order, store_key)
 
     async def _add_order_tag_with_retry(self, order_id: str, tag: str, store_key: str, max_retries: int = 3):
         """Add tag to order with retry logic"""

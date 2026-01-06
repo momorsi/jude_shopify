@@ -92,6 +92,9 @@ class ContinuousSyncRunner:
         if config_settings.returns_enabled:
             enabled_syncs.append(f"🔄 Returns: Every {config_settings.returns_interval} minutes")
         
+        if config_settings.gift_card_expiry_enabled:
+            enabled_syncs.append(f"🎁 Gift Card Expiry: Every {config_settings.gift_card_expiry_interval} minutes")
+        
         if config_settings.freight_prices_enabled:
             enabled_syncs.append(f"🚚 Freight Prices: Daily at {config_settings.freight_prices_run_time} ({config_settings.freight_prices_timezone})")
         

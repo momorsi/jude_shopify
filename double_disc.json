@@ -1,0 +1,180 @@
+{
+    "data": {
+        "orders": {
+            "edges": [
+                {
+                    "node": {
+                        "id": "gid://shopify/Order/6643900710978",
+                        "name": "#3381",
+                        "createdAt": "2025-12-31T16:42:27Z",
+                        "displayFinancialStatus": "PAID",
+                        "displayFulfillmentStatus": "FULFILLED",
+                        "sourceName": "pos",
+                        "sourceIdentifier": "72407023682-5-1102",
+                        "fulfillmentOrders": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "lineItems": {
+                                            "edges": [
+                                                {
+                                                    "node": {
+                                                        "id": "gid://shopify/FulfillmentOrderLineItem/16902535151682",
+                                                        "lineItem": {
+                                                            "id": "gid://shopify/LineItem/16580227661890",
+                                                            "sku": "FG-0000267",
+                                                            "currentQuantity": 1,
+                                                            "quantity": 1
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "assignedLocation": {
+                                            "location": {
+                                                "id": "gid://shopify/Location/72407023682"
+                                            }
+                                        },
+                                        "deliveryMethod": {
+                                            "methodType": "RETAIL"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "retailLocation": {
+                            "id": "gid://shopify/Location/72407023682"
+                        },
+                        "totalPriceSet": {
+                            "shopMoney": {
+                                "amount": "4160.0",
+                                "currencyCode": "EGP"
+                            }
+                        },
+                        "subtotalPriceSet": {
+                            "shopMoney": {
+                                "amount": "4160.0",
+                                "currencyCode": "EGP"
+                            }
+                        },
+                        "totalShippingPriceSet": {
+                            "shopMoney": {
+                                "amount": "0.0",
+                                "currencyCode": "EGP"
+                            }
+                        },
+                        "discountApplications": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "targetType": "LINE_ITEM",
+                                        "allocationMethod": "ACROSS",
+                                        "value": {
+                                            "__typename": "PricingPercentageValue",
+                                            "percentage": 20
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "customer": {
+                            "id": "gid://shopify/Customer/8513564508226",
+                            "firstName": "Mariam",
+                            "lastName": "Elhassan",
+                            "email": "mariamelhassan01@gmail.com",
+                            "phone": "+201002226894",
+                            "addresses": []
+                        },
+                        "metafields": {
+                            "edges": []
+                        },
+                        "tags": [
+                            "sap_invoice_28184",
+                            "sap_invoice_synced",
+                            "sap_payment_27153",
+                            "sap_payment_synced"
+                        ],
+                        "shippingAddress": null,
+                        "billingAddress": null,
+                        "lineItems": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "id": "gid://shopify/LineItem/16580227661890",
+                                        "name": "Hera Earrings",
+                                        "quantity": 1,
+                                        "sku": "FG-0000267",
+                                        "originalUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "5200.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountedUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "4160.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountAllocations": [
+                                            {
+                                                "allocatedAmount": {
+                                                    "amount": "1040.0",
+                                                    "currencyCode": "EGP"
+                                                },
+                                                "discountApplication": {
+                                                    "__typename": "ManualDiscountApplication"
+                                                }
+                                            }
+                                        ],
+                                        "variant": {
+                                            "id": "gid://shopify/ProductVariant/42003146539074",
+                                            "sku": "FG-0000267",
+                                            "price": "5200.00",
+                                            "compareAtPrice": "5200.00",
+                                            "product": {
+                                                "id": "gid://shopify/Product/7442022531138",
+                                                "title": "Hera Earrings"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "transactions": [
+                            {
+                                "id": "gid://shopify/OrderTransaction/8559828336706",
+                                "kind": "SALE",
+                                "status": "SUCCESS",
+                                "gateway": "Geidea POS",
+                                "amountSet": {
+                                    "shopMoney": {
+                                        "amount": "4160.0",
+                                        "currencyCode": "EGP"
+                                    }
+                                },
+                                "processedAt": "2025-12-31T16:42:26Z",
+                                "receiptJson": "{}"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": "eyJsYXN0X2lkIjo2NjQzOTAwNzEwOTc4LCJsYXN0X3ZhbHVlIjoiMjAyNS0xMi0zMSAxNjo0MjoyNy40MDI4MjIifQ=="
+            }
+        }
+    },
+    "extensions": {
+        "cost": {
+            "requestedQueryCost": 767,
+            "actualQueryCost": 7,
+            "throttleStatus": {
+                "maximumAvailable": 2000,
+                "currentlyAvailable": 1993,
+                "restoreRate": 100
+            }
+        }
+    }
+}

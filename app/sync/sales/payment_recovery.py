@@ -263,8 +263,11 @@ class PaymentRecoverySync:
     def prepare_payment_data(self, sap_invoice: Dict[str, Any], shopify_order: Dict[str, Any], store_key: str, location_analysis: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Prepare incoming payment data for SAP
+        Handles gift cards, store credit, and multiple payment gateways
         """
         try:
+            from datetime import datetime, timedelta
+            
             # Extract order ID from GraphQL ID
             order_id = shopify_order.get("id", "")
             # Extract just the numeric ID from the full GID (e.g., "6342714261570" from "gid://shopify/Order/6342714261570")
@@ -288,135 +291,271 @@ class PaymentRecoverySync:
                 "DocDate": invoice_doc_date,
                 "CardCode": sap_invoice["CardCode"],
                 "DocType": "rCustomer",
-                "Series": 15,  # Series for incoming payments
-                "U_Shopify_Order_ID": order_id_number  # Add Shopify Order ID (numeric)
+                "Series": config_settings.get_series_for_location(store_key, location_analysis.get('location_mapping', {}), 'incoming_payments') if location_analysis else 15,
+                "TransferSum": 0.0,
+                "TransferAccount": "",
+                "U_Shopify_Order_ID": order_id_number
             }
             
-            # Initialize payment method fields based on order type
-            if location_type == "online":
-                # Online orders always use transfers
-                payment_data["TransferSum"] = sap_invoice["DocTotalFc"] if sap_invoice["DocTotalFc"] != 0 else sap_invoice["DocTotal"]
-                payment_data["TransferAccount"] = ""
-            else:
-                # POS orders - will be set based on payment type below
-                pass
+            # Get invoice document entry
+            invoice_doc_entry = sap_invoice.get("DocEntry", "")
+            invoice_total = sap_invoice.get("DocTotal", 0.0)
             
-            # Add POS receipt number if this is a POS order
-            #if location_analysis and location_analysis.get('is_pos_order') and location_analysis.get('extracted_receipt_number'):
-            #    payment_data["U_POS_Receipt_Number"] = location_analysis['extracted_receipt_number']
-            #    logger.info(f"Added POS receipt number to payment: {location_analysis['extracted_receipt_number']}")
+            # Initialize variables for payment calculation
+            calc_amount = 0.0
+            cred_array = []
+            location_mapping = location_analysis.get('location_mapping', {}) if location_analysis else {}
             
-            # Set payment method based on type and location
-            if location_type == "online":
-                # All online orders use transfers (regardless of payment_type)
-                gateway = payment_info.get('gateway', 'Paymob')
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    gateway
-                )
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"Online payment - using {gateway} account: {transfer_account}")
+            # Check if this is a POS order (store location)
+            if location_type == "store":
+                logger.info(f"🏪 POS ORDER DETECTED - Processing multiple payment types")
                 
-            elif payment_type == "COD":
-                # Cash on delivery - handle courier-specific accounts for online locations
-                location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
+                # Process each payment gateway transaction
+                payment_gateways = payment_info.get("payment_gateways", [])
                 
-                # Extract courier name from metafields for COD payments
-                courier_name = ""
-                if location_type == "online":
-                    # Extract courier name from metafields
-                    metafields = shopify_order.get("metafields", {}).get("edges", [])
-                    for metafield_edge in metafields:
-                        metafield = metafield_edge.get("node", {})
-                        namespace = metafield.get("namespace", "")
-                        key = metafield.get("key", "")
-                        value = metafield.get("value", "")
-                        
-                        if namespace == "custom" and key == "courier" and value:
-                            # Handle JSON array format like '["4 - Tuyingo"]'
-                            import json
-                            try:
-                                if value.startswith('[') and value.endswith(']'):
-                                    # Parse JSON array and take first element
-                                    courier_list = json.loads(value)
-                                    if courier_list and len(courier_list) > 0:
-                                        value = courier_list[0]
-                            except (json.JSONDecodeError, IndexError):
-                                pass  # Use original value if JSON parsing fails
+                for gateway_info in payment_gateways:
+                    gateway = gateway_info["gateway"]
+                    amount = gateway_info["amount"]
+                    
+                    if gateway.lower() == "cash":
+                        # Handle cash transactions
+                        cash_account = config_settings.get_cash_account_for_location(location_mapping)
+                        if cash_account:
+                            payment_data["CashSum"] = amount
+                            payment_data["CashAccount"] = cash_account
+                            calc_amount += amount
+                            logger.info(f"💰 CASH TRANSACTION: {amount} EGP - Account: {cash_account}")
+                        else:
+                            logger.warning(f"No cash account configured for location")
                             
-                            parts = value.split("-")
-                            if len(parts) >= 2:
-                                courier_name = parts[1].strip()
-                                break
+                    elif gateway in config_settings.get_credits_for_location(store_key, location_mapping):
+                        # Handle credit card transactions
+                        cred_obj = {}
+                        
+                        # Get credit account from configuration
+                        credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
+                        if credit_account:
+                            cred_obj['CreditCard'] = credit_account
+                        else:
+                            logger.warning(f"No credit account found for gateway: {gateway}")
+                            continue
+                        
+                        cred_obj['CreditCardNumber'] = "1234"
+                        
+                        # Calculate next month date
+                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                        res = next_month - timedelta(days=next_month.day)
+                        cred_obj['CardValidUntil'] = str(res.date())
+                        
+                        cred_obj['VoucherNum'] = gateway
+                        cred_obj['PaymentMethodCode'] = 1
+                        cred_obj['CreditSum'] = amount
+                        cred_obj['CreditCur'] = "EGP"
+                        cred_obj['CreditType'] = "cr_Regular"
+                        cred_obj['SplitPayments'] = "tNO"
+                        
+                        calc_amount += amount
+                        cred_array.append(cred_obj)
+                        logger.info(f"💳 CREDIT CARD TRANSACTION: {gateway} - {amount} EGP - Account: {credit_account}")
+                        
+                    elif gateway in config_settings.get_bank_transfers_for_location(store_key, location_mapping):
+                        # Handle other payment gateways as bank transfers
+                        transfer_account = config_settings.get_bank_transfer_for_location(
+                            store_key, location_mapping, gateway
+                        )
+                        if transfer_account:
+                            payment_data["TransferSum"] = amount
+                            payment_data["TransferAccount"] = transfer_account
+                            calc_amount += amount
+                            logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
+                    else:
+                        logger.warning(f"No bank transfer account found for gateway: {gateway}")
                 
-                transfer_account = config_settings.get_bank_transfer_for_location(
-                    store_key, 
-                    location_analysis.get('location_mapping', {}), 
-                    "Cash on Delivery (COD)",
-                    courier_name
-                )
-                payment_data["TransferAccount"] = transfer_account
-                logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
+                # Process gift cards as credit card payments
+                gift_cards = payment_info.get("gift_cards", [])
+                if gift_cards:
+                    logger.info(f"🎁 Processing {len(gift_cards)} gift card payment(s) for POS order")
+                    
+                    # Get gift card credit card ID from config (not the SAP account)
+                    gift_card_credit_id = None
+                    if location_mapping and 'credit' in location_mapping:
+                        credit_accounts = location_mapping['credit']
+                        if 'Gift Card' in credit_accounts:
+                            gift_card_credit_id = credit_accounts['Gift Card']
+                    
+                    if not gift_card_credit_id:
+                        logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                    else:
+                        for gift_card in gift_cards:
+                            # Calculate CardValidUntil (next month's last day)
+                            next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                            res = next_month - timedelta(days=next_month.day)
+                            
+                            cred_obj = {
+                                "CreditCard": gift_card_credit_id,
+                                "CreditCardNumber": gift_card.get('last_characters', 'Unknown'),
+                                "CardValidUntil": str(res.date()),
+                                "VoucherNum": gift_card.get('gift_card_id', 'Unknown'),
+                                "PaymentMethodCode": 1,
+                                "CreditSum": gift_card["amount"],
+                                "CreditCur": "EGP",
+                                "CreditType": "cr_Regular",
+                                "SplitPayments": "tNO"
+                            }
+                            calc_amount += gift_card["amount"]
+                            cred_array.append(cred_obj)
+                            logger.info(f"🎁 Added gift card payment: {gift_card.get('last_characters', 'Unknown')} - {gift_card['amount']} EGP")
                 
-            elif location_type == "store" and payment_type == "Cash":
-                # Cash payment at store - use cash account from location mapping
-                cash_account = config_settings.get_cash_account_for_location(location_analysis.get('location_mapping', {}))
-                if cash_account:
-                    payment_data["CashSum"] = sap_invoice["DocTotal"]
-                    payment_data["CashAccount"] = cash_account
-                    logger.info(f"Cash payment at store - using cash account: {cash_account}")
-                else:
-                    logger.warning(f"No cash account configured for location, using transfer sum only")
+                # Add credit cards array if we have any
+                if cred_array:
+                    payment_data["PaymentCreditCards"] = cred_array
                 
-            elif location_type == "store" and payment_type == "CreditCard":
-                # Credit card payment at store - use PaymentCreditCards structure
-                gateway = payment_info.get('gateway', 'Geidea')
-                location_mapping = location_analysis.get('location_mapping', {})
-                
-                # Create credit card payment object
-                cred_obj = {}
-                
-                # Get credit account from configuration
-                credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
-                if credit_account:
-                    cred_obj['CreditCard'] = credit_account
-                else:
-                    logger.warning(f"No credit account found for gateway: {gateway}")
-                    # Fallback to transfer if no credit account
-                    transfer_account = config_settings.get_bank_transfer_for_location(
-                        store_key, location_mapping, gateway
-                    )
-                    payment_data["TransferAccount"] = transfer_account
-                    logger.info(f"Credit card payment fallback - using transfer account: {transfer_account}")
-                    return payment_data
-                
-                cred_obj['CreditCardNumber'] = "1234"
-                
-                # Calculate next month date
-                from datetime import timedelta
-                next_month = datetime.now().replace(day=28) + timedelta(days=4)
-                res = next_month - timedelta(days=next_month.day)
-                cred_obj['CardValidUntil'] = str(res.date())
-                
-                cred_obj['VoucherNum'] = gateway
-                cred_obj['PaymentMethodCode'] = 1
-                cred_obj['CreditSum'] = sap_invoice["DocTotal"]
-                cred_obj['CreditCur'] = "EGP"
-                cred_obj['CreditType'] = "cr_Regular"
-                cred_obj['SplitPayments'] = "tNO"
-                
-                payment_data["PaymentCreditCards"] = [cred_obj]
-                logger.info(f"Credit card payment at store - using {gateway} account: {credit_account}")
+                # Set SumApplied to calculated amount
+                sum_applied = calc_amount
                 
             else:
-                # Default to transfer for unknown payment types
-                logger.warning(f"Unknown payment type '{payment_type}' - defaulting to transfer")
+                # Handle online orders
+                logger.info(f"🌐 ONLINE ORDER DETECTED - Processing payment")
+                
+                # Calculate payment amount excluding store credit AND gift cards
+                store_credit_amount = payment_info.get("store_credit", {}).get("amount", 0.0)
+                total_gift_card_amount = payment_info.get("total_gift_card_amount", 0.0)
+                total_payment_amount = payment_info.get("total_payment_amount", 0.0)
+                
+                # Use total_payment_amount if available (multiple gateways), otherwise fall back to calculation
+                if total_payment_amount > 0:
+                    payment_amount = total_payment_amount
+                else:
+                    payment_amount = invoice_total - store_credit_amount - total_gift_card_amount
+                
+                logger.info(f"💰 ONLINE PAYMENT CALCULATION: Payment Amount: {payment_amount} EGP | Store Credit: {store_credit_amount} EGP | Gift Cards: {total_gift_card_amount} EGP")
+                
+                # Process gift cards as credit card payments
+                gift_cards = payment_info.get("gift_cards", [])
+                if gift_cards:
+                    logger.info(f"🎁 Processing {len(gift_cards)} gift card payment(s) for online order")
+                    
+                    # Get gift card credit card ID from config (not the SAP account)
+                    gift_card_credit_id = None
+                    if location_mapping and 'credit' in location_mapping:
+                        credit_accounts = location_mapping['credit']
+                        if 'Gift Card' in credit_accounts:
+                            gift_card_credit_id = credit_accounts['Gift Card']
+                    
+                    if not gift_card_credit_id:
+                        logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                    else:
+                        for gift_card in gift_cards:
+                            # Calculate CardValidUntil (next month's last day)
+                            next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                            res = next_month - timedelta(days=next_month.day)
+                            
+                            cred_obj = {
+                                "CreditCard": gift_card_credit_id,
+                                "CreditCardNumber": gift_card.get('last_characters', 'Unknown'),
+                                "CardValidUntil": str(res.date()),
+                                "VoucherNum": gift_card.get('gift_card_id', 'Unknown'),
+                                "PaymentMethodCode": 1,
+                                "CreditSum": gift_card["amount"],
+                                "CreditCur": "EGP",
+                                "CreditType": "cr_Regular",
+                                "SplitPayments": "tNO"
+                            }
+                            cred_array.append(cred_obj)
+                            calc_amount += gift_card["amount"]
+                            logger.info(f"🎁 Added gift card payment: {gift_card.get('last_characters', 'Unknown')} - {gift_card['amount']} EGP")
+                
+                # Set payment method based on type and location
+                if payment_type == "PaidOnline":
+                    # Online payments - use location-based bank transfer account
+                    if payment_amount > 0:  # Only set if there's remaining amount after gift cards
+                        payment_data["TransferSum"] = payment_amount
+                        
+                        # Get the actual gateway from payment info
+                        gateway = payment_info.get('gateway', 'Paymob')
+                        
+                        # Get bank transfer account using new location-based method
+                        transfer_account = config_settings.get_bank_transfer_for_location(
+                            store_key, 
+                            location_mapping, 
+                            gateway
+                        )
+                        
+                        payment_data["TransferAccount"] = transfer_account
+                        logger.info(f"Online payment - using {gateway} account: {transfer_account}")
+                    
+                elif payment_type == "COD":
+                    # Cash on delivery - handle courier-specific accounts for online locations
+                    if payment_amount > 0:  # Only set if there's remaining amount after gift cards
+                        payment_data["TransferSum"] = payment_amount
+                        
+                        # Extract courier name from metafields for COD payments
+                        courier_name = ""
+                        if location_type == "online":
+                            # Extract courier name from metafields
+                            metafields = shopify_order.get("metafields", {}).get("edges", [])
+                            for metafield_edge in metafields:
+                                metafield = metafield_edge.get("node", {})
+                                namespace = metafield.get("namespace", "")
+                                key = metafield.get("key", "")
+                                value = metafield.get("value", "")
+                                
+                                if namespace == "custom" and key == "courier" and value:
+                                    # Handle JSON array format like '["4 - Tuyingo"]'
+                                    import json
+                                    try:
+                                        if value.startswith('[') and value.endswith(']'):
+                                            # Parse JSON array and take first element
+                                            courier_list = json.loads(value)
+                                            if courier_list and len(courier_list) > 0:
+                                                value = courier_list[0]
+                                    except (json.JSONDecodeError, IndexError):
+                                        pass  # Use original value if JSON parsing fails
+                                    
+                                    parts = value.split("-")
+                                    if len(parts) >= 2:
+                                        courier_name = parts[1].strip()
+                                        break
+                        
+                        # Get bank transfer account using new location-based method with courier
+                        transfer_account = config_settings.get_bank_transfer_for_location(
+                            store_key, 
+                            location_mapping, 
+                            "Cash on Delivery (COD)",
+                            courier_name
+                        )
+                        
+                        payment_data["TransferAccount"] = transfer_account
+                        logger.info(f"COD payment - using COD account: {transfer_account} (courier: {courier_name})")
+                    
+                else:
+                    # Default case - treat as online payment
+                    if payment_amount > 0:  # Only set if there's remaining amount after gift cards
+                        payment_data["TransferSum"] = payment_amount
+                        gateway = payment_info.get('gateway', 'Paymob')
+                        
+                        transfer_account = config_settings.get_bank_transfer_for_location(
+                            store_key, 
+                            location_mapping, 
+                            gateway
+                        )
+                        
+                        payment_data["TransferAccount"] = transfer_account
+                        logger.info(f"Default payment - using {gateway} account: {transfer_account}")
+                
+                # Add gift card credit cards array if we have any
+                if cred_array:
+                    payment_data["PaymentCreditCards"] = cred_array
+                
+                # Calculate total payment amount (gateway payments + gift cards)
+                sum_applied = calc_amount + payment_amount
+                
+                logger.info(f"💰 ONLINE PAYMENT SUMMARY: Gateway: {payment_amount} EGP | Gift Cards: {calc_amount} EGP | Total: {sum_applied} EGP")
             
             # Create invoice object for payment
             inv_obj = {
-                "DocEntry": sap_invoice["DocEntry"],
-                "SumApplied": sap_invoice["DocTotal"],  # Use the invoice total from SAP
+                "DocEntry": invoice_doc_entry,
+                "SumApplied": sum_applied,
                 "InvoiceType": "it_Invoice"
             }
             
@@ -431,7 +570,7 @@ class PaymentRecoverySync:
     
     def _extract_payment_info_from_transactions(self, transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Extract payment information from Shopify order transactions
+        Extract payment information from Shopify order transactions including gift cards and store credit
         """
         payment_info = {
             "gateway": "Unknown",
@@ -441,7 +580,15 @@ class PaymentRecoverySync:
             "amount": 0.0,
             "status": "Unknown",
             "processed_at": "Unknown",
-            "is_online_payment": False
+            "is_online_payment": False,
+            "gift_cards": [],
+            "total_gift_card_amount": 0.0,
+            "store_credit": {
+                "amount": 0.0,
+                "transactions": []
+            },
+            "payment_gateways": [],
+            "total_payment_amount": 0.0
         }
         
         try:
@@ -452,22 +599,100 @@ class PaymentRecoverySync:
                     
                     gateway = transaction.get("gateway", "Unknown")
                     amount = float(transaction.get("amountSet", {}).get("shopMoney", {}).get("amount", 0))
+                    receipt_json = transaction.get("receiptJson", "{}")
                     
-                    payment_info["gateway"] = gateway
-                    payment_info["amount"] = amount
-                    payment_info["status"] = transaction.get("status", "Unknown")
-                    payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
-                    payment_info["payment_id"] = transaction.get("id", "Unknown")
+                    # Handle store credit transactions
+                    if gateway == "shopify_store_credit":
+                        store_credit_info = {
+                            "transaction_id": transaction.get("id", "Unknown"),
+                            "amount": amount,
+                            "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                            "processed_at": transaction.get("processedAt", "Unknown"),
+                            "receipt_json": receipt_json
+                        }
+                        payment_info["store_credit"]["transactions"].append(store_credit_info)
+                        payment_info["store_credit"]["amount"] += amount
+                        logger.info(f"🏪 STORE CREDIT DETECTED: {amount} {store_credit_info['currency']} - Transaction ID: {store_credit_info['transaction_id']}")
                     
-                    # Use gateway as card type if payment details not available
-                    payment_info["card_type"] = gateway
+                    # Handle all payment gateway transactions except gift_card and store_credit
+                    elif gateway != "Unknown" and gateway != "gift_card" and gateway != "shopify_store_credit":
+                        # Create payment gateway info
+                        gateway_info = {
+                            "gateway": gateway,
+                            "amount": amount,
+                            "status": transaction.get("status", "Unknown"),
+                            "processed_at": transaction.get("processedAt", "Unknown"),
+                            "transaction_id": transaction.get("id", "Unknown"),
+                            "receipt_json": receipt_json
+                        }
+                        
+                        # Extract payment_id from receiptJson (for supported gateways)
+                        try:
+                            import json
+                            receipt_data = json.loads(receipt_json)
+                            gateway_info["payment_id"] = receipt_data.get("payment_id", transaction.get("id", "Unknown"))
+                        except (json.JSONDecodeError, KeyError):
+                            gateway_info["payment_id"] = transaction.get("id", "Unknown")
+                        
+                        # Add to payment gateways list
+                        payment_info["payment_gateways"].append(gateway_info)
+                        payment_info["total_payment_amount"] += amount
+                        
+                        # Set primary gateway info (for backward compatibility - use the first non-store-credit gateway)
+                        if payment_info["gateway"] == "Unknown":
+                            payment_info["gateway"] = gateway
+                            payment_info["amount"] = amount
+                            payment_info["status"] = transaction.get("status", "Unknown")
+                            payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                            payment_info["payment_id"] = gateway_info["payment_id"]
+                        
+                        # Check if this is an online payment
+                        if gateway.lower() in ["paymob", "stripe", "paypal"]:
+                            payment_info["is_online_payment"] = True
                     
-                    # Check if this is an online payment
-                    if gateway.lower() in ["paymob", "stripe", "paypal"]:
-                        payment_info["is_online_payment"] = True
+                    # Handle gift card transactions
+                    elif gateway == "gift_card":
+                        try:
+                            import json
+                            receipt_data = json.loads(receipt_json)
+                            
+                            gift_card_info = {
+                                "last_characters": receipt_data.get("gift_card_last_characters", "Unknown"),
+                                "amount": amount,  # Use the transaction amount directly
+                                "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                                "gift_card_id": receipt_data.get("gift_card_id", "Unknown")
+                            }
+                            
+                            payment_info["gift_cards"].append(gift_card_info)
+                            payment_info["total_gift_card_amount"] += amount
+                            logger.info(f"🎁 GIFT CARD DETECTED: {gift_card_info['last_characters']} - {amount} {gift_card_info['currency']}")
+                            
+                        except (json.JSONDecodeError, KeyError) as e:
+                            logger.warning(f"Error parsing gift card receipt JSON: {e}")
+                            # Fallback gift card info
+                            gift_card_info = {
+                                "last_characters": "Unknown",
+                                "amount": amount,
+                                "currency": transaction.get("amountSet", {}).get("shopMoney", {}).get("currencyCode", "Unknown"),
+                                "gift_card_id": "Unknown"
+                            }
+                            payment_info["gift_cards"].append(gift_card_info)
+                            payment_info["total_gift_card_amount"] += amount
                     
-                    # Use the first successful payment transaction
-                    break
+                    # Handle other payment gateways
+                    else:
+                        payment_info["gateway"] = gateway
+                        payment_info["amount"] = amount
+                        payment_info["status"] = transaction.get("status", "Unknown")
+                        payment_info["processed_at"] = transaction.get("processedAt", "Unknown")
+                        payment_info["payment_id"] = transaction.get("id", "Unknown")
+                        
+                        # Use gateway as card type if payment details not available
+                        payment_info["card_type"] = gateway
+                        
+                        # Check if this is an online payment
+                        if gateway.lower() in ["paymob", "stripe", "paypal"]:
+                            payment_info["is_online_payment"] = True
                     
         except Exception as e:
             logger.error(f"Error extracting payment info: {str(e)}")
