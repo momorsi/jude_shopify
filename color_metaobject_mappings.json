@@ -39,7 +39,8 @@
         "teal-blue-1": "gid://shopify/Metaobject/153567461442",
         "teal": "gid://shopify/Metaobject/153567821890",
         "red-1": "gid://shopify/Metaobject/153567952962",
-        "blue-1": "gid://shopify/Metaobject/153568575554"
+        "blue-1": "gid://shopify/Metaobject/153568575554",
+        "burnt-brown": "gid://shopify/Metaobject/186350207042"
     },
     "international": {
         "christmas-forest-green": "gid://shopify/Metaobject/124369403994",
@@ -77,6 +78,7 @@
         "pink": "gid://shopify/Metaobject/127223234650",
         "white": "gid://shopify/Metaobject/127223267418",
         "sage-green": "gid://shopify/Metaobject/140801015898",
-        "silver": "gid://shopify/Metaobject/146414075994"
+        "silver": "gid://shopify/Metaobject/146414075994",
+        "burnt-brown": "gid://shopify/Metaobject/174641021018"
     }
 }

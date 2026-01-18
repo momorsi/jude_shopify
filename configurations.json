@@ -32,7 +32,7 @@
             "international": {
                 "name": "International Store",
                 "shop_url": "int-judebenhalim.myshopify.com",
-                "access_token": "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",
+                "access_token": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "USD",
@@ -350,21 +350,26 @@
                 "interval_minutes": 15,
                 "batch_size": 1,
                 "from_date": "2025-10-30",
-                "channel": "web"
+                "channel": "web,pos"
             },
             "payment_recovery": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 30,
                 "batch_size": 50,
                 "from_date": "2025-10-30",
-                "channel": "web"
+                "channel": "web,pos"
             },
             "returns": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 5,
                 "batch_size": 3,
                 "from_date": "2025-10-30",
-                "channel": "web,pos"
+                "channel": "web,pos",
+                "followup": {
+                    "enabled": false,
+                    "interval_minutes": 1440,
+                    "days_old": 30
+                }
             },
             "gift_card_expiry": {
                 "enabled": false,

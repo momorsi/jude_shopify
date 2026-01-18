@@ -57,7 +57,9 @@ class ColorMetaobjectMapper:
         Get metaobject ID for a color in a specific store
         Returns None if color not found in cache
         """
-        color_key = color_name.lower().strip()
+        # Normalize: lowercase, strip, and replace spaces/underscores with hyphens
+        # This matches how Shopify handles are stored (e.g., "burnt-brown")
+        color_key = color_name.lower().strip().replace(' ', '-').replace('_', '-')
         
         # Check if we have it in cache
         if store_key in self.mappings and color_key in self.mappings[store_key]:
@@ -142,7 +144,9 @@ class ColorMetaobjectMapper:
         Ensure color mapping exists for a store, build if needed
         Returns metaobject ID or None if color doesn't exist in Shopify
         """
-        color_key = color_name.lower().strip()
+        # Normalize: lowercase, strip, and replace spaces/underscores with hyphens
+        # This matches how Shopify handles are stored (e.g., "burnt-brown")
+        color_key = color_name.lower().strip().replace(' ', '-').replace('_', '-')
         
         # Check cache first
         metaobject_id = self.get_color_metaobject_id(store_key, color_name)
@@ -718,9 +722,62 @@ class MultiStoreNewItemsSync:
         Add a variant to an existing product using the new Shopify API 2025-07 approach
         """
         try:
-            # 1. Get the product's current options using product ID
-            product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
-            if product_info["msg"] == "success" and product_info["data"].get("product"):
+            # 1. Get the product's current options using product ID with retry logic
+            max_retries = 3
+            retry_delay = 2  # Start with 2 seconds
+            
+            product_info = None
+            for attempt in range(max_retries):
+                try:
+                    product_info = await multi_store_shopify_client.get_product_by_id(store_key, product_id)
+                    
+                    if product_info["msg"] == "success":
+                        # Check if product exists (not null)
+                        if product_info["data"].get("product"):
+                            break  # Success, exit retry loop
+                        else:
+                            # Product is null - doesn't exist (not a retryable error)
+                            logger.warning(
+                                f"Product {product_id} not found in store {store_key}. "
+                                f"GraphQL query succeeded but returned null. "
+                                f"Full response: {product_info.get('data', {})}"
+                            )
+                            return {"msg": "failure", "error": "CREATE_NEW_PRODUCT", "details": "Product not found (null response)"}
+                    else:
+                        # GraphQL query failed - check if retryable
+                        error_msg = product_info.get("error", "Unknown error")
+                        error_msg_lower = error_msg.lower()
+                        
+                        # Check if error is retryable (timeout, rate limit, network issues, etc.)
+                        retryable_keywords = ["timeout", "rate limit", "temporary", "network", "connection", "graphql query error"]
+                        is_retryable = any(keyword in error_msg_lower for keyword in retryable_keywords)
+                        
+                        if is_retryable and attempt < max_retries - 1:
+                            logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed for product {product_id} in store {store_key}: {error_msg}")
+                            logger.info(f"Retrying in {retry_delay} seconds...")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                            continue
+                        else:
+                            # Non-retryable error or last attempt
+                            logger.error(f"Failed to get product {product_id} after {attempt + 1} attempts: {error_msg}")
+                            return {"msg": "failure", "error": "CREATE_NEW_PRODUCT", "details": error_msg}
+                            
+                except Exception as e:
+                    logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception for product {product_id} in store {store_key}: {str(e)}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                    else:
+                        # Last attempt failed
+                        error_msg = f"All {max_retries} attempts failed: {str(e)}"
+                        logger.error(f"Failed to get product {product_id} after {max_retries} attempts: {error_msg}")
+                        return {"msg": "failure", "error": "CREATE_NEW_PRODUCT", "details": error_msg}
+            
+            # If we get here, product_info should be set and successful
+            if product_info and product_info["msg"] == "success" and product_info["data"].get("product"):
                 product = product_info["data"]["product"]
                 
                 # Get the Color option ID from the product's options (case-insensitive)
@@ -751,9 +808,10 @@ class MultiStoreNewItemsSync:
                     # Return a special error that indicates we should create a new product
                     return {"msg": "failure", "error": "CREATE_NEW_PRODUCT"}
             else:
-                # Product not found, create a new product instead
-                logger.warning(f"Product {product_id} not found in store {store_key}, will create new product")
-                return {"msg": "failure", "error": "CREATE_NEW_PRODUCT"}
+                # This shouldn't happen if retry logic worked correctly, but handle it anyway
+                error_details = product_info.get("error", "Unknown error") if product_info else "No response"
+                logger.error(f"Product {product_id} query failed in store {store_key} after retries: {error_details}")
+                return {"msg": "failure", "error": "CREATE_NEW_PRODUCT", "details": error_details}
             
             # 2. No location lookup needed - inventory will be handled by stock sync process
             
@@ -1276,7 +1334,12 @@ class MultiStoreNewItemsSync:
                                 if variant_result["msg"] == "failure" and variant_result.get("error") == "CREATE_NEW_PRODUCT":
                                     # CRITICAL: If Status is "existing", we MUST NOT create a new product
                                     if item_status == "existing":
-                                        logger.error(f"Cannot create new product for item with Status='existing' (SKU: {sap_item.get('itemcode')}). Product should exist but variant addition failed.")
+                                        error_details = variant_result.get("details", "No additional details")
+                                        logger.error(
+                                            f"Cannot create new product for item with Status='existing' (SKU: {sap_item.get('itemcode')}). "
+                                            f"Product should exist but variant addition failed. "
+                                            f"Product ID: {product_id}, Error details: {error_details}"
+                                        )
                                         errors += 1
                                         continue  # Skip this variant - don't create new product
                                     else:

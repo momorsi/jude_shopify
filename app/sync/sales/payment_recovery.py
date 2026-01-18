@@ -916,13 +916,13 @@ class PaymentRecoverySync:
             logger.info(f"Processing payment recovery for order: {order_name} | Payment: {financial_status} | Fulfillment: {fulfillment_status}")
             
             # Check if order is PAID or PARTIALLY_REFUNDED (treat PARTIALLY_REFUNDED as PAID for payment recovery)
-            if financial_status not in ["PAID", "PARTIALLY_REFUNDED"]:
+            if financial_status not in ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"]:
                 logger.info(f"Order {order_name} is not PAID or PARTIALLY_REFUNDED (status: {financial_status}) - skipping payment recovery")
                 return {
                     "msg": "skipped",
                     "order_id": order_id_number,
                     "order_name": order_name,
-                    "reason": f"Order not PAID or PARTIALLY_REFUNDED (status: {financial_status})"
+                    "reason": f"Order not PAID or PARTIALLY_REFUNDED or REFUNDED (status: {financial_status})"
                 }
             
             # Extract tags and get SAP invoice DocEntry

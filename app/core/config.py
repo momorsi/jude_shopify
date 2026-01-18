@@ -491,6 +491,9 @@ class ConfigSettings(BaseSettings):
     returns_batch_size: int = config_data['sync']['sales']['returns']['batch_size']
     returns_from_date: str = config_data['sync']['sales']['returns']['from_date']
     returns_channel: str = config_data['sync']['sales']['returns']['channel']
+    returns_followup_enabled: bool = config_data['sync']['sales']['returns'].get('followup', {}).get('enabled', False)
+    returns_followup_interval: int = config_data['sync']['sales']['returns'].get('followup', {}).get('interval_minutes', 1440)
+    returns_followup_days_old: int = config_data['sync']['sales']['returns'].get('followup', {}).get('days_old', 30)
     # Gift Card Expiry Sync Settings
     gift_card_expiry_enabled: bool = config_data['sync']['sales'].get('gift_card_expiry', {}).get('enabled', False)
     gift_card_expiry_interval: int = config_data['sync']['sales'].get('gift_card_expiry', {}).get('interval_minutes', 30)

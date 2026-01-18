@@ -976,6 +976,66 @@ class MultiStoreShopifyClient:
         except Exception as e:
             return {"msg": "failure", "error": str(e)}
     
+    async def remove_order_tag(self, store_key: str, order_id: str, tag: str) -> Dict[str, Any]:
+        """
+        Remove a tag from an order
+        """
+        # First, get the current order with its tags
+        get_order_query = """
+        query getOrder($id: ID!) {
+            order(id: $id) {
+                id
+                name
+                tags
+            }
+        }
+        """
+        
+        try:
+            # Get current order data
+            get_result = await self.execute_query(store_key, get_order_query, {"id": order_id})
+            
+            if get_result.get("msg") != "success":
+                return {"msg": "failure", "error": f"Failed to get order: {get_result.get('error')}"}
+            
+            order_data = get_result.get("data", {}).get("order", {})
+            current_tags = order_data.get("tags", [])
+            
+            # Remove the tag if it exists
+            if tag not in current_tags:
+                return {"msg": "success", "note": f"Tag '{tag}' does not exist on order"}
+            
+            updated_tags = [t for t in current_tags if t != tag]
+            
+            # Update the order with modified tags
+            update_mutation = """
+            mutation orderUpdate($input: OrderInput!) {
+                orderUpdate(input: $input) {
+                    order {
+                        id
+                        name
+                        tags
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+            """
+            
+            variables = {
+                "input": {
+                    "id": order_id,
+                    "tags": updated_tags
+                }
+            }
+            
+            return await self.execute_query(store_key, update_mutation, variables)
+            
+        except Exception as e:
+            return {"msg": "failure", "error": str(e)}
+    
     async def get_color_metaobjects(self, store_key: str) -> Dict[str, Any]:
         """
         Get all color metaobjects from Shopify for a specific store
