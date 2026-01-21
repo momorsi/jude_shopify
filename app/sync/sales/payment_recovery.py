@@ -118,7 +118,7 @@ class PaymentRecoverySync:
             # 3. Are PAID
             from_date = config_settings.payment_recovery_from_date
             query_filter = f"(channel:{config_settings.payment_recovery_channel} financial_status:paid OR financial_status:partially_refunded OR financial_status:refunded) fulfillment_status:fulfilled tag:sap_invoice_synced -tag:sap_payment_synced -tag:sap_payment_failed created_at:>={from_date}"
-            
+                   
             # Add retry logic for GraphQL queries to handle rate limiting
             max_retries = 3
             retry_delay = 2  # Start with 2 seconds
@@ -326,50 +326,50 @@ class PaymentRecoverySync:
                             calc_amount += amount
                             logger.info(f"💰 CASH TRANSACTION: {amount} EGP - Account: {cash_account}")
                         else:
-                            logger.warning(f"No cash account configured for location")
+                            error_msg = f"No cash account configured for location - Gateway: {gateway}, Amount: {amount} EGP"
+                            logger.error(f"❌ {error_msg}")
+                            raise ValueError(error_msg)
                             
-                    elif gateway in config_settings.get_credits_for_location(store_key, location_mapping):
-                        # Handle credit card transactions
-                        cred_obj = {}
-                        
-                        # Get credit account from configuration
+                    else:
+                        # Check if gateway is a credit card payment
                         credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
                         if credit_account:
+                            # Handle credit card transactions
+                            cred_obj = {}
                             cred_obj['CreditCard'] = credit_account
-                        else:
-                            logger.warning(f"No credit account found for gateway: {gateway}")
-                            continue
-                        
-                        cred_obj['CreditCardNumber'] = "1234"
-                        
-                        # Calculate next month date
-                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
-                        res = next_month - timedelta(days=next_month.day)
-                        cred_obj['CardValidUntil'] = str(res.date())
-                        
-                        cred_obj['VoucherNum'] = gateway
-                        cred_obj['PaymentMethodCode'] = 1
-                        cred_obj['CreditSum'] = amount
-                        cred_obj['CreditCur'] = "EGP"
-                        cred_obj['CreditType'] = "cr_Regular"
-                        cred_obj['SplitPayments'] = "tNO"
-                        
-                        calc_amount += amount
-                        cred_array.append(cred_obj)
-                        logger.info(f"💳 CREDIT CARD TRANSACTION: {gateway} - {amount} EGP - Account: {credit_account}")
-                        
-                    elif gateway in config_settings.get_bank_transfers_for_location(store_key, location_mapping):
-                        # Handle other payment gateways as bank transfers
-                        transfer_account = config_settings.get_bank_transfer_for_location(
-                            store_key, location_mapping, gateway
-                        )
-                        if transfer_account:
-                            payment_data["TransferSum"] = amount
-                            payment_data["TransferAccount"] = transfer_account
+                            cred_obj['CreditCardNumber'] = "1234"
+                            
+                            # Calculate next month date
+                            next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                            res = next_month - timedelta(days=next_month.day)
+                            cred_obj['CardValidUntil'] = str(res.date())
+                            
+                            cred_obj['VoucherNum'] = gateway
+                            cred_obj['PaymentMethodCode'] = 1
+                            cred_obj['CreditSum'] = amount
+                            cred_obj['CreditCur'] = "EGP"
+                            cred_obj['CreditType'] = "cr_Regular"
+                            cred_obj['SplitPayments'] = "tNO"
+                            
                             calc_amount += amount
-                            logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
-                    else:
-                        logger.warning(f"No bank transfer account found for gateway: {gateway}")
+                            cred_array.append(cred_obj)
+                            logger.info(f"💳 CREDIT CARD TRANSACTION: {gateway} - {amount} EGP - Account: {credit_account}")
+                        
+                        else:
+                            # Check if gateway is a bank transfer
+                            transfer_account = config_settings.get_bank_transfer_for_location(
+                                store_key, location_mapping, gateway
+                            )
+                            if transfer_account:
+                                payment_data["TransferSum"] = amount
+                                payment_data["TransferAccount"] = transfer_account
+                                calc_amount += amount
+                                logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
+                            else:
+                                # Gateway not found in any payment method - FAIL IMMEDIATELY
+                                error_msg = f"Gateway '{gateway}' not found in credit accounts, bank transfers, or cash configuration - Amount: {amount} EGP. Payment cannot be processed."
+                                logger.error(f"❌ {error_msg}")
+                                raise ValueError(error_msg)
                 
                 # Process gift cards as credit card payments
                 gift_cards = payment_info.get("gift_cards", [])
@@ -384,7 +384,10 @@ class PaymentRecoverySync:
                             gift_card_credit_id = credit_accounts['Gift Card']
                     
                     if not gift_card_credit_id:
-                        logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                        total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards)
+                        error_msg = f"No gift card credit ID configured for location - Gift card amount: {total_gift_card_amount} EGP will NOT be processed"
+                        logger.error(f"❌ {error_msg}")
+                        raise ValueError(error_msg)
                     else:
                         for gift_card in gift_cards:
                             # Calculate CardValidUntil (next month's last day)
@@ -412,6 +415,39 @@ class PaymentRecoverySync:
                 
                 # Set SumApplied to calculated amount
                 sum_applied = calc_amount
+                
+                # Validate POS payment processing
+                if not location_mapping:
+                    error_msg = f"Location mapping is empty for POS order - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                
+                # Check if payment gateways exist but none were processed
+                if payment_gateways and calc_amount == 0:
+                    error_msg = f"Payment gateways exist but no payments were processed - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                
+                # Check if gift cards exist but weren't processed
+                gift_cards_check = payment_info.get("gift_cards", [])
+                if gift_cards_check:
+                    gift_card_credits_in_array = len([c for c in cred_array if str(c.get('VoucherNum', '')).startswith('552') or str(c.get('VoucherNum', '')).isdigit()])
+                    if gift_card_credits_in_array == 0:
+                        total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards_check)
+                        error_msg = f"Gift cards exist ({len(gift_cards_check)} cards, {total_gift_card_amount} EGP) but were not processed - Payment cannot be processed"
+                        logger.error(f"❌ {error_msg}")
+                        raise ValueError(error_msg)
+                
+                # Validate payment account configuration
+                if payment_data.get("CashSum", 0) > 0 and not payment_data.get("CashAccount"):
+                    error_msg = f"CashSum is {payment_data.get('CashSum')} but CashAccount is missing - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                
+                if payment_data.get("TransferSum", 0) > 0 and not payment_data.get("TransferAccount"):
+                    error_msg = f"TransferSum is {payment_data.get('TransferSum')} but TransferAccount is missing - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
                 
             else:
                 # Handle online orders
@@ -442,8 +478,19 @@ class PaymentRecoverySync:
                         if 'Gift Card' in credit_accounts:
                             gift_card_credit_id = credit_accounts['Gift Card']
                     
+                    # Fallback: If not found in location_mapping, get from web location config
                     if not gift_card_credit_id:
-                        logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                        web_location_mapping = config_settings.get_location_mapping_for_location(store_key, "web")
+                        if web_location_mapping and 'credit' in web_location_mapping:
+                            credit_accounts = web_location_mapping['credit']
+                            if 'Gift Card' in credit_accounts:
+                                gift_card_credit_id = credit_accounts['Gift Card']
+                    
+                    if not gift_card_credit_id:
+                        total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards)
+                        error_msg = f"No gift card credit ID configured for location - Gift card amount: {total_gift_card_amount} EGP will NOT be processed"
+                        logger.error(f"❌ {error_msg}")
+                        raise ValueError(error_msg)
                     else:
                         for gift_card in gift_cards:
                             # Calculate CardValidUntil (next month's last day)
@@ -551,6 +598,30 @@ class PaymentRecoverySync:
                 sum_applied = calc_amount + payment_amount
                 
                 logger.info(f"💰 ONLINE PAYMENT SUMMARY: Gateway: {payment_amount} EGP | Gift Cards: {calc_amount} EGP | Total: {sum_applied} EGP")
+                
+                # Validate online payment processing
+                # Check if gift cards exist but weren't processed
+                gift_cards_check = payment_info.get("gift_cards", [])
+                if gift_cards_check:
+                    gift_card_credits_in_array = len([c for c in cred_array if str(c.get('VoucherNum', '')).startswith('552') or str(c.get('VoucherNum', '')).isdigit()])
+                    if gift_card_credits_in_array == 0:
+                        total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards_check)
+                        error_msg = f"Gift cards exist ({len(gift_cards_check)} cards, {total_gift_card_amount} EGP) but were not processed - Payment cannot be processed"
+                        logger.error(f"❌ {error_msg}")
+                        raise ValueError(error_msg)
+                
+                # Validate payment account configuration
+                if payment_data.get("TransferSum", 0) > 0 and not payment_data.get("TransferAccount"):
+                    error_msg = f"TransferSum is {payment_data.get('TransferSum')} but TransferAccount is missing - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                
+                # Check if payment amount is expected but sum_applied is 0
+                expected_total = invoice_total - store_credit_amount
+                if expected_total > 0 and sum_applied == 0:
+                    error_msg = f"Expected payment total is {expected_total} EGP but sum_applied is 0 - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
             
             # Create invoice object for payment
             inv_obj = {
@@ -561,6 +632,22 @@ class PaymentRecoverySync:
             
             # Add invoice to payment data
             payment_data["PaymentInvoices"] = [inv_obj]
+            
+            # Final validation: Ensure sum_applied matches expected amount
+            if sum_applied <= 0:
+                error_msg = f"Payment sum_applied is {sum_applied} - must be greater than 0. Payment cannot be processed."
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
+            
+            # Validate that at least one payment method is configured
+            has_cash = payment_data.get("CashSum", 0) > 0
+            has_transfer = payment_data.get("TransferSum", 0) > 0
+            has_credit_cards = len(payment_data.get("PaymentCreditCards", [])) > 0
+            
+            if not (has_cash or has_transfer or has_credit_cards):
+                error_msg = f"No payment method configured (CashSum={payment_data.get('CashSum', 0)}, TransferSum={payment_data.get('TransferSum', 0)}, CreditCards={len(payment_data.get('PaymentCreditCards', []))}) - Payment cannot be processed"
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
             
             return payment_data
             

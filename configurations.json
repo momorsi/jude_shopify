@@ -346,7 +346,7 @@
         },
         "sales": {            
             "orders": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 15,
                 "batch_size": 1,
                 "from_date": "2025-10-30",
@@ -360,7 +360,7 @@
                 "channel": "web,pos"
             },
             "returns": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 5,
                 "batch_size": 3,
                 "from_date": "2025-10-30",

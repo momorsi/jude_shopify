@@ -263,7 +263,7 @@ class OrdersSalesSync:
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
             query_filter = f"channel:{config_settings.sales_orders_channel} fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
-            
+            query_filter = "id:6684929294402"
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -576,12 +576,15 @@ class OrdersSalesSync:
                             logger.info(f"Added U_GiftCard field to line item: {matching_gift_card.get('gift_card_id')} for gift card {i+1}/{quantity}")
                         
                         # Calculate discount percentage based on compareAtPrice vs sale price
+                        # Note: For gift card lines, quantity is always 1
+                        line_quantity = 1  # Gift card lines always have quantity 1
                         if original_price > 0 and sale_price > 0 and original_price != sale_price:
                             # Calculate discount percentage: (original - sale) / original * 100
-                            discount_amount = original_price - sale_price
-                            discount_percentage = (discount_amount / original_price) * 100
+                            unit_discount_amount = original_price - sale_price
+                            discount_percentage = (unit_discount_amount / original_price) * 100
                             line_item["DiscountPercent"] = float(discount_percentage)
-                            line_item["U_ItemDiscountAmount"] = float(discount_amount)
+                            # U_ItemDiscountAmount stores total discount for the line (unit * quantity)
+                            line_item["U_ItemDiscountAmount"] = float(unit_discount_amount * line_quantity)
                             logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
                         
                         # Also check for additional discount allocations (coupons, etc.)
@@ -593,17 +596,24 @@ class OrdersSalesSync:
                                 for allocation in discount_allocations
                             )
                             if total_item_discount > 0:
-                                # Add additional discount amount to existing discount
-                                if "U_ItemDiscountAmount" in line_item:
-                                    line_item["U_ItemDiscountAmount"] += total_item_discount
-                                else:
-                                    line_item["U_ItemDiscountAmount"] = total_item_discount
+                                # For gift cards with quantity > 1, we create separate lines with quantity 1 each
+                                # discountAllocations contains total discount for the original line, so divide by original quantity
+                                unit_discount_from_allocations = total_item_discount / quantity
                                 
-                                # Recalculate total discount percentage
+                                # Add additional discount amount to existing discount
+                                # U_ItemDiscountAmount stores total discount, but since line_quantity is 1, unit = total
+                                if "U_ItemDiscountAmount" in line_item:
+                                    line_item["U_ItemDiscountAmount"] += unit_discount_from_allocations * line_quantity
+                                else:
+                                    line_item["U_ItemDiscountAmount"] = unit_discount_from_allocations * line_quantity
+                                
+                                # Recalculate total discount percentage from unit discount
                                 if original_price > 0:
-                                    total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
+                                    # Calculate unit discount from total
+                                    unit_discount_total = line_item["U_ItemDiscountAmount"] / line_quantity
+                                    total_discount_percentage = (unit_discount_total / float(original_price)) * 100
                                     line_item["DiscountPercent"] = total_discount_percentage
-                                    logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+                                    logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount} total (unit: {unit_discount_from_allocations}), Total Discount: {total_discount_percentage:.1f}%")
                         elif discount_allocations and discount_already_accounted:
                             # Discount was already accounted for in discountedUnitPriceSet, so discountAllocations is redundant
                             logger.info(f"🎯 Skipping discountAllocations for {item_code} - discount already accounted for in discountedUnitPriceSet")
@@ -627,10 +637,11 @@ class OrdersSalesSync:
                     # Calculate discount percentage based on compareAtPrice vs sale price
                     if original_price > 0 and sale_price > 0 and original_price != sale_price:
                         # Calculate discount percentage: (original - sale) / original * 100
-                        discount_amount = original_price - sale_price
-                        discount_percentage = (discount_amount / original_price) * 100
+                        unit_discount_amount = original_price - sale_price
+                        discount_percentage = (unit_discount_amount / original_price) * 100
                         line_item["DiscountPercent"] = float(discount_percentage)
-                        line_item["U_ItemDiscountAmount"] = float(discount_amount)
+                        # U_ItemDiscountAmount stores total discount for the line (unit * quantity)
+                        line_item["U_ItemDiscountAmount"] = float(unit_discount_amount * quantity)
                         logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
                     
                     # Also check for additional discount allocations (coupons, etc.)
@@ -643,16 +654,19 @@ class OrdersSalesSync:
                         )
                         if total_item_discount > 0:
                             # Add additional discount amount to existing discount
+                            # discountAllocations contains total discount for the line, so add it directly to U_ItemDiscountAmount
                             if "U_ItemDiscountAmount" in line_item:
                                 line_item["U_ItemDiscountAmount"] += total_item_discount
                             else:
                                 line_item["U_ItemDiscountAmount"] = total_item_discount
                             
-                            # Recalculate total discount percentage
+                            # Recalculate total discount percentage from unit discount
+                            # IMPORTANT: DiscountPercent should be per unit, so divide total by quantity
                             if original_price > 0:
-                                total_discount_percentage = (line_item["U_ItemDiscountAmount"] / float(original_price)) * 100
+                                unit_discount_total = line_item["U_ItemDiscountAmount"] / quantity
+                                total_discount_percentage = (unit_discount_total / float(original_price)) * 100
                                 line_item["DiscountPercent"] = total_discount_percentage
-                                logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount}, Total Discount: {total_discount_percentage:.1f}%")
+                                logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount} total (unit: {unit_discount_total}), Total Discount: {total_discount_percentage:.1f}%")
                     elif discount_allocations and discount_already_accounted:
                         # Discount was already accounted for in discountedUnitPriceSet, so discountAllocations is redundant
                         logger.info(f"🎯 Skipping discountAllocations for {item_code} - discount already accounted for in discountedUnitPriceSet")
@@ -1454,51 +1468,50 @@ class OrdersSalesSync:
                         calc_amount += amount
                         logger.info(f"💰 CASH TRANSACTION: {amount} EGP - Account: {cash_account}")
                     else:
-                        logger.warning(f"No cash account configured for location")
+                        error_msg = f"No cash account configured for location - Gateway: {gateway}, Amount: {amount} EGP"
+                        logger.error(f"❌ {error_msg}")
+                        raise ValueError(error_msg)
                         
-                elif gateway in config_settings.get_credits_for_location(store_key, location_mapping):
-                    # Handle credit card transactions
-                    cred_obj = {}
-                    #cred_obj['CreditCard'] = 1
-                    
-                    # Get credit account from configuration
+                else:
+                    # Check if gateway is a credit card payment
                     credit_account = config_settings.get_credit_account_for_location(store_key, location_mapping, gateway)
                     if credit_account:
+                        # Handle credit card transactions
+                        cred_obj = {}
                         cred_obj['CreditCard'] = credit_account
-                    else:
-                        logger.warning(f"No credit account found for gateway: {gateway}")
-                        continue
-                    
-                    cred_obj['CreditCardNumber'] = "1234"
-                    
-                    # Calculate next month date
-                    next_month = datetime.now().replace(day=28) + timedelta(days=4)
-                    res = next_month - timedelta(days=next_month.day)
-                    cred_obj['CardValidUntil'] = str(res.date())
-                    
-                    cred_obj['VoucherNum'] = gateway
-                    cred_obj['PaymentMethodCode'] = 1
-                    cred_obj['CreditSum'] = amount
-                    cred_obj['CreditCur'] = "EGP"
-                    cred_obj['CreditType'] = "cr_Regular"
-                    cred_obj['SplitPayments'] = "tNO"
-                    
-                    calc_amount += amount
-                    cred_array.append(cred_obj)
-                    logger.info(f"💳 CREDIT CARD TRANSACTION: {gateway} - {amount} EGP - Account: {credit_account}")
-                    
-                elif gateway in config_settings.get_bank_transfers_for_location(store_key, location_mapping):
-                    # Handle other payment gateways as bank transfers
-                    transfer_account = config_settings.get_bank_transfer_for_location(
-                        store_key, location_mapping, gateway
-                    )
-                    if transfer_account:
-                        payment_data["TransferSum"] = amount
-                        payment_data["TransferAccount"] = transfer_account
+                        cred_obj['CreditCardNumber'] = "1234"
+                        
+                        # Calculate next month date
+                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                        res = next_month - timedelta(days=next_month.day)
+                        cred_obj['CardValidUntil'] = str(res.date())
+                        
+                        cred_obj['VoucherNum'] = gateway
+                        cred_obj['PaymentMethodCode'] = 1
+                        cred_obj['CreditSum'] = amount
+                        cred_obj['CreditCur'] = "EGP"
+                        cred_obj['CreditType'] = "cr_Regular"
+                        cred_obj['SplitPayments'] = "tNO"
+                        
                         calc_amount += amount
-                        logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
-                else:
-                    logger.warning(f"No bank transfer account found for gateway: {gateway}")
+                        cred_array.append(cred_obj)
+                        logger.info(f"💳 CREDIT CARD TRANSACTION: {gateway} - {amount} EGP - Account: {credit_account}")
+                    
+                    else:
+                        # Check if gateway is a bank transfer
+                        transfer_account = config_settings.get_bank_transfer_for_location(
+                            store_key, location_mapping, gateway
+                        )
+                        if transfer_account:
+                            payment_data["TransferSum"] = amount
+                            payment_data["TransferAccount"] = transfer_account
+                            calc_amount += amount
+                            logger.info(f"🏦 BANK TRANSFER TRANSACTION: {gateway} - {amount} EGP - Account: {transfer_account}")
+                        else:
+                            # Gateway not found in any payment method - FAIL IMMEDIATELY
+                            error_msg = f"Gateway '{gateway}' not found in credit accounts, bank transfers, or cash configuration - Amount: {amount} EGP. Payment cannot be processed."
+                            logger.error(f"❌ {error_msg}")
+                            raise ValueError(error_msg)
             
             # Process gift cards as credit card payments
             gift_cards = payment_info.get("gift_cards", [])
@@ -1513,7 +1526,10 @@ class OrdersSalesSync:
                         gift_card_credit_id = credit_accounts['Gift Card']
                 
                 if not gift_card_credit_id:
-                    logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                    total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards)
+                    error_msg = f"No gift card credit ID configured for location - Gift card amount: {total_gift_card_amount} EGP will NOT be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
                 else:
                     for gift_card in gift_cards:
                         # Calculate CardValidUntil (next month's last day)
@@ -1598,8 +1614,19 @@ class OrdersSalesSync:
                     if 'Gift Card' in credit_accounts:
                         gift_card_credit_id = credit_accounts['Gift Card']
                 
+                # Fallback: If not found in location_mapping, get from web location config
                 if not gift_card_credit_id:
-                    logger.warning(f"No gift card credit ID configured for location, skipping gift card payments")
+                    web_location_mapping = config_settings.get_location_mapping_for_location(store_key, "web")
+                    if web_location_mapping and 'credit' in web_location_mapping:
+                        credit_accounts = web_location_mapping['credit']
+                        if 'Gift Card' in credit_accounts:
+                            gift_card_credit_id = credit_accounts['Gift Card']
+                
+                if not gift_card_credit_id:
+                    total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards)
+                    error_msg = f"No gift card credit ID configured for location - Gift card amount: {total_gift_card_amount} EGP will NOT be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
                 else:
                     for gift_card in gift_cards:
                         # Calculate CardValidUntil (next month's last day)
@@ -1683,6 +1710,30 @@ class OrdersSalesSync:
             # Calculate total payment amount (gateway payments + gift cards)
             total_calc_amount = calc_amount + payment_amount
             
+            # Validate online payment processing
+            # Check if gift cards exist but weren't processed
+            gift_cards_check = payment_info.get("gift_cards", [])
+            if gift_cards_check:
+                gift_card_credits_in_array = len([c for c in cred_array if str(c.get('VoucherNum', '')).startswith('552') or str(c.get('VoucherNum', '')).isdigit()])
+                if gift_card_credits_in_array == 0:
+                    total_gift_card_amount = sum(gc.get("amount", 0) for gc in gift_cards_check)
+                    error_msg = f"Gift cards exist ({len(gift_cards_check)} cards, {total_gift_card_amount} EGP) but were not processed - Payment cannot be processed"
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+            
+            # Validate payment account configuration
+            if payment_data.get("TransferSum", 0) > 0 and not payment_data.get("TransferAccount"):
+                error_msg = f"TransferSum is {payment_data.get('TransferSum')} but TransferAccount is missing - Payment cannot be processed"
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
+            
+            # Check if payment amount is expected but total_calc_amount is 0
+            expected_total = float(order_node["totalPriceSet"]["shopMoney"]["amount"]) - store_credit_amount
+            if expected_total > 0 and total_calc_amount == 0:
+                error_msg = f"Expected payment total is {expected_total} EGP but total_calc_amount is 0 - Payment cannot be processed"
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
+            
             # Create invoice object for payment
             inv_obj = {
                 "DocEntry": invoice_doc_entry,
@@ -1692,6 +1743,22 @@ class OrdersSalesSync:
             
             # Add invoice to payment data
             payment_data["PaymentInvoices"] = [inv_obj]
+            
+            # Final validation
+            if total_calc_amount <= 0:
+                error_msg = f"Payment total_calc_amount is {total_calc_amount} - must be greater than 0. Payment cannot be processed."
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
+            
+            # Validate that at least one payment method is configured
+            has_cash = payment_data.get("CashSum", 0) > 0
+            has_transfer = payment_data.get("TransferSum", 0) > 0
+            has_credit_cards = len(payment_data.get("PaymentCreditCards", [])) > 0
+            
+            if not (has_cash or has_transfer or has_credit_cards):
+                error_msg = f"No payment method configured (CashSum={payment_data.get('CashSum', 0)}, TransferSum={payment_data.get('TransferSum', 0)}, CreditCards={len(payment_data.get('PaymentCreditCards', []))}) - Payment cannot be processed"
+                logger.error(f"❌ {error_msg}")
+                raise ValueError(error_msg)
             
             logger.info(f"💰 ONLINE PAYMENT SUMMARY: Gateway: {payment_amount} EGP | Gift Cards: {calc_amount} EGP | Total: {total_calc_amount} EGP")
             

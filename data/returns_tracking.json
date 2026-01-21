@@ -32,5 +32,26 @@
         ]
       }
     ]
+  },
+  "gid://shopify/Order/6678752329794": {
+    "order_id": "gid://shopify/Order/6678752329794",
+    "order_name": "#3880",
+    "created_at": "2026-01-17T14:42:04Z",
+    "last_checked_at": "2026-01-18T19:58:31.938887",
+    "processed_returns": [
+      {
+        "return_id": "gid://shopify/Return/20149076034",
+        "processed_at": "2026-01-18T19:58:31.938887",
+        "credit_note_entry": 2479,
+        "gift_card_id": null,
+        "items": [
+          {
+            "line_item_id": "gid://shopify/LineItem/16657947918402",
+            "sku": "FG-0000075",
+            "returned_quantity": 1
+          }
+        ]
+      }
+    ]
   }
 }

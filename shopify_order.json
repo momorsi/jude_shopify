@@ -1,0 +1,287 @@
+{
+    "data": {
+        "orders": {
+            "edges": [
+                {
+                    "node": {
+                        "id": "gid://shopify/Order/6684929294402",
+                        "name": "#3953",
+                        "createdAt": "2026-01-20T15:38:54Z",
+                        "displayFinancialStatus": "PAID",
+                        "displayFulfillmentStatus": "FULFILLED",
+                        "sourceName": "pos",
+                        "sourceIdentifier": "70074990658-3-1188",
+                        "returns": {
+                            "edges": []
+                        },
+                        "fulfillmentOrders": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "lineItems": {
+                                            "edges": [
+                                                {
+                                                    "node": {
+                                                        "id": "gid://shopify/FulfillmentOrderLineItem/16997360304194",
+                                                        "lineItem": {
+                                                            "id": "gid://shopify/LineItem/16671519703106",
+                                                            "sku": "FG-0000568",
+                                                            "currentQuantity": 13,
+                                                            "quantity": 13
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    "node": {
+                                                        "id": "gid://shopify/FulfillmentOrderLineItem/16997360336962",
+                                                        "lineItem": {
+                                                            "id": "gid://shopify/LineItem/16671519735874",
+                                                            "sku": "FG-0000613",
+                                                            "currentQuantity": 2,
+                                                            "quantity": 2
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    "node": {
+                                                        "id": "gid://shopify/FulfillmentOrderLineItem/16997360369730",
+                                                        "lineItem": {
+                                                            "id": "gid://shopify/LineItem/16671519768642",
+                                                            "sku": "FG-0000424",
+                                                            "currentQuantity": 4,
+                                                            "quantity": 4
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        "assignedLocation": {
+                                            "location": {
+                                                "id": "gid://shopify/Location/70074990658"
+                                            }
+                                        },
+                                        "deliveryMethod": {
+                                            "methodType": "RETAIL"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "retailLocation": {
+                            "id": "gid://shopify/Location/70074990658"
+                        },
+                        "totalPriceSet": {
+                            "shopMoney": {
+                                "amount": "289278.0",
+                                "currencyCode": "EGP"
+                            }
+                        },
+                        "subtotalPriceSet": {
+                            "shopMoney": {
+                                "amount": "289278.0",
+                                "currencyCode": "EGP"
+                            }
+                        },
+                        "totalShippingPriceSet": {
+                            "shopMoney": {
+                                "amount": "0.0",
+                                "currencyCode": "EGP"
+                            }
+                        },
+                        "discountApplications": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "targetType": "LINE_ITEM",
+                                        "allocationMethod": "ACROSS",
+                                        "value": {
+                                            "__typename": "PricingPercentageValue",
+                                            "percentage": 1
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "customer": {
+                            "id": "gid://shopify/Customer/8486926680130",
+                            "firstName": "بنك التعمير",
+                            "lastName": "والإسكان",
+                            "email": "saeed.samer@hdb-egy.com",
+                            "phone": "+201228889792",
+                            "addresses": []
+                        },
+                        "metafields": {
+                            "edges": []
+                        },
+                        "tags": [
+                            "sap_invoice_28882",
+                            "sap_invoice_synced",
+                            "sap_payment_27767",
+                            "sap_payment_synced"
+                        ],
+                        "shippingAddress": null,
+                        "billingAddress": null,
+                        "lineItems": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "id": "gid://shopify/LineItem/16671519703106",
+                                        "name": "Riverstone Necklace Mix",
+                                        "quantity": 13,
+                                        "sku": "FG-0000568",
+                                        "originalUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "18400.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountedUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "18400.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountAllocations": [
+                                            {
+                                                "allocatedAmount": {
+                                                    "amount": "2392.0",
+                                                    "currencyCode": "EGP"
+                                                },
+                                                "discountApplication": {
+                                                    "__typename": "ManualDiscountApplication"
+                                                }
+                                            }
+                                        ],
+                                        "variant": {
+                                            "id": "gid://shopify/ProductVariant/42003150962754",
+                                            "sku": "FG-0000568",
+                                            "price": "18400.00",
+                                            "compareAtPrice": "18400.00",
+                                            "product": {
+                                                "id": "gid://shopify/Product/7442025119810",
+                                                "title": "Riverstone Necklace Mix"
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "node": {
+                                        "id": "gid://shopify/LineItem/16671519735874",
+                                        "name": "Liana Necklace",
+                                        "quantity": 2,
+                                        "sku": "FG-0000613",
+                                        "originalUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "14500.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountedUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "14500.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountAllocations": [
+                                            {
+                                                "allocatedAmount": {
+                                                    "amount": "290.0",
+                                                    "currencyCode": "EGP"
+                                                },
+                                                "discountApplication": {
+                                                    "__typename": "ManualDiscountApplication"
+                                                }
+                                            }
+                                        ],
+                                        "variant": {
+                                            "id": "gid://shopify/ProductVariant/42135112187970",
+                                            "sku": "FG-0000613",
+                                            "price": "14500.00",
+                                            "compareAtPrice": "14500.00",
+                                            "product": {
+                                                "id": "gid://shopify/Product/7476672725058",
+                                                "title": "Liana Necklace"
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    "node": {
+                                        "id": "gid://shopify/LineItem/16671519768642",
+                                        "name": "Nebula Earrings - Green",
+                                        "quantity": 4,
+                                        "sku": "FG-0000424",
+                                        "originalUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "6000.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountedUnitPriceSet": {
+                                            "shopMoney": {
+                                                "amount": "6000.0",
+                                                "currencyCode": "EGP"
+                                            }
+                                        },
+                                        "discountAllocations": [
+                                            {
+                                                "allocatedAmount": {
+                                                    "amount": "240.0",
+                                                    "currencyCode": "EGP"
+                                                },
+                                                "discountApplication": {
+                                                    "__typename": "ManualDiscountApplication"
+                                                }
+                                            }
+                                        ],
+                                        "variant": {
+                                            "id": "gid://shopify/ProductVariant/42003149520962",
+                                            "sku": "FG-0000424",
+                                            "price": "6000.00",
+                                            "compareAtPrice": null,
+                                            "product": {
+                                                "id": "gid://shopify/Product/7442024038466",
+                                                "title": "Nebula Earrings"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "transactions": [
+                            {
+                                "id": "gid://shopify/OrderTransaction/8620732481602",
+                                "kind": "SALE",
+                                "status": "SUCCESS",
+                                "gateway": "Geidea POS",
+                                "amountSet": {
+                                    "shopMoney": {
+                                        "amount": "289278.0",
+                                        "currencyCode": "EGP"
+                                    }
+                                },
+                                "processedAt": "2026-01-20T15:38:54Z",
+                                "receiptJson": "{}"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": "eyJsYXN0X2lkIjo2Njg0OTI5Mjk0NDAyLCJsYXN0X3ZhbHVlIjoiMjAyNi0wMS0yMCAxNTozODo1NC44OTMyNTEifQ=="
+            }
+        }
+    },
+    "extensions": {
+        "cost": {
+            "requestedQueryCost": 638,
+            "actualQueryCost": 10,
+            "throttleStatus": {
+                "maximumAvailable": 2000,
+                "currentlyAvailable": 1990,
+                "restoreRate": 100
+            }
+        }
+    }
+}

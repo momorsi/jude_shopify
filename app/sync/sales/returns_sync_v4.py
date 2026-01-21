@@ -377,17 +377,39 @@ class ReturnsSyncV4:
 
     def _determine_scenario(self, order: Dict[str, Any]) -> str:
         """
-        Determine which scenario based on financial status
+        Determine which scenario based on refund transactions
         Returns: "refund" (Scenario 2) or "store_credit" (Scenario 1)
-        """
-        financial_status = order.get("displayFinancialStatus", "").upper()
         
-        if financial_status == "REFUNDED":
-            logger.info(f"Order {order.get('name', '')} is REFUNDED - Scenario 2: Actual Refund")
+        Scenario 2 (refund): If there are actual refund transactions (excluding store credit)
+        Scenario 1 (store_credit): If there are only store credit refunds or no refunds
+        """
+        # Check for actual refund transactions (excluding store credit)
+        refund_transaction = self._extract_refund_transaction_from_order(order)
+        
+        if refund_transaction:
+            logger.info(
+                f"Order {order.get('name', '')} has refund transaction "
+                f"(Gateway: {refund_transaction.get('gateway')}, Amount: {refund_transaction.get('amount')}) - "
+                f"Scenario 2: Actual Refund"
+            )
             return "refund"
         else:
-            logger.info(f"Order {order.get('name', '')} is {financial_status} - Scenario 1: Store Credit/Gift Card")
-            return "store_credit"
+            # Check financial status as fallback
+            financial_status = order.get("displayFinancialStatus", "").upper()
+            
+            # Also check for PARTIALLY_REFUNDED status (partial refunds should be treated as refunds)
+            if financial_status in ["REFUNDED", "PARTIALLY_REFUNDED"]:
+                logger.info(
+                    f"Order {order.get('name', '')} has financial status {financial_status} "
+                    f"(no refund transaction found) - Scenario 2: Actual Refund"
+                )
+                return "refund"
+            else:
+                logger.info(
+                    f"Order {order.get('name', '')} has financial status {financial_status} - "
+                    f"Scenario 1: Store Credit/Gift Card"
+                )
+                return "store_credit"
 
     async def _process_refunded_order(
         self, order: Dict[str, Any], store_key: str, store_config: Dict[str, Any],
@@ -542,46 +564,86 @@ class ReturnsSyncV4:
                 logger.warning(f"No returned items found in return {return_id}")
                 return {"success": False, "return_id": return_id, "error": "No returned items found"}
             
-            # Check document status and reopen if needed
-            # Skip reopening if there are already processed returns (multiple returns scenario)
-            mapping = False
+            # Check if credit note already exists for this order (for refund case, not multiple returns)
+            existing_cn_entry = self._get_existing_credit_note_entry(order)
             processed_return_ids = tracking_db.get_processed_return_ids(order_id)
             has_existing_returns = len(processed_return_ids) > 0
             
-            if document_status == "bost_Open":
-                logger.info(f"Invoice {invoice_entry} is already open, proceeding with BaseEntry mapping")
-                mapping = True
-            elif has_existing_returns:
-                logger.info(f"Invoice {invoice_entry} is closed, but skipping reopen due to existing processed returns (multiple returns scenario)")
-                mapping = False
-            else:
-                logger.info(f"Invoice {invoice_entry} is closed, attempting to reopen")
-                reopen_success = await self.reopen_sap_invoice(invoice_entry)
-                if reopen_success:
-                    mapping = True
-                    logger.info(f"✅ Successfully reopened invoice {invoice_entry}")
+            # For refund case (not multiple returns), reuse existing credit note if it exists
+            if existing_cn_entry and not has_existing_returns:
+                logger.info(f"Found existing Credit Note {existing_cn_entry} for order {order_name}, reusing it")
+                
+                # Fetch credit note details from SAP
+                cn_result = await self.sap_client._make_request(
+                    method='GET',
+                    endpoint=f'CreditNotes({existing_cn_entry})',
+                    params={
+                        "$select": "DocEntry,DocNum,DocTotal,CardCode,DocDate,TransNum,DocumentStatus,SalesPersonCode"
+                    }
+                )
+                
+                if cn_result.get("msg") == "success":
+                    credit_note_data = cn_result["data"]
+                    credit_note_doc_entry = int(existing_cn_entry)
+                    credit_note_total = credit_note_data.get("DocTotal", 0)
+                    
+                    logger.info(f"✅ Reusing existing Credit Note {credit_note_doc_entry} (Total: {credit_note_total})")
+                    
+                    # Skip credit note creation, proceed directly to scenario processing
+                    credit_note_result = {
+                        "success": True,
+                        "doc_entry": credit_note_doc_entry,
+                        "data": credit_note_data
+                    }
                 else:
-                    logger.warning(f"⚠️ Failed to reopen invoice {invoice_entry}")
+                    logger.warning(f"Failed to fetch existing credit note {existing_cn_entry}, will create new one")
+                    existing_cn_entry = None  # Fall through to create new credit note
+            
+            # Create Credit Note if it doesn't exist
+            if not existing_cn_entry:
+                # Check document status and reopen if needed
+                # Skip reopening if there are already processed returns (multiple returns scenario)
+                mapping = False
+                
+                if document_status == "bost_Open":
+                    logger.info(f"Invoice {invoice_entry} is already open, proceeding with BaseEntry mapping")
+                    mapping = True
+                elif has_existing_returns:
+                    logger.info(f"Invoice {invoice_entry} is closed, but skipping reopen due to existing processed returns (multiple returns scenario)")
                     mapping = False
-            
-            # Create Credit Note for returned items
-            credit_note_result = await self._create_credit_note(
-                order, invoice_result, returned_items, customer_card_code, store_key, 
-                mapping, original_sales_person_code, return_details
-            )
-            
-            if not credit_note_result.get("success"):
-                logger.error(f"Failed to create credit note: {credit_note_result.get('error')}")
-                return {"success": False, "return_id": return_id, "error": f"Failed to create credit note: {credit_note_result.get('error')}"}
-            
-            credit_note_doc_entry = credit_note_result["doc_entry"]
-            credit_note_data = credit_note_result["data"]
-            credit_note_total = credit_note_data.get("DocTotal", 0)
-            
-            logger.info(f"✅ Created Credit Note {credit_note_doc_entry} for return {return_id}")
-            
-            # Add credit note tag
-            await self._add_order_tag_with_retry(order_id, f"sap_return_cn_{credit_note_doc_entry}", store_key)
+                else:
+                    logger.info(f"Invoice {invoice_entry} is closed, attempting to reopen")
+                    reopen_success = await self.reopen_sap_invoice(invoice_entry)
+                    if reopen_success:
+                        mapping = True
+                        logger.info(f"✅ Successfully reopened invoice {invoice_entry}")
+                    else:
+                        logger.warning(f"⚠️ Failed to reopen invoice {invoice_entry}")
+                        mapping = False
+                
+                # Create Credit Note for returned items
+                credit_note_result = await self._create_credit_note(
+                    order, invoice_result, returned_items, customer_card_code, store_key, 
+                    mapping, original_sales_person_code, return_details
+                )
+                
+                if not credit_note_result.get("success"):
+                    logger.error(f"Failed to create credit note: {credit_note_result.get('error')}")
+                    return {"success": False, "return_id": return_id, "error": f"Failed to create credit note: {credit_note_result.get('error')}"}
+                
+                credit_note_doc_entry = credit_note_result["doc_entry"]
+                credit_note_data = credit_note_result["data"]
+                credit_note_total = credit_note_data.get("DocTotal", 0)
+                
+                logger.info(f"✅ Created Credit Note {credit_note_doc_entry} for return {return_id}")
+                
+                # Add credit note tag
+                await self._add_order_tag_with_retry(order_id, f"sap_return_cn_{credit_note_doc_entry}", store_key)
+            else:
+                # Use existing credit note details
+                credit_note_doc_entry = credit_note_result["doc_entry"]
+                credit_note_data = credit_note_result["data"]
+                credit_note_total = credit_note_data.get("DocTotal", 0)
             
             # Determine scenario
             scenario = self._determine_scenario(order)
@@ -1796,21 +1858,21 @@ class ReturnsSyncV4:
     ) -> Dict[str, Any]:
         """
         Prepare payment data (incoming or outgoing)
-        - invoice_type: "it_Invoice" for incoming, "it_CreditNote" for outgoing
+        - invoice_type: "it_Invoice" for incoming, "it_CredItnote" for outgoing
+        - total_amount: For refunds, this should be the credit note total (refund amount)
         """
-        # Copy original payment details
-        payment_data = original_payment_details.copy()
-        
-        # Always set DocType
-        payment_data["DocType"] = "rCustomer"
+        # Copy original payment details structure
+        payment_data = {
+            "DocType": "rCustomer",
+            "CardCode": original_payment_details.get("CardCode"),
+            "U_Shopify_Order_ID": order.get("id", "").split("/")[-1] if "/" in order.get("id", "") else order.get("id", "")
+        }
         
         # Use Credit Note DocDate
         credit_note_doc_date = datetime.now().strftime("%Y-%m-%d")
         payment_data["DocDate"] = credit_note_doc_date
         payment_data["TaxDate"] = credit_note_doc_date
         payment_data["DueDate"] = credit_note_doc_date
-        
-        payment_data["U_Shopify_Order_ID"] = order.get("id", "").split("/")[-1] if "/" in order.get("id", "") else order.get("id", "")
         
         # Get location mapping for series
         location_analysis = self._analyze_order_location_from_retail_location(order, store_key)
@@ -1823,58 +1885,222 @@ class ReturnsSyncV4:
             'outgoing_payments'
         )
         
-        # Rebuild PaymentCreditCards with only the same fields used in incoming payments (from orders_sync.py)
-        if "PaymentCreditCards" in original_payment_details and original_payment_details["PaymentCreditCards"]:
-            rebuilt_credit_cards = []
-            for credit_card in original_payment_details["PaymentCreditCards"]:
-                # Only include the same fields used in incoming payments
-                cred_obj = {
-                    "CreditCard": credit_card.get("CreditCard"),  # Account from original payment
-                    "CreditCardNumber": "1234",  # Hardcoded same as incoming payments
-                    "CardValidUntil": credit_card.get("CardValidUntil"),  # Keep original if exists
-                    "VoucherNum": credit_card.get("VoucherNum"),  # Gateway from original payment
-                    "PaymentMethodCode": 1,  # Hardcoded same as incoming payments
-                    "CreditSum": credit_card.get("CreditSum"),  # Amount from original payment
-                    "CreditCur": "EGP",  # Hardcoded same as incoming payments
-                    "CreditType": "cr_Regular",  # Hardcoded same as incoming payments
-                    "SplitPayments": "tNO"  # Hardcoded same as incoming payments
-                }
-                
-                cred_obj['CreditAcct'] = config_settings.credit_cards[str(credit_card.get("CreditCard"))]
-                
-                # Calculate CardValidUntil if not present (same logic as incoming payments)
-                if not cred_obj.get("CardValidUntil"):
-                    from datetime import timedelta
-                    next_month = datetime.now().replace(day=28) + timedelta(days=4)
-                    res = next_month - timedelta(days=next_month.day)
-                    cred_obj["CardValidUntil"] = str(res.date())
-                
-                rebuilt_credit_cards.append(cred_obj)
+        # Extract refund transaction from Shopify to get gateway and amount
+        refund_transaction = self._extract_refund_transaction_from_order(order)
+        
+        # Use credit note total as the refund amount (or validate against transaction)
+        refund_amount = total_amount
+        refund_gateway = None
+        
+        if refund_transaction:
+            refund_gateway = refund_transaction.get("gateway")
+            transaction_amount = refund_transaction.get("amount", 0)
             
-            payment_data["PaymentCreditCards"] = rebuilt_credit_cards
+            # Validate that credit note total matches refund transaction amount
+            if abs(refund_amount - transaction_amount) > 0.01:
+                logger.warning(
+                    f"Refund amount mismatch: Credit Note total={refund_amount}, "
+                    f"Shopify refund transaction={transaction_amount}. Using Credit Note total."
+                )
+            # Optionally use transaction amount if credit note total is 0 or invalid
+            if refund_amount == 0 and transaction_amount > 0:
+                refund_amount = transaction_amount
+                logger.info(f"Using refund amount from Shopify transactions: {refund_amount}")
+            
+            logger.info(f"Refund transaction found - Gateway: {refund_gateway}, Amount: {transaction_amount}")
+        else:
+            logger.warning("No refund transaction found in order, will use original payment method")
+            # Fallback: use original payment method if no refund transaction found
+            refund_gateway = None
         
-        # Calculate total sum from all payment methods
-        total_sum = 0
-        if "CashSum" in original_payment_details:
-            total_sum += original_payment_details["CashSum"]
-        if "TransferSum" in original_payment_details:
-            total_sum += original_payment_details["TransferSum"]
-        if "PaymentCreditCards" in payment_data:
-            for credit_card in payment_data["PaymentCreditCards"]:
-                total_sum += credit_card.get("CreditSum", 0)
+        # Determine payment method based on refund gateway
+        if refund_gateway:
+            # Use the refund gateway to determine payment method
+            location_type = self.config.get_location_type(location_mapping)
+            
+            # Check if it's a cash payment
+            if refund_gateway.lower() == "cash":
+                cash_account = self.config.get_cash_account_for_location(location_mapping)
+                if cash_account:
+                    payment_data["CashSum"] = refund_amount
+                    payment_data["CashAccount"] = cash_account
+                    logger.info(f"💰 CASH REFUND: {refund_amount} EGP - Account: {cash_account}")
+                else:
+                    logger.warning(f"No cash account configured for location, falling back to original payment method")
+                    refund_gateway = None  # Fallback to original payment
+            
+            # Check if it's a credit card payment (for store locations)
+            elif location_type == "store" and refund_gateway in self.config.get_credits_for_location(store_key, location_mapping):
+                credit_account = self.config.get_credit_account_for_location(store_key, location_mapping, refund_gateway)
+                if credit_account:
+                    # Get credit card ID from config
+                    credit_card_id = None
+                    if location_mapping and 'credit' in location_mapping:
+                        credit_accounts = location_mapping['credit']
+                        if refund_gateway in credit_accounts:
+                            credit_card_id = credit_accounts[refund_gateway]
+                    
+                    if credit_card_id:
+                        # Calculate CardValidUntil (next month's last day)
+                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                        res = next_month - timedelta(days=next_month.day)
+                        
+                        cred_obj = {
+                            "CreditCard": credit_card_id,
+                            "CreditCardNumber": "1234",  # Hardcoded same as incoming payments
+                            "CardValidUntil": str(res.date()),
+                            "VoucherNum": refund_gateway,
+                            "PaymentMethodCode": 1,
+                            "CreditSum": refund_amount,
+                            "CreditCur": "EGP",
+                            "CreditType": "cr_Regular",
+                            "SplitPayments": "tNO"
+                        }
+                        
+                        cred_obj['CreditAcct'] = config_settings.credit_cards[str(credit_card_id)]
+                        
+                        payment_data["PaymentCreditCards"] = [cred_obj]
+                        logger.info(f"💳 CREDIT CARD REFUND: {refund_gateway} - {refund_amount} EGP - Account: {credit_account}")
+                    else:
+                        logger.warning(f"No credit card ID found for gateway {refund_gateway}, falling back to original payment method")
+                        refund_gateway = None  # Fallback to original payment
+                else:
+                    logger.warning(f"No credit account found for gateway {refund_gateway}, falling back to original payment method")
+                    refund_gateway = None  # Fallback to original payment
+            
+            # Check if it's a bank transfer payment (for online or other gateways)
+            elif refund_gateway in self.config.get_bank_transfers_for_location(store_key, location_mapping) or location_type == "online":
+                transfer_account = self.config.get_bank_transfer_for_location(
+                    store_key,
+                    location_mapping,
+                    refund_gateway
+                )
+                if transfer_account:
+                    payment_data["TransferSum"] = refund_amount
+                    payment_data["TransferAccount"] = transfer_account
+                    logger.info(f"🏦 BANK TRANSFER REFUND: {refund_gateway} - {refund_amount} EGP - Account: {transfer_account}")
+                else:
+                    logger.warning(f"No bank transfer account found for gateway {refund_gateway}, falling back to original payment method")
+                    refund_gateway = None  # Fallback to original payment
         
-        # Set PaymentInvoices with appropriate InvoiceType
+        # Fallback: If no refund gateway found or mapping failed, use original payment method proportionally
+        if not refund_gateway or (not payment_data.get("CashSum") and not payment_data.get("TransferSum") and not payment_data.get("PaymentCreditCards")):
+            logger.info("Falling back to original payment method for refund")
+            
+            # Calculate original payment total to determine proportions
+            original_cash = original_payment_details.get("CashSum", 0) or 0
+            original_transfer = original_payment_details.get("TransferSum", 0) or 0
+            original_total = original_cash + original_transfer
+            
+            if "PaymentCreditCards" in original_payment_details and original_payment_details["PaymentCreditCards"]:
+                for credit_card in original_payment_details["PaymentCreditCards"]:
+                    original_total += credit_card.get("CreditSum", 0) or 0
+            
+            # Use original payment accounts but with refund amount
+            if original_cash > 0 and original_total > 0:
+                cash_refund_ratio = original_cash / original_total
+                cash_refund_amount = refund_amount * cash_refund_ratio
+                if cash_refund_amount > 0:
+                    payment_data["CashSum"] = cash_refund_amount
+                    payment_data["CashAccount"] = original_payment_details.get("CashAccount")
+            
+            if original_transfer > 0 and original_total > 0:
+                transfer_refund_ratio = original_transfer / original_total
+                transfer_refund_amount = refund_amount * transfer_refund_ratio
+                if transfer_refund_amount > 0:
+                    payment_data["TransferSum"] = transfer_refund_amount
+                    payment_data["TransferAccount"] = original_payment_details.get("TransferAccount")
+            
+            if "PaymentCreditCards" in original_payment_details and original_payment_details["PaymentCreditCards"]:
+                rebuilt_credit_cards = []
+                for credit_card in original_payment_details["PaymentCreditCards"]:
+                    original_card_amount = credit_card.get("CreditSum", 0) or 0
+                    if original_total > 0:
+                        card_refund_ratio = original_card_amount / original_total
+                        card_refund_amount = refund_amount * card_refund_ratio
+                    else:
+                        card_refund_amount = 0
+                    
+                    if card_refund_amount > 0:
+                        cred_obj = {
+                            "CreditCard": credit_card.get("CreditCard"),
+                            "CreditCardNumber": "1234",
+                            "CardValidUntil": credit_card.get("CardValidUntil"),
+                            "VoucherNum": credit_card.get("VoucherNum"),
+                            "PaymentMethodCode": 1,
+                            "CreditSum": card_refund_amount,
+                            "CreditCur": "EGP",
+                            "CreditType": "cr_Regular",
+                            "SplitPayments": "tNO"
+                        }
+                        
+                        cred_obj['CreditAcct'] = config_settings.credit_cards[str(credit_card.get("CreditCard"))]
+                        
+                        if not cred_obj.get("CardValidUntil"):
+                            next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                            res = next_month - timedelta(days=next_month.day)
+                            cred_obj["CardValidUntil"] = str(res.date())
+                        
+                        rebuilt_credit_cards.append(cred_obj)
+                
+                if rebuilt_credit_cards:
+                    payment_data["PaymentCreditCards"] = rebuilt_credit_cards
+        
+        # Set PaymentInvoices with REFUND AMOUNT (not original payment total)
         payment_data["PaymentInvoices"] = [{
             "DocEntry": document_entry,
-            "SumApplied": total_sum,
-            "InvoiceType": invoice_type  # "it_Invoice" or "it_CreditNote"
+            "SumApplied": refund_amount,  # Use refund amount, not original payment total
+            "InvoiceType": invoice_type  # "it_Invoice" or "it_CredItnote"
         }]
         
-        logger.info(f"Prepared payment data - DocType: rCustomer, InvoiceType: {invoice_type}, Amount: {total_sum}, Series: {payment_data.get('Series')}")
+        logger.info(
+            f"Prepared payment data - DocType: rCustomer, InvoiceType: {invoice_type}, "
+            f"Refund Amount: {refund_amount}, Gateway: {refund_gateway or 'Original Payment'}, "
+            f"Series: {payment_data.get('Series')}"
+        )
         
         return payment_data
 
     # Helper Methods (reused from v2)
+    def _extract_refund_transaction_from_order(self, order: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Extract refund transaction from Shopify order transactions
+        Returns the refund transaction with gateway and amount (excluding store credit refunds)
+        """
+        try:
+            transactions = order.get("transactions", [])
+            if not transactions:
+                return None
+            
+            # Look for REFUND transactions (excluding store credit refunds)
+            for transaction in transactions:
+                if (transaction.get("kind") == "REFUND" and 
+                    transaction.get("status") == "SUCCESS" and
+                    transaction.get("gateway") != "shopify_store_credit"):
+                    
+                    amount_set = transaction.get("amountSet", {})
+                    shop_money = amount_set.get("shopMoney", {})
+                    amount = float(shop_money.get("amount", 0))
+                    gateway = transaction.get("gateway", "")
+                    
+                    if amount > 0 and gateway:
+                        logger.info(
+                            f"Found refund transaction: {transaction.get('id')} - "
+                            f"Gateway: {gateway} - Amount: {amount}"
+                        )
+                        return {
+                            "gateway": gateway,
+                            "amount": amount,
+                            "transaction_id": transaction.get("id"),
+                            "processed_at": transaction.get("processedAt")
+                        }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error extracting refund transaction from order: {str(e)}")
+            return None
+    
     def _extract_store_credit_refunds(self, order: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract store credit refund transactions from order"""
         store_credit_refunds = []
