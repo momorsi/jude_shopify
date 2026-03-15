@@ -1218,11 +1218,34 @@ class MultiStoreNewItemsSync:
 
             for store_key, store_config in enabled_stores.items():
                 logger.info(f"Fetching new items for store: {store_key}")
-                sap_result = await sap_client.get_new_items(store_key=store_key)
+                await sl_add_log(
+                    server="sap",
+                    endpoint="view.svc/MASHURA_New_ItemsB1SLQuery",
+                    request_data={"store_key": store_key, "batch_size": config_settings.new_items_batch_size, "filter": f"Shopify_Store eq '{store_key}'"},
+                    action="get_new_items",
+                    value=f"Fetching new items from SAP for store {store_key}"
+                )
+                sap_result = await sap_client.get_new_items(store_key=store_key, batch_size=config_settings.new_items_batch_size)
                 if sap_result["msg"] == "failure":
+                    await sl_add_log(
+                        server="sap",
+                        endpoint="view.svc/MASHURA_New_ItemsB1SLQuery",
+                        response_data={"error": sap_result.get("error")},
+                        status="failure",
+                        action="get_new_items",
+                        value=f"Failed to fetch new items for store {store_key}"
+                    )
                     logger.error(f"Failed to get new items from SAP for store {store_key}: {sap_result.get('error')}")
                     continue
                 items = sap_result["data"].get("value", [])
+                await sl_add_log(
+                    server="sap",
+                    endpoint="view.svc/MASHURA_New_ItemsB1SLQuery",
+                    response_data={"item_count": len(items), "sample_items": [i.get("itemcode") for i in items[:10]]},
+                    status="success",
+                    action="get_new_items",
+                    value=f"Fetched {len(items)} new items from SAP for store {store_key}"
+                )
                 if not items:
                     logger.info(f"No new items found in SAP for store {store_key}")
                     continue
@@ -1396,13 +1419,22 @@ class MultiStoreNewItemsSync:
                             
                             # Use new two-step approach for ALL products (both single and multi-variant)
                             product_info = self.map_sap_item_to_shopify_product(group_items, store_config)
+                            await sl_add_log(
+                                server="shopify",
+                                endpoint=f"/admin/api/graphql_{store_key}",
+                                request_data={"product_data": product_info.get("product_data"), "variant_count": len(product_info.get("variants_data", [])), "skus": [v.get("inventoryItem", {}).get("sku") for v in product_info.get("variants_data", [])]},
+                                action="create_product_two_step",
+                                value=f"Creating new product '{main_product_name}' with {len(product_info.get('variants_data', []))} variants in store {store_key}"
+                            )
                             store_result = await self.create_product_with_variants_two_step(store_key, product_info, store_config)
                             
                             if store_result["msg"] == "failure":
+                                await sl_add_log(server="shopify", endpoint=f"/admin/api/graphql_{store_key}", response_data={"error": store_result.get("error")}, status="failure", action="create_product_two_step", value=f"Failed to create product '{main_product_name}' in store {store_key}")
                                 logger.error(f"Failed to create product in store {store_key}: {store_result.get('error')}")
                                 errors += 1
                                 continue
                             else:
+                                await sl_add_log(server="shopify", endpoint=f"/admin/api/graphql_{store_key}", response_data={"product_id": store_result.get("shopify_product_id"), "variant_count": len(store_result.get("shopify_variants", []))}, status="success", action="create_product_two_step", value=f"Created product '{main_product_name}' in store {store_key}")
                                 logger.info(f"Successfully created product in store {store_key}")
                                 shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
                         
@@ -1412,7 +1444,7 @@ class MultiStoreNewItemsSync:
                         # For single products (no variants), use itemcode as U_SAP_Code since MainProduct is NULL
                         sap_code_for_mapping = main_product_name if main_product_name else group_items[0].get("itemcode", "")                    
                         
-                        mapping_result = await sap_client.add_shopify_mapping({
+                        mapping_data = {
                             "Code": shopify_product_id,
                             "Name": shopify_product_id,
                             "U_Shopify_Type": "product",
@@ -1420,7 +1452,17 @@ class MultiStoreNewItemsSync:
                             "U_Shopify_Store": store_key,
                             "U_SAP_Type": "item",
                             "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
-                        })                        
+                        }
+                        mapping_result = await sap_client.add_shopify_mapping(mapping_data)
+                        await sl_add_log(
+                            server="sap",
+                            endpoint="U_SHOPIFY_MAPPING_2",
+                            request_data=mapping_data,
+                            response_data=mapping_result,
+                            status="success" if mapping_result.get("msg") == "success" else "failure",
+                            action="add_mapping_product",
+                            value=f"Product mapping for {sap_code_for_mapping} -> {shopify_product_id} in store {store_key}"
+                        )
                         
                         # Handle variant mappings based on whether we created a new product or added to existing
                         if existing_product_result["exists"]:
@@ -1439,25 +1481,13 @@ class MultiStoreNewItemsSync:
                                     variant_id = variant_result["shopify_variant_id"].split("/")[-1]
                                     inventory_id = variant_result["shopify_inventory_item_id"].split("/")[-1]
                                     
-                                    variant_mapping_result = await sap_client.add_shopify_mapping({
-                                        "Code": variant_id,
-                                        "Name": variant_id,
-                                        "U_Shopify_Type": "variant",
-                                        "U_SAP_Code": itemcode,
-                                        "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item",
-                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
-                                    })
+                                    v_map_data = {"Code": variant_id, "Name": variant_id, "U_Shopify_Type": "variant", "U_SAP_Code": itemcode, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+                                    variant_mapping_result = await sap_client.add_shopify_mapping(v_map_data)
+                                    await sl_add_log(server="sap", endpoint="U_SHOPIFY_MAPPING_2", request_data=v_map_data, response_data=variant_mapping_result, status="success" if variant_mapping_result.get("msg") == "success" else "failure", action="add_mapping_variant", value=f"Variant mapping {itemcode} -> {variant_id} in {store_key}")
                                     
-                                    inventory_mapping_result = await sap_client.add_shopify_mapping({
-                                        "Code": inventory_id,
-                                        "Name": inventory_id,
-                                        "U_Shopify_Type": "variant_inventory",
-                                        "U_SAP_Code": itemcode,
-                                        "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item",
-                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
-                                    })
+                                    i_map_data = {"Code": inventory_id, "Name": inventory_id, "U_Shopify_Type": "variant_inventory", "U_SAP_Code": itemcode, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+                                    inventory_mapping_result = await sap_client.add_shopify_mapping(i_map_data)
+                                    await sl_add_log(server="sap", endpoint="U_SHOPIFY_MAPPING_2", request_data=i_map_data, response_data=inventory_mapping_result, status="success" if inventory_mapping_result.get("msg") == "success" else "failure", action="add_mapping_inventory", value=f"Inventory mapping {itemcode} -> {inventory_id} in {store_key}")
                         else:
                             # For new products, use the store_result from create_product_in_store
                             for sap_item in group_items:
@@ -1471,26 +1501,14 @@ class MultiStoreNewItemsSync:
                                         inventory_id = variant["inventory_item_id"].split("/")[-1]
                                         break
                                 if variant_id:
-                                    variant_mapping_result = await sap_client.add_shopify_mapping({
-                                        "Code": variant_id,
-                                        "Name": variant_id,
-                                        "U_Shopify_Type": "variant",
-                                        "U_SAP_Code": itemcode,
-                                        "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item",
-                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
-                                    })
+                                    v_map_data2 = {"Code": variant_id, "Name": variant_id, "U_Shopify_Type": "variant", "U_SAP_Code": itemcode, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+                                    variant_mapping_result = await sap_client.add_shopify_mapping(v_map_data2)
+                                    await sl_add_log(server="sap", endpoint="U_SHOPIFY_MAPPING_2", request_data=v_map_data2, response_data=variant_mapping_result, status="success" if variant_mapping_result.get("msg") == "success" else "failure", action="add_mapping_variant", value=f"Variant mapping {itemcode} -> {variant_id} in {store_key}")
                                     
                                 if inventory_id:
-                                    inventory_mapping_result = await sap_client.add_shopify_mapping({
-                                        "Code": inventory_id,
-                                        "Name": inventory_id,
-                                        "U_Shopify_Type": "variant_inventory",
-                                        "U_SAP_Code": itemcode,
-                                        "U_Shopify_Store": store_key,
-                                        "U_SAP_Type": "item",
-                                        "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
-                                    })
+                                    i_map_data2 = {"Code": inventory_id, "Name": inventory_id, "U_Shopify_Type": "variant_inventory", "U_SAP_Code": itemcode, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+                                    inventory_mapping_result = await sap_client.add_shopify_mapping(i_map_data2)
+                                    await sl_add_log(server="sap", endpoint="U_SHOPIFY_MAPPING_2", request_data=i_map_data2, response_data=inventory_mapping_result, status="success" if inventory_mapping_result.get("msg") == "success" else "failure", action="add_mapping_inventory", value=f"Inventory mapping {itemcode} -> {inventory_id} in {store_key}")
 
                             success += 1
                     except Exception as e:

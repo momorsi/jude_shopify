@@ -55,7 +55,6 @@ class ReturnsSyncV4:
                     store_config_dict = {
                         "name": store_config.name,
                         "shop_url": store_config.shop_url,
-                        "access_token": store_config.access_token,
                         "api_version": store_config.api_version,
                         "timeout": store_config.timeout,
                         "currency": store_config.currency,
@@ -140,7 +139,7 @@ class ReturnsSyncV4:
                         -tag:sap_return_synced
                         -tag:sap_return_failed
                         created_at:>={self.config.returns_from_date}"""
-                    )
+                    )                
                 
                 query = """
                 query getOrders($first: Int!, $after: String, $query: String) {
@@ -218,6 +217,15 @@ class ReturnsSyncV4:
                                     }
                                 }
                                 tags
+                                metafields(first: 10) {
+                                    edges {
+                                        node {
+                                            namespace
+                                            key
+                                            value
+                                        }
+                                    }
+                                }
                                 lineItems(first: 50) {
                                     edges {
                                         node {
@@ -670,7 +678,7 @@ class ReturnsSyncV4:
                     return_id_numeric = return_id
                 return_tag = f"sap_return_{return_id_numeric}"
                 
-                # Add per-return tag
+                # Add per-return tag and remove failed tag if it exists
                 await self._add_order_tag_with_retry(order_id, return_tag, store_key)
                 logger.info(f"✅ Added per-return tag '{return_tag}' for return {return_id}")
                 
@@ -1874,16 +1882,9 @@ class ReturnsSyncV4:
         payment_data["TaxDate"] = credit_note_doc_date
         payment_data["DueDate"] = credit_note_doc_date
         
-        # Get location mapping for series
+        # Get location mapping for payment method resolution
         location_analysis = self._analyze_order_location_from_retail_location(order, store_key)
         location_mapping = location_analysis.get('location_mapping', {})
-        
-        # Set Series using outgoing_payments series from config
-        payment_data["Series"] = self.config.get_series_for_location(
-            store_key,
-            location_mapping,
-            'outgoing_payments'
-        )
         
         # Extract refund transaction from Shopify to get gateway and amount
         refund_transaction = self._extract_refund_transaction_from_order(order)
@@ -1914,59 +1915,81 @@ class ReturnsSyncV4:
             refund_gateway = None
         
         # Determine payment method based on refund gateway
+        cod_gateway_names = ["cash on delivery (cod)", "cod"]
+        payment_method_resolved = False
+        
         if refund_gateway:
-            # Use the refund gateway to determine payment method
             location_type = self.config.get_location_type(location_mapping)
             
-            # Check if it's a cash payment
-            if refund_gateway.lower() == "cash":
-                cash_account = self.config.get_cash_account_for_location(location_mapping)
-                if cash_account:
+            # Check if it's a COD payment (online: bank transfer to courier, store: cash)
+            if refund_gateway.lower() in cod_gateway_names:
+                if location_type == "online":
+                    courier_name = self._extract_courier_from_metafields(order)
+                    transfer_account = self.config.get_bank_transfer_for_location(
+                        store_key, location_mapping, "Cash on Delivery (COD)", courier_name
+                    )
+                    if not transfer_account:
+                        raise ValueError(
+                            f"No bank transfer account found for COD refund. "
+                            f"Gateway: '{refund_gateway}', Courier: '{courier_name}', Store: {store_key}"
+                        )
+                    payment_data["TransferSum"] = refund_amount
+                    payment_data["TransferAccount"] = transfer_account
+                    payment_method_resolved = True
+                    logger.info(f"COD BANK TRANSFER REFUND: {refund_amount} EGP - Courier: {courier_name} - Account: {transfer_account}")
+                else:
+                    cash_account = self.config.get_cash_account_for_location(location_mapping)
+                    if not cash_account:
+                        raise ValueError(f"No cash account configured for location. Gateway: '{refund_gateway}', Store: {store_key}")
                     payment_data["CashSum"] = refund_amount
                     payment_data["CashAccount"] = cash_account
-                    logger.info(f"💰 CASH REFUND: {refund_amount} EGP - Account: {cash_account}")
-                else:
-                    logger.warning(f"No cash account configured for location, falling back to original payment method")
-                    refund_gateway = None  # Fallback to original payment
+                    payment_method_resolved = True
+                    logger.info(f"CASH REFUND: {refund_amount} EGP - Gateway: {refund_gateway} - Account: {cash_account}")
+            
+            # Check if it's a plain cash payment (POS)
+            elif refund_gateway.lower() == "cash":
+                cash_account = self.config.get_cash_account_for_location(location_mapping)
+                if not cash_account:
+                    raise ValueError(f"No cash account configured for location. Gateway: '{refund_gateway}', Store: {store_key}")
+                payment_data["CashSum"] = refund_amount
+                payment_data["CashAccount"] = cash_account
+                payment_method_resolved = True
+                logger.info(f"CASH REFUND: {refund_amount} EGP - Gateway: {refund_gateway} - Account: {cash_account}")
             
             # Check if it's a credit card payment (for store locations)
             elif location_type == "store" and refund_gateway in self.config.get_credits_for_location(store_key, location_mapping):
                 credit_account = self.config.get_credit_account_for_location(store_key, location_mapping, refund_gateway)
-                if credit_account:
-                    # Get credit card ID from config
-                    credit_card_id = None
-                    if location_mapping and 'credit' in location_mapping:
-                        credit_accounts = location_mapping['credit']
-                        if refund_gateway in credit_accounts:
-                            credit_card_id = credit_accounts[refund_gateway]
-                    
-                    if credit_card_id:
-                        # Calculate CardValidUntil (next month's last day)
-                        next_month = datetime.now().replace(day=28) + timedelta(days=4)
-                        res = next_month - timedelta(days=next_month.day)
-                        
-                        cred_obj = {
-                            "CreditCard": credit_card_id,
-                            "CreditCardNumber": "1234",  # Hardcoded same as incoming payments
-                            "CardValidUntil": str(res.date()),
-                            "VoucherNum": refund_gateway,
-                            "PaymentMethodCode": 1,
-                            "CreditSum": refund_amount,
-                            "CreditCur": "EGP",
-                            "CreditType": "cr_Regular",
-                            "SplitPayments": "tNO"
-                        }
-                        
-                        cred_obj['CreditAcct'] = config_settings.credit_cards[str(credit_card_id)]
-                        
-                        payment_data["PaymentCreditCards"] = [cred_obj]
-                        logger.info(f"💳 CREDIT CARD REFUND: {refund_gateway} - {refund_amount} EGP - Account: {credit_account}")
-                    else:
-                        logger.warning(f"No credit card ID found for gateway {refund_gateway}, falling back to original payment method")
-                        refund_gateway = None  # Fallback to original payment
-                else:
-                    logger.warning(f"No credit account found for gateway {refund_gateway}, falling back to original payment method")
-                    refund_gateway = None  # Fallback to original payment
+                if not credit_account:
+                    raise ValueError(f"No credit account found for gateway '{refund_gateway}' in store {store_key}")
+                
+                credit_card_id = None
+                if location_mapping and 'credit' in location_mapping:
+                    credit_accounts = location_mapping['credit']
+                    if refund_gateway in credit_accounts:
+                        credit_card_id = credit_accounts[refund_gateway]
+                
+                if not credit_card_id:
+                    raise ValueError(f"No credit card ID found for gateway '{refund_gateway}' in store {store_key}")
+                
+                next_month = datetime.now().replace(day=28) + timedelta(days=4)
+                res = next_month - timedelta(days=next_month.day)
+                
+                cred_obj = {
+                    "CreditCard": credit_card_id,
+                    "CreditCardNumber": "1234",
+                    "CardValidUntil": str(res.date()),
+                    "VoucherNum": refund_gateway,
+                    "PaymentMethodCode": 1,
+                    "CreditSum": refund_amount,
+                    "CreditCur": "EGP",
+                    "CreditType": "cr_Regular",
+                    "SplitPayments": "tNO"
+                }
+                cred_obj['CreditAcct'] = config_settings.credit_cards[str(credit_card_id)]
+                
+                payment_data["PaymentCreditCards"] = [cred_obj]
+                payment_method_resolved = True
+                logger.info(f"CREDIT CARD REFUND: {refund_gateway} - {refund_amount} EGP - Account: {credit_account}")
             
             # Check if it's a bank transfer payment (for online or other gateways)
             elif refund_gateway in self.config.get_bank_transfers_for_location(store_key, location_mapping) or location_type == "online":
@@ -1975,76 +1998,21 @@ class ReturnsSyncV4:
                     location_mapping,
                     refund_gateway
                 )
-                if transfer_account:
-                    payment_data["TransferSum"] = refund_amount
-                    payment_data["TransferAccount"] = transfer_account
-                    logger.info(f"🏦 BANK TRANSFER REFUND: {refund_gateway} - {refund_amount} EGP - Account: {transfer_account}")
-                else:
-                    logger.warning(f"No bank transfer account found for gateway {refund_gateway}, falling back to original payment method")
-                    refund_gateway = None  # Fallback to original payment
+                if not transfer_account:
+                    raise ValueError(f"No bank transfer account found for gateway '{refund_gateway}' in store {store_key}")
+                payment_data["TransferSum"] = refund_amount
+                payment_data["TransferAccount"] = transfer_account
+                payment_method_resolved = True
+                logger.info(f"BANK TRANSFER REFUND: {refund_gateway} - {refund_amount} EGP - Account: {transfer_account}")
+            
+            else:
+                raise ValueError(f"Refund gateway '{refund_gateway}' is not mapped to any payment method for store {store_key}")
         
-        # Fallback: If no refund gateway found or mapping failed, use original payment method proportionally
-        if not refund_gateway or (not payment_data.get("CashSum") and not payment_data.get("TransferSum") and not payment_data.get("PaymentCreditCards")):
-            logger.info("Falling back to original payment method for refund")
-            
-            # Calculate original payment total to determine proportions
-            original_cash = original_payment_details.get("CashSum", 0) or 0
-            original_transfer = original_payment_details.get("TransferSum", 0) or 0
-            original_total = original_cash + original_transfer
-            
-            if "PaymentCreditCards" in original_payment_details and original_payment_details["PaymentCreditCards"]:
-                for credit_card in original_payment_details["PaymentCreditCards"]:
-                    original_total += credit_card.get("CreditSum", 0) or 0
-            
-            # Use original payment accounts but with refund amount
-            if original_cash > 0 and original_total > 0:
-                cash_refund_ratio = original_cash / original_total
-                cash_refund_amount = refund_amount * cash_refund_ratio
-                if cash_refund_amount > 0:
-                    payment_data["CashSum"] = cash_refund_amount
-                    payment_data["CashAccount"] = original_payment_details.get("CashAccount")
-            
-            if original_transfer > 0 and original_total > 0:
-                transfer_refund_ratio = original_transfer / original_total
-                transfer_refund_amount = refund_amount * transfer_refund_ratio
-                if transfer_refund_amount > 0:
-                    payment_data["TransferSum"] = transfer_refund_amount
-                    payment_data["TransferAccount"] = original_payment_details.get("TransferAccount")
-            
-            if "PaymentCreditCards" in original_payment_details and original_payment_details["PaymentCreditCards"]:
-                rebuilt_credit_cards = []
-                for credit_card in original_payment_details["PaymentCreditCards"]:
-                    original_card_amount = credit_card.get("CreditSum", 0) or 0
-                    if original_total > 0:
-                        card_refund_ratio = original_card_amount / original_total
-                        card_refund_amount = refund_amount * card_refund_ratio
-                    else:
-                        card_refund_amount = 0
-                    
-                    if card_refund_amount > 0:
-                        cred_obj = {
-                            "CreditCard": credit_card.get("CreditCard"),
-                            "CreditCardNumber": "1234",
-                            "CardValidUntil": credit_card.get("CardValidUntil"),
-                            "VoucherNum": credit_card.get("VoucherNum"),
-                            "PaymentMethodCode": 1,
-                            "CreditSum": card_refund_amount,
-                            "CreditCur": "EGP",
-                            "CreditType": "cr_Regular",
-                            "SplitPayments": "tNO"
-                        }
-                        
-                        cred_obj['CreditAcct'] = config_settings.credit_cards[str(credit_card.get("CreditCard"))]
-                        
-                        if not cred_obj.get("CardValidUntil"):
-                            next_month = datetime.now().replace(day=28) + timedelta(days=4)
-                            res = next_month - timedelta(days=next_month.day)
-                            cred_obj["CardValidUntil"] = str(res.date())
-                        
-                        rebuilt_credit_cards.append(cred_obj)
-                
-                if rebuilt_credit_cards:
-                    payment_data["PaymentCreditCards"] = rebuilt_credit_cards
+        if not payment_method_resolved:
+            raise ValueError(
+                f"Cannot create outgoing payment: no refund transaction found in Shopify for order {order.get('name', '')}. "
+                f"Cannot determine payment method."
+            )
         
         # Set PaymentInvoices with REFUND AMOUNT (not original payment total)
         payment_data["PaymentInvoices"] = [{
@@ -2101,6 +2069,33 @@ class ReturnsSyncV4:
             logger.error(f"Error extracting refund transaction from order: {str(e)}")
             return None
     
+    def _extract_courier_from_metafields(self, order: Dict[str, Any]) -> str:
+        """Extract courier name from order metafields for COD payments."""
+        try:
+            import json as _json
+            metafields = order.get("metafields", {}).get("edges", [])
+            for metafield_edge in metafields:
+                metafield = metafield_edge.get("node", {})
+                if metafield.get("namespace") == "custom" and metafield.get("key") == "courier":
+                    value = metafield.get("value", "")
+                    if value:
+                        try:
+                            if value.startswith('[') and value.endswith(']'):
+                                courier_list = _json.loads(value)
+                                if courier_list:
+                                    value = courier_list[0]
+                        except (_json.JSONDecodeError, IndexError):
+                            pass
+                        parts = value.split("-")
+                        if len(parts) >= 2:
+                            courier_name = parts[1].strip()
+                            logger.info(f"Extracted courier name: '{courier_name}' from metafield value: '{value}'")
+                            return courier_name
+            return ""
+        except Exception as e:
+            logger.error(f"Error extracting courier from metafields: {str(e)}")
+            return ""
+
     def _extract_store_credit_refunds(self, order: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract store credit refund transactions from order"""
         store_credit_refunds = []

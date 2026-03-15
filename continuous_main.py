@@ -20,6 +20,7 @@ sys.path.insert(0, str(app_dir))
 from app.main import ShopifySAPSync
 from app.core.config import config_settings
 from app.utils.logging import logger
+from app.utils.ssl_cert import init_ssl
 
 # Set the expiration date (YYYY-MM-DD format)
 # The integration will stop working on or after this date
@@ -146,6 +147,8 @@ async def main():
     """
     Main function for continuous sync runner
     """
+    init_ssl()
+
     runner = ContinuousSyncRunner()
     
     # Set up signal handlers for graceful shutdown

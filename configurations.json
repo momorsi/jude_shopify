@@ -22,7 +22,8 @@
             "local": {
                 "name": "Local Store",
                 "shop_url": "eg-judebenhalim.myshopify.com",
-                "access_token": "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",
+                "client_id": "74dd4817df2915eff237aa9654a47c1c",
+                "client_secret": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "EGP",
@@ -32,7 +33,8 @@
             "international": {
                 "name": "International Store",
                 "shop_url": "int-judebenhalim.myshopify.com",
-                "access_token": "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",
+                "client_id": "efd2b8a53bcbfe8f1707775607802b91",
+                "client_secret": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "USD",
@@ -56,8 +58,7 @@
                         "series": {
                             "invoices": 82,
                             "credit_notes": 85,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {
                             "local": {
@@ -69,9 +70,6 @@
                             "international": {
                                 "N-Genius Online by Network": "10801237"
                             }
-                        },
-                        "credit": {
-                            "Gift Card": 6
                         }
                     },
                     "68605345858": {
@@ -85,8 +83,7 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -95,7 +92,7 @@
                             "Fawry POS": 3,
                             "Valu POS": 4,
                             "Paymob POS": 5,
-                            "Gift Card": 6
+                            "Gift Card": 6   
                         },
                         "cash": "10801226"
                     },
@@ -110,8 +107,7 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -120,7 +116,7 @@
                             "Fawry POS": 3,
                             "Valu POS": 4,
                             "Paymob POS": 5,
-                            "Gift Card": 6
+                            "Gift Card": 6   
                         },
                         "cash": "10801228"
                     },
@@ -135,8 +131,7 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -145,7 +140,7 @@
                             "Fawry POS": 3,
                             "Valu POS": 4,
                             "Paymob POS": 5,
-                            "Gift Card": 6
+                            "Gift Card": 6   
                         },
                         "cash": "10801239"
                     },
@@ -160,8 +155,7 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -170,7 +164,7 @@
                             "Fawry POS": 3,
                             "Valu POS": 4,
                             "Paymob POS": 5,
-                            "Gift Card": 6
+                            "Gift Card": 6   
                         },
                         "cash": "10801227"
                     },
@@ -185,8 +179,7 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -195,7 +188,7 @@
                             "Fawry POS": 3,
                             "Valu POS": 4,
                             "Paymob POS": 5,
-                            "Gift Card": 6
+                            "Gift Card": 6   
                         },
                         "cash": "10801229"
                     },
@@ -210,8 +203,7 @@
                         "series": {
                             "invoices": 80,
                             "credit_notes": 84,
-                            "incoming_payments": 15,
-                            "outgoing_payments": 18
+                            "incoming_payments": 15
                         },
                         "bank_transfers": {},
                         "credit": {
@@ -220,7 +212,7 @@
                             "Fawry POS": 3,
                             "Valu POS": 4,
                             "Paymob POS": 5,
-                            "Gift Card": 6                                                                                    
+                            "Gift Card": 6                                                                                      
                         },
                         "cash": "10801248"
                     }
@@ -314,7 +306,7 @@
         "new_items": {
             "enabled": false,
             "interval_minutes": 90,
-            "batch_size": 50
+            "batch_size": 10
         },
         "inventory": {
             "enabled": false,
@@ -326,29 +318,29 @@
         },
         "item_changes": {
             "enabled": false,
-            "interval_minutes": 60,
+            "interval_minutes": 360,
             "batch_size": 50
         },
         "price_changes": {
             "enabled": false,
-            "interval_minutes": 100,
-            "batch_size": 50
+            "interval_minutes": 20,
+            "batch_size": 250
         },
         "freight_prices": {
             "enabled": false,
             "run_time": "06:00",
             "timezone": "UTC"
         },
-        "color_metaobjects": {
+		"color_metaobjects": {
             "enabled": false,
             "run_time": "07:00",
             "timezone": "UTC"
         },
         "sales": {            
             "orders": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 15,
-                "batch_size": 1,
+                "batch_size": 25,
                 "from_date": "2025-10-30",
                 "channel": "web,pos"
             },
@@ -360,13 +352,13 @@
                 "channel": "web,pos"
             },
             "returns": {
-                "enabled": false,
-                "interval_minutes": 5,
-                "batch_size": 3,
+                "enabled": true,
+                "interval_minutes": 20,
+                "batch_size": 10,
                 "from_date": "2025-10-30",
                 "channel": "web,pos",
-                "followup": {
-                    "enabled": false,
+				"followup": {
+                    "enabled": true,
                     "interval_minutes": 1440,
                     "days_old": 30
                 }

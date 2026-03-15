@@ -8,7 +8,8 @@ import asyncio
 from typing import Dict, Any, List, Optional
 from decimal import Decimal
 from app.services.sap.client import sap_client
-from app.services.shopify.multi_store_client import multi_store_shopify_client
+from app.services.shopify.multi_store_client import multi_store_shopify_client, shopify_token_manager
+from app.utils.ssl_cert import get_ssl_context
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from datetime import datetime
@@ -912,10 +913,7 @@ class PaymentRecoverySync:
         # Extract order ID number from GraphQL ID
         order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
         
-        headers = {
-            'X-Shopify-Access-Token': store_config.access_token,
-            'Content-Type': 'application/json',
-        }
+        headers = await multi_store_shopify_client.get_rest_headers(store_key)
         
         # Retry logic for tag addition
         max_retries = 3
@@ -923,7 +921,7 @@ class PaymentRecoverySync:
         
         for attempt in range(max_retries):
             try:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(verify=get_ssl_context()) as client:
                     # Get current order to see existing tags
                     order_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}.json"
                     order_response = await client.get(order_url, headers=headers)

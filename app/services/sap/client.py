@@ -224,15 +224,16 @@ class SAPClient:
         return await self._make_request('GET', 'sml.svc/QTY_CHANGE', params=params)
     
     # Custom Query Methods (for your specific endpoints)
-    async def get_new_items(self, store_key: str = None) -> Dict[str, Any]:
+    async def get_new_items(self, store_key: str = None, batch_size: int = 50) -> Dict[str, Any]:
         """Get new items from the new SAP view endpoint, with optional store filter"""
+        headers = {'Content-Type': 'application/json', 'Accept': '*/*', 'Prefer': f'odata.maxpagesize={batch_size}'}
         if store_key:
             # Use OData filter for better performance
             endpoint = f'view.svc/MASHURA_New_ItemsB1SLQuery?$filter=Shopify_Store eq \'{store_key}\''
         else:
             endpoint = 'view.svc/MASHURA_New_ItemsB1SLQuery'
         
-        result = await self._make_request('GET', endpoint)
+        result = await self._make_request('GET', endpoint, headers=headers)
         return result
 
     async def add_shopify_mapping(self, mapping_data: dict) -> dict:

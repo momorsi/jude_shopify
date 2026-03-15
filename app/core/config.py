@@ -51,13 +51,13 @@ class ShopifyStoreConfig:
     def __init__(self, store_data: Dict[str, Any]):
         self.name = store_data.get('name', '')
         self.shop_url = store_data.get('shop_url', '')
-        self.access_token = store_data.get('access_token', '')
+        self.client_id = store_data.get('client_id', '')
+        self.client_secret = store_data.get('client_secret', '')
         self.api_version = store_data.get('api_version', '2024-01')
         self.timeout = store_data.get('timeout', 30)
         self.currency = store_data.get('currency', 'USD')
         self.price_list = store_data.get('price_list', 1)
         self.enabled = store_data.get('enabled', True)
-        # Add location warehouse mapping
         self.location_warehouse_mapping = config_data['shopify'].get('location_warehouse_mapping', {})
 
 class ConfigSettings(BaseSettings):
@@ -419,11 +419,19 @@ class ConfigSettings(BaseSettings):
         return ""
     
     @property
-    def shopify_access_token(self) -> str:
-        """Get the first enabled store's access token for backward compatibility"""
+    def shopify_client_id(self) -> str:
+        """Get the first enabled store's client ID for backward compatibility"""
         enabled_stores = self.get_enabled_stores()
         if enabled_stores:
-            return list(enabled_stores.values())[0].access_token
+            return list(enabled_stores.values())[0].client_id
+        return ""
+
+    @property
+    def shopify_client_secret(self) -> str:
+        """Get the first enabled store's client secret for backward compatibility"""
+        enabled_stores = self.get_enabled_stores()
+        if enabled_stores:
+            return list(enabled_stores.values())[0].client_secret
         return ""
     
     @property

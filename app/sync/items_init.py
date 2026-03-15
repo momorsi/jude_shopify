@@ -6,7 +6,8 @@ Handles mapping of existing Shopify products to SAP and updates necessary fields
 import asyncio
 from typing import Dict, Any, List, Optional, Tuple
 from app.services.sap.client import sap_client
-from app.services.shopify.multi_store_client import multi_store_shopify_client
+from app.services.shopify.multi_store_client import multi_store_shopify_client, shopify_token_manager
+from app.utils.ssl_cert import get_ssl_context
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.services.sap.api_logger import sl_add_log
@@ -511,12 +512,9 @@ class ItemsInitialization:
                 # Extract product ID number from GraphQL ID
                 product_id_number = product_id.split("/")[-1] if "/" in product_id else product_id
                 
-                headers = {
-                    'X-Shopify-Access-Token': store_config.access_token,
-                    'Content-Type': 'application/json',
-                }
+                headers = await multi_store_shopify_client.get_rest_headers(store_key)
                 
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(verify=get_ssl_context()) as client:
                     # Get current metafields
                     metafields_url = f"https://{store_config.shop_url}/admin/api/2024-01/products/{product_id_number}/metafields.json"
                     metafields_response = await client.get(metafields_url, headers=headers)

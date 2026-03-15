@@ -8,7 +8,8 @@ from typing import Dict, Any, List, Optional
 from decimal import Decimal
 from app.services.sap.api_logger import sl_add_log
 from app.services.sap.client import sap_client
-from app.services.shopify.multi_store_client import multi_store_shopify_client
+from app.services.shopify.multi_store_client import multi_store_shopify_client, shopify_token_manager
+from app.utils.ssl_cert import get_ssl_context
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.sync.sales.customers import CustomerManager
@@ -263,7 +264,7 @@ class OrdersSalesSync:
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
             query_filter = f"channel:{config_settings.sales_orders_channel} fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
-            query_filter = "id:6684929294402"
+           
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -2476,10 +2477,7 @@ class OrdersSalesSync:
             # Extract order ID number from GraphQL ID
             order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
             
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
+            headers = await multi_store_shopify_client.get_rest_headers(store_key)
             
             # Add retry logic with exponential backoff
             max_retries = 3
@@ -2487,7 +2485,7 @@ class OrdersSalesSync:
             
             for attempt in range(max_retries):
                 try:
-                    async with httpx.AsyncClient(timeout=30.0) as client:
+                    async with httpx.AsyncClient(timeout=30.0, verify=get_ssl_context()) as client:
                         # Get current order to see existing tags
                         order_url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/orders/{order_id_number}.json"
                         
@@ -3171,12 +3169,9 @@ class OrdersSalesSync:
             # Extract order ID number from GraphQL ID
             order_id_number = order_id.split("/")[-1] if "/" in order_id else order_id
             
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
+            headers = await multi_store_shopify_client.get_rest_headers(store_key)
             
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(verify=get_ssl_context()) as client:
                 # Get current metafields
                 metafields_url = f"https://{store_config.shop_url}/admin/api/2024-01/orders/{order_id_number}/metafields.json"
                 metafields_response = await client.get(metafields_url, headers=headers)

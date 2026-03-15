@@ -48,7 +48,6 @@ class ReturnsSyncV3:
                     store_config_dict = {
                         "name": store_config.name,
                         "shop_url": store_config.shop_url,
-                        "access_token": store_config.access_token,
                         "api_version": store_config.api_version,
                         "timeout": store_config.timeout,
                         "currency": store_config.currency,

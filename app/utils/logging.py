@@ -4,6 +4,54 @@ import os
 from app.core.config import config_settings
 
 
+class SafeRotatingFileHandler(RotatingFileHandler):
+    """
+    A RotatingFileHandler that gracefully handles Windows file rotation errors.
+    
+    On Windows, RotatingFileHandler.doRollover() can fail with [Errno 2] or [Errno 13]
+    when another handle still has the log file open (e.g., antivirus, editor, indexer).
+    When rotation fails, the standard handler's internal state breaks and ALL subsequent
+    log writes raise exceptions, causing the entire application to malfunction.
+    
+    This subclass catches rotation errors and recovers by:
+    1. Reopening the current log file so writes can continue
+    2. Retrying the rotation on the next emit if the file is still over the size limit
+    """
+
+    def doRollover(self):
+        """Override doRollover to handle Windows file locking errors."""
+        try:
+            super().doRollover()
+        except (OSError, IOError, FileNotFoundError, PermissionError) as e:
+            # Rotation failed (file locked, missing, permission denied, etc.)
+            # Recover by reopening the base log file so logging can continue
+            try:
+                if self.stream:
+                    self.stream.close()
+                self.stream = self._open()
+            except Exception:
+                pass  # If even reopening fails, emit() will handle it below
+
+    def emit(self, record):
+        """Override emit to catch any residual file errors and recover."""
+        try:
+            super().emit(record)
+        except (OSError, IOError, FileNotFoundError, PermissionError):
+            # File handle is broken -- attempt to reopen and retry once
+            try:
+                if self.stream:
+                    self.stream.close()
+                self.stream = self._open()
+                super().emit(record)
+            except Exception:
+                # If recovery also fails, silently drop this log line
+                # Console handler will still show it
+                pass
+        except Exception:
+            # Catch-all: never let a logging failure crash business logic
+            pass
+
+
 def setup_logging():
     # Create logs directory if it doesn't exist
     log_dir = os.path.dirname(config_settings.log_file)
@@ -14,8 +62,8 @@ def setup_logging():
     logger = logging.getLogger('sync_service')
     logger.setLevel(getattr(logging, config_settings.log_level))
     
-    # Create rotating file handler with UTF-8 encoding
-    file_handler = RotatingFileHandler(
+    # Create safe rotating file handler that survives Windows rotation errors
+    file_handler = SafeRotatingFileHandler(
         config_settings.log_file,
         maxBytes=config_settings.log_max_size * 1024 * 1024,  # Convert MB to bytes
         backupCount=config_settings.log_backup_count,

@@ -1,69 +1,180 @@
 """
 Multi-Store Shopify Client
-Handles multiple Shopify stores with different configurations
+Handles multiple Shopify stores with different configurations.
+Uses OAuth client credentials grant for token management (tokens expire every 24 hours).
 """
 
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from app.core.config import config_settings
 from app.utils.logging import logger, log_api_call
+from app.utils.ssl_cert import get_ssl_context, get_cert_path
 
 import json
 import asyncio
+import time
+import httpx
 from gql.transport.exceptions import TransportQueryError
 from typing import Dict, Any, Optional, List
+
+
+class ShopifyTokenManager:
+    """
+    Manages OAuth access tokens for Shopify stores using the client credentials grant.
+    Tokens expire after 24 hours and are automatically refreshed with a safety margin.
+    """
+
+    TOKEN_REFRESH_MARGIN = 3600  # Refresh 1 hour before actual expiry
+
+    def __init__(self):
+        self._tokens: Dict[str, str] = {}
+        self._expiry_times: Dict[str, float] = {}
+        self._lock = asyncio.Lock()
+
+    def _is_token_valid(self, store_key: str) -> bool:
+        if store_key not in self._tokens or store_key not in self._expiry_times:
+            return False
+        return time.time() < (self._expiry_times[store_key] - self.TOKEN_REFRESH_MARGIN)
+
+    async def get_access_token(self, store_key: str) -> str:
+        """Get a valid access token for the store, refreshing if needed."""
+        if self._is_token_valid(store_key):
+            return self._tokens[store_key]
+
+        async with self._lock:
+            # Double-check after acquiring lock (another coroutine may have refreshed)
+            if self._is_token_valid(store_key):
+                return self._tokens[store_key]
+            return await self._fetch_token(store_key)
+
+    async def _fetch_token(self, store_key: str) -> str:
+        """Exchange client credentials for an access token."""
+        store_config = config_settings.get_store_by_name(store_key)
+        if not store_config:
+            raise ValueError(f"Store configuration not found for {store_key}")
+
+        url = f"https://{store_config.shop_url}/admin/oauth/access_token"
+        payload = {
+            "grant_type": "client_credentials",
+            "client_id": store_config.client_id,
+            "client_secret": store_config.client_secret,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0, verify=get_ssl_context()) as client:
+                response = await client.post(
+                    url,
+                    data=payload,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+
+            if response.status_code == 200:
+                data = response.json()
+                access_token = data["access_token"]
+                expires_in = data.get("expires_in", 86399)
+
+                self._tokens[store_key] = access_token
+                self._expiry_times[store_key] = time.time() + expires_in
+
+                logger.info(
+                    f"Shopify token obtained for store {store_key} "
+                    f"(expires in {expires_in // 3600}h {(expires_in % 3600) // 60}m)"
+                )
+                return access_token
+            else:
+                error_msg = (
+                    f"Failed to obtain Shopify token for {store_key}: "
+                    f"HTTP {response.status_code} - {response.text}"
+                )
+                logger.error(error_msg)
+                raise ConnectionError(error_msg)
+
+        except httpx.HTTPError as e:
+            error_msg = f"HTTP error fetching Shopify token for {store_key}: {str(e)}"
+            logger.error(error_msg)
+            raise ConnectionError(error_msg) from e
+
+    def invalidate(self, store_key: str):
+        """Force token refresh on next call (e.g. after a 401)."""
+        self._tokens.pop(store_key, None)
+        self._expiry_times.pop(store_key, None)
+
+
+# Shared token manager instance
+shopify_token_manager = ShopifyTokenManager()
+
 
 class MultiStoreShopifyClient:
     def __init__(self):
         self.clients: Dict[str, Client] = {}
-        self._initialize_clients()
-    
-    def _initialize_clients(self):
-        """Initialize GraphQL clients for all enabled stores"""
+        self._client_tokens: Dict[str, str] = {}
+        self.token_manager = shopify_token_manager
+        self._enabled_store_keys: List[str] = []
+        self._initialize_store_keys()
+
+    def _initialize_store_keys(self):
+        """Record enabled store keys. GQL clients are created lazily on first query."""
         enabled_stores = config_settings.get_enabled_stores()
-        
-        for store_key, store_config in enabled_stores.items():
-            try:
-                transport = AIOHTTPTransport(
-                    url=f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/graphql.json",
-                    headers={
-                        'X-Shopify-Access-Token': store_config.access_token,
-                        'Content-Type': 'application/json',
-                    },
-                    timeout=store_config.timeout
-                )
-                
-                client = Client(transport=transport, fetch_schema_from_transport=False)
-                self.clients[store_key] = client
-                
-                logger.info(f"Initialized Shopify client for store: {store_config.name} ({store_key})")
-                
-            except Exception as e:
-                logger.error(f"Failed to initialize client for store {store_key}: {str(e)}")
-    
+        self._enabled_store_keys = list(enabled_stores.keys())
+        for store_key in self._enabled_store_keys:
+            logger.info(f"Registered Shopify store: {store_key}")
+
+    def _build_gql_client(self, store_key: str, access_token: str) -> Client:
+        """Build a GQL Client with the given access token."""
+        store_config = config_settings.get_store_by_name(store_key)
+        transport = AIOHTTPTransport(
+            url=f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/graphql.json",
+            headers={
+                'X-Shopify-Access-Token': access_token,
+                'Content-Type': 'application/json',
+            },
+            timeout=store_config.timeout,
+            ssl=get_ssl_context()
+        )
+        return Client(transport=transport, fetch_schema_from_transport=False)
+
+    async def _get_client(self, store_key: str) -> Client:
+        """Get a GQL client with a valid token, rebuilding if token was refreshed."""
+        access_token = await self.token_manager.get_access_token(store_key)
+
+        if self._client_tokens.get(store_key) != access_token:
+            self.clients[store_key] = self._build_gql_client(store_key, access_token)
+            self._client_tokens[store_key] = access_token
+            logger.info(f"Rebuilt GQL client for store {store_key} with refreshed token")
+
+        return self.clients[store_key]
+
+    async def get_rest_headers(self, store_key: str) -> Dict[str, str]:
+        """Get REST API headers with a valid access token."""
+        access_token = await self.token_manager.get_access_token(store_key)
+        return {
+            'X-Shopify-Access-Token': access_token,
+            'Content-Type': 'application/json',
+        }
+
     async def execute_query(self, store_key: str, query: str, variables: dict = None) -> Dict[str, Any]:
         """
-        Execute a GraphQL query for a specific store
+        Execute a GraphQL query for a specific store.
+        Automatically handles token refresh and GQL client rebuild.
         """
-        if store_key not in self.clients:
+        if store_key not in self._enabled_store_keys:
             return {"msg": "failure", "error": f"Store {store_key} not found or not enabled"}
-        
+
         try:
+            client = await self._get_client(store_key)
+
             logger.info(f"Executing GraphQL query for store: {store_key}")
-            # Log the request
             log_api_call(
                 service="shopify",
                 endpoint=f"graphql_{store_key}",
                 request_data={"query": query, "variables": variables}
             )
 
-            # Execute the query
-            result = await self.clients[store_key].execute_async(
+            result = await client.execute_async(
                 gql(query),
                 variable_values=variables
             )
 
-            # Log the response
             log_api_call(
                 service="shopify",
                 endpoint=f"graphql_{store_key}",
@@ -74,31 +185,27 @@ class MultiStoreShopifyClient:
             return {"msg": "success", "data": result}
 
         except TransportQueryError as e:
-            # Build a more descriptive error message
             error_msg = f"GraphQL query error for store {store_key}"
-            
-            # Add the main error message if available
+
             if str(e) and str(e).strip():
                 error_msg += f": {str(e)}"
-            
-            # Add GraphQL-specific error details
+
             if hasattr(e, 'errors') and e.errors:
                 error_msg += f"\nGraphQL Errors: {json.dumps(e.errors, indent=2)}"
             if hasattr(e, 'data') and e.data:
                 error_msg += f"\nGraphQL Data: {json.dumps(e.data, indent=2)}"
             if hasattr(e, 'extensions') and e.extensions:
                 error_msg += f"\nGraphQL Extensions: {json.dumps(e.extensions, indent=2)}"
-            
+
             logger.error(error_msg)
-            
-            # Log the detailed error to SAP
+
             try:
                 from app.services.sap.api_logger import sl_add_log
                 await sl_add_log(
                     server="shopify",
                     endpoint=f"/admin/api/graphql_{store_key}",
                     response_data={
-                        "error": error_msg, 
+                        "error": error_msg,
                         "graphql_errors": e.errors if hasattr(e, 'errors') else None,
                         "graphql_data": e.data if hasattr(e, 'data') else None,
                         "graphql_extensions": e.extensions if hasattr(e, 'extensions') else None,
@@ -110,13 +217,30 @@ class MultiStoreShopifyClient:
                 )
             except:
                 pass
-                
+
             return {"msg": "failure", "error": error_msg}
         except Exception as e:
+            error_str = str(e).lower()
+
+            # If we get a 401/unauthorized, invalidate token and retry once
+            if "401" in error_str or "unauthorized" in error_str:
+                logger.warning(f"Shopify token expired for {store_key}, refreshing and retrying...")
+                self.token_manager.invalidate(store_key)
+                try:
+                    client = await self._get_client(store_key)
+                    result = await client.execute_async(
+                        gql(query),
+                        variable_values=variables
+                    )
+                    return {"msg": "success", "data": result}
+                except Exception as retry_e:
+                    error_msg = f"GraphQL retry failed for store {store_key}: {str(retry_e)}"
+                    logger.error(error_msg)
+                    return {"msg": "failure", "error": error_msg}
+
             error_msg = f"GraphQL query error for store {store_key}: {str(e)}"
             logger.error(error_msg)
-            
-            # Log the detailed error to SAP
+
             try:
                 from app.services.sap.api_logger import sl_add_log
                 await sl_add_log(
@@ -133,7 +257,7 @@ class MultiStoreShopifyClient:
                 )
             except:
                 pass
-                
+
             return {"msg": "failure", "error": error_msg}
     
     async def create_product(self, store_key: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -206,7 +330,7 @@ class MultiStoreShopifyClient:
         Update inventory levels for a specific store using REST API
         More direct and reliable for inventory updates
         """
-        if store_key not in self.clients:
+        if store_key not in self._enabled_store_keys:
             return {"msg": "failure", "error": f"Store {store_key} not found or not enabled"}
         
         try:
@@ -214,38 +338,27 @@ class MultiStoreShopifyClient:
             if not store_config:
                 return {"msg": "failure", "error": f"Store configuration not found for {store_key}"}
             
-            import httpx
-            
-            # Build REST API URL
             url = f"https://{store_config.shop_url}/admin/api/{store_config.api_version}/inventory_levels/set.json"
+            headers = await self.get_rest_headers(store_key)
             
-            # Prepare headers
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
-            
-            # Prepare request data
             request_data = {
                 "location_id": update_data["location_id"],
                 "inventory_item_id": update_data["inventory_item_id"],
                 "available": update_data["available"]
             }
             
-            # Log the request
             log_api_call(
                 service="shopify",
                 endpoint=f"rest_inventory_{store_key}",
                 request_data=request_data
             )
             
-            async with httpx.AsyncClient(timeout=store_config.timeout) as client:
+            async with httpx.AsyncClient(timeout=store_config.timeout, verify=get_ssl_context()) as client:
                 response = await client.post(url, json=request_data, headers=headers)
                 
                 if response.status_code == 200:
                     response_data = response.json()
                     
-                    # Log the response
                     log_api_call(
                         service="shopify",
                         endpoint=f"rest_inventory_{store_key}",
@@ -257,7 +370,6 @@ class MultiStoreShopifyClient:
                 else:
                     error_msg = f"HTTP {response.status_code}: {response.text}"
                     
-                    # Log the error
                     log_api_call(
                         service="shopify",
                         endpoint=f"rest_inventory_{store_key}",
@@ -278,7 +390,7 @@ class MultiStoreShopifyClient:
         Includes retry logic for handling transient failures (timeouts, etc.)
         Returns: {"msg": "success", "available": int, "committed": int, "onHand": int} or error
         """
-        if store_key not in self.clients:
+        if store_key not in self._enabled_store_keys:
             return {"msg": "failure", "error": f"Store {store_key} not found or not enabled"}
         
         # Convert IDs to global format if they're not already

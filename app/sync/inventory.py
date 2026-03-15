@@ -9,7 +9,8 @@ import httpx
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from app.services.sap.client import sap_client
-from app.services.shopify.multi_store_client import multi_store_shopify_client
+from app.services.shopify.multi_store_client import multi_store_shopify_client, shopify_token_manager
+from app.utils.ssl_cert import get_ssl_context
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.services.sap.api_logger import sl_add_log
@@ -59,12 +60,9 @@ class InventorySync:
                 "available": available
             }
             
-            headers = {
-                'X-Shopify-Access-Token': store_config.access_token,
-                'Content-Type': 'application/json',
-            }
+            headers = await multi_store_shopify_client.get_rest_headers(store_key)
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, verify=get_ssl_context()) as client:
                 response = await client.post(url, json=inventory_data, headers=headers)
                 if response.status_code == 200:
                     response_data = response.json()
