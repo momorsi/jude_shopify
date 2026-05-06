@@ -1262,11 +1262,16 @@ class ReturnsSyncV4:
             line_items = rfo.get("lineItems", {}).get("edges", [])
             
             for line_item_edge in line_items:
-                fulfillment_line_item = line_item_edge.get("node", {}).get("fulfillmentLineItem", {})
+                node = line_item_edge.get("node", {})
+                fulfillment_line_item = node.get("fulfillmentLineItem", {})
                 return_line_item = fulfillment_line_item.get("lineItem", {})
                 
                 line_item_id = return_line_item.get("id", "")
-                returned_qty = return_line_item.get("quantity", 0)
+                
+                # Get returned quantity from dispositions (actual return qty),
+                # NOT from lineItem.quantity which is the original order quantity
+                dispositions = node.get("dispositions", [])
+                returned_qty = sum(d.get("quantity", 0) for d in dispositions)
                 
                 if returned_qty <= 0 or not line_item_id:
                     continue
@@ -2164,7 +2169,11 @@ class ReturnsSyncV4:
             return False
 
     async def _get_gift_cards_for_order(self, order_id: str, order_created_at: str) -> List[Dict[str, Any]]:
-        """Query Shopify Gift Cards API to get gift cards created for this order"""
+        """
+        Query Shopify Gift Cards API to get gift cards linked to this order.
+        No source filter here -- returns need to find gift cards regardless of source
+        (purchased, manual, api_client) since refund gift cards may not be 'purchased'.
+        """
         try:
             order_date = order_created_at.split("T")[0] if "T" in order_created_at else order_created_at
             query = """
@@ -2173,6 +2182,8 @@ class ReturnsSyncV4:
                     edges {
                         node {
                             id   
+                            lastCharacters
+                            maskedCode
                             order {
                                 id
                             }     
@@ -2240,12 +2251,13 @@ class ReturnsSyncV4:
                         if not initial_value:
                             continue
                         
-                        # Safely extract customer email (handle None customer - gift cards can exist without customers)
                         customer = gift_card.get("customer")
                         customer_email = customer.get("email", "") if customer else ""
                             
                         gift_cards.append({
                             "id": gift_card.get("id", ""),
+                            "last_characters": gift_card.get("lastCharacters", ""),
+                            "masked_code": gift_card.get("maskedCode", ""),
                             "order_id": order_id,
                             "initial_value": float(initial_value.get("amount", 0)),
                             "currency": initial_value.get("currencyCode", "EGP"),

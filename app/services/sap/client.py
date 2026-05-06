@@ -210,6 +210,11 @@ class SAPClient:
         
         return await self._make_request('GET', 'Items', params=params)
     
+    async def get_item_field(self, item_code: str, field_name: str) -> Dict[str, Any]:
+        """Get a specific field value from an SAP item"""
+        params = {'$select': field_name}
+        return await self._make_request('GET', f"Items('{item_code}')", params=params)
+
     async def update_item(self, item_code: str, item_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update existing item in SAP"""
         return await self._make_request('PATCH', f"Items('{item_code}')", data=item_data)

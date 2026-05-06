@@ -188,6 +188,7 @@ class OrdersSalesSync:
                             id
                             name
                             quantity
+                            currentQuantity
                             sku
                             originalUnitPriceSet {
                                 shopMoney {
@@ -245,6 +246,20 @@ class OrdersSalesSync:
                         processedAt
                         receiptJson   # contains gift_card_id, last_characters etc if gift card used
                         }
+
+                        # --- Refunds (to distinguish removed items from returned items) ---
+                        refunds(first: 10) {
+                        refundLineItems(first: 50) {
+                            edges {
+                            node {
+                                lineItem {
+                                id
+                                }
+                                quantity
+                            }
+                            }
+                        }
+                        }
                     }
                     }
                     pageInfo {
@@ -264,7 +279,7 @@ class OrdersSalesSync:
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
             query_filter = f"channel:{config_settings.sales_orders_channel} fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
-           
+            
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):
@@ -381,52 +396,70 @@ class OrdersSalesSync:
                         else:
                             logger.warning(f"PICK_UP order detected but no location mapping found for location {location_id}, using default warehouse code")
             
-            # Build fulfillment location mapping for PICK_UP orders
+            # Build fulfillment location mapping for all fulfillment orders
             # Maps lineItem.id -> {location_id, warehouse_code, quantity}
+            # Each item may be fulfilled from a different location (e.g. multi-warehouse shipping)
             fulfillment_location_map = {}
             
             if fulfillment_orders:
                 for fulfillment_edge in fulfillment_orders:
                     fulfillment = fulfillment_edge.get("node", {})
                     delivery_method = fulfillment.get("deliveryMethod", {})
+                    method_type = delivery_method.get("methodType", "UNKNOWN") if delivery_method else "UNKNOWN"
                     
-                    # Only process PICK_UP fulfillment orders
-                    if delivery_method.get("methodType") == "PICK_UP":
-                        assigned_location = fulfillment.get("assignedLocation", {})
-                        location = assigned_location.get("location", {})
+                    assigned_location = fulfillment.get("assignedLocation", {})
+                    location = assigned_location.get("location", {})
+                    
+                    if location and location.get("id"):
+                        location_gid = location["id"]
+                        location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
                         
-                        if location and location.get("id"):
-                            # Extract location ID
-                            location_gid = location["id"]
-                            location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                        location_mapping = config_settings.get_location_mapping_for_location(store_key, location_id)
+                        warehouse_code = location_mapping.get('warehouse', 'SW') if location_mapping else 'SW'
+                        
+                        fulfillment_line_items = fulfillment.get("lineItems", {}).get("edges", [])
+                        for line_item_edge in fulfillment_line_items:
+                            line_item_node = line_item_edge.get("node", {})
+                            line_item_ref = line_item_node.get("lineItem", {})
+                            line_item_id = line_item_ref.get("id", "")
+                            quantity = line_item_node.get("quantity", 0)
                             
-                            # Get warehouse code from location mapping
-                            location_mapping = config_settings.get_location_mapping_for_location(store_key, location_id)
-                            warehouse_code = location_mapping.get('warehouse', 'SW') if location_mapping else 'SW'
-                            
-                            # Process line items in this fulfillment order
-                            fulfillment_line_items = fulfillment.get("lineItems", {}).get("edges", [])
-                            for line_item_edge in fulfillment_line_items:
-                                line_item_node = line_item_edge.get("node", {})
-                                line_item_ref = line_item_node.get("lineItem", {})
-                                line_item_id = line_item_ref.get("id", "")
-                                quantity = line_item_node.get("quantity", 0)
-                                
-                                if line_item_id:
-                                    # Store mapping using full GraphQL ID to match against order lineItems
-                                    fulfillment_location_map[line_item_id] = {
-                                        "location_id": location_id,
-                                        "warehouse_code": warehouse_code,
-                                        "quantity": quantity
-                                    }
-                                    logger.info(f"Mapped line item {line_item_id} to location {location_id} (warehouse: {warehouse_code}, qty: {quantity}) for PICK_UP fulfillment")
+                            if line_item_id:
+                                fulfillment_location_map[line_item_id] = {
+                                    "location_id": location_id,
+                                    "warehouse_code": warehouse_code,
+                                    "quantity": quantity,
+                                    "method_type": method_type
+                                }
+                                logger.info(f"Mapped line item {line_item_id} to location {location_id} (warehouse: {warehouse_code}, qty: {quantity}, method: {method_type})")
             
+            # Build set of line item IDs that were refunded, so we can distinguish
+            # "removed from order edit" (no refund) from "sold then returned" (has refund).
+            refunded_line_item_ids = set()
+            for refund in order_node.get("refunds", []):
+                for rli_edge in refund.get("refundLineItems", {}).get("edges", []):
+                    li_id = rli_edge.get("node", {}).get("lineItem", {}).get("id")
+                    if li_id:
+                        refunded_line_item_ids.add(li_id)
+
             # Map line items with discount information
             line_items = []
             for item_edge in order_node["lineItems"]["edges"]:
                 item = item_edge["node"]
                 sku = item.get("sku")
                 quantity = item["quantity"]
+                current_quantity = item.get("currentQuantity", quantity)
+
+                if current_quantity == 0:
+                    line_item_id = item.get("id", "")
+                    if line_item_id in refunded_line_item_ids:
+                        # Item was sold and then fully refunded — include it in the invoice
+                        # using the original ordered quantity so SAP records the sale correctly.
+                        logger.info(f"Line item currentQuantity=0 but has a refund — including with original quantity {quantity}: {item.get('name')} SKU={sku}")
+                    else:
+                        # Item was removed via order edit and never actually sold — skip it.
+                        logger.info(f"Skipping removed line item (currentQuantity=0, no refund): {item.get('name')} SKU={sku}")
+                        continue
                 
                 # Skip gift card line items (POS refunds) - these have sku: null and variant: null
                 if (item.get("name") == "Gift Card" and 
@@ -515,21 +548,17 @@ class OrdersSalesSync:
                 else:
                     item_code = "ACC-0000001"  # Default item only if no SKU available
                 
-                # Get warehouse code based on fulfillment location or order location
-                # Check if this line item has a specific fulfillment location (PICK_UP)
+                # Get warehouse code from this item's fulfillment location, fall back to order-level
                 line_item_id = item.get("id", "")
                 warehouse_code = None
                 
                 if line_item_id and line_item_id in fulfillment_location_map:
-                    # Use warehouse code from fulfillment location
                     fulfillment_info = fulfillment_location_map[line_item_id]
                     warehouse_code = fulfillment_info["warehouse_code"]
-                    logger.info(f"Using fulfillment location warehouse '{warehouse_code}' for line item {line_item_id} (location: {fulfillment_info['location_id']})")
+                    logger.info(f"Using fulfillment location warehouse '{warehouse_code}' for line item {line_item_id} (location: {fulfillment_info['location_id']}, method: {fulfillment_info.get('method_type', 'N/A')})")
                 elif pickup_warehouse_code:
-                    # Fallback to pickup warehouse code (for backward compatibility with single-location orders)
                     warehouse_code = pickup_warehouse_code
                 else:
-                    # Use default warehouse code logic
                     warehouse_code = costing_codes.get('Warehouse', config_settings.get_warehouse_code_for_order(store_key, order_node))
                 
                 # Check if this is a gift card line item
@@ -862,6 +891,8 @@ class OrdersSalesSync:
         line_items = order_node.get("lineItems", {}).get("edges", [])
         for item_edge in line_items:
             item = item_edge["node"]
+            if item.get("currentQuantity", item.get("quantity", 1)) == 0:
+                continue
             # Check SKU from line item first, then from variant
             sku = (item.get('sku') or '').lower()
             variant = item.get('variant') or {}
@@ -890,6 +921,11 @@ class OrdersSalesSync:
         
         for item_edge in line_items:
             item = item_edge["node"]
+            
+            # Skip items that were added to cart then removed
+            if item.get("currentQuantity", item.get("quantity", 1)) == 0:
+                continue
+            
             # Check SKU from line item first, then from variant
             sku = (item.get('sku') or '').lower()
             variant = item.get('variant') or {}
@@ -940,18 +976,25 @@ class OrdersSalesSync:
         
         return gift_cards
 
-    async def _get_gift_cards_for_order(self, order_id: str, order_created_at: str) -> List[Dict[str, Any]]:
+    async def _get_gift_cards_for_order(self, order_id: str, order_created_at: str, gift_card_amounts: List[float] = None) -> List[Dict[str, Any]]:
         """
-        Query Shopify Gift Cards API to get gift cards created for this order
+        Query Shopify Gift Cards API to get gift cards created for this order.
+        Uses source:purchased filter and initial_value to narrow results.
+        Falls back to date+amount+customer matching if order.id is null on the gift card.
         """
         try:
             order_date = order_created_at.split("T")[0] if "T" in order_created_at else order_created_at
+            from datetime import datetime, timedelta
+            next_date = (datetime.strptime(order_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+
             query = """
             query getGiftCards($query: String!) {
                 giftCards(first: 50, query: $query) {
                     edges {
                         node {
                             id   
+                            lastCharacters
+                            maskedCode
                             order {
                                 id
                             }     
@@ -970,9 +1013,10 @@ class OrdersSalesSync:
                 }
             }
             """
-            query_string = f"created_at:>={order_date}T00:00:00Z status:enabled"
+            query_string = f"created_at:>={order_date}T00:00:00Z created_at:<={next_date}T00:00:00Z source:purchased"
+            if gift_card_amounts and len(set(gift_card_amounts)) == 1:
+                query_string += f" initial_value:{gift_card_amounts[0]}"
             
-            # Add retry logic for GraphQL queries
             max_retries = 3
             retry_delay = 2
             
@@ -981,14 +1025,14 @@ class OrdersSalesSync:
                     result = await multi_store_shopify_client.execute_query("local", query, {"query": query_string})
                     
                     if result["msg"] == "success":
-                        break  # Success, exit retry loop
+                        break
                     else:
                         logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
                         
-                        if attempt < max_retries - 1:  # Don't sleep on last attempt
+                        if attempt < max_retries - 1:
                             logger.info(f"Retrying in {retry_delay} seconds...")
                             await asyncio.sleep(retry_delay)
-                            retry_delay *= 2  # Exponential backoff
+                            retry_delay *= 2
                             
                 except Exception as e:
                     logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
@@ -1003,13 +1047,15 @@ class OrdersSalesSync:
                 logger.error(f"Failed to query gift cards: {result.get('error')}")
                 return []
             
-            # Check if result has the expected data structure
             if not result.get("data") or not result["data"].get("giftCards"):
                 logger.warning(f"No gift cards data found in result: {result}")
                 return []
             
+            order_gid = f"gid://shopify/Order/{order_id}"
             gift_cards = []
+            unmatched_cards = []
             gift_cards_edges = result["data"]["giftCards"].get("edges", [])
+
             for edge in gift_cards_edges:
                 try:
                     gift_card = edge.get("node", {})
@@ -1017,26 +1063,45 @@ class OrdersSalesSync:
                         logger.warning(f"Empty gift card node found: {edge}")
                         continue
                     
-                    # Check if this gift card belongs to our order
-                    order_info = gift_card.get("order", {})
-                    if order_info.get("id") == f"gid://shopify/Order/{order_id}":
-                        # Safely extract gift card data
-                        initial_value = gift_card.get("initialValue", {})
-                        if not initial_value:
-                            logger.warning(f"No initialValue found for gift card: {gift_card}")
-                            continue
-                            
-                        gift_cards.append({
-                            "id": gift_card.get("id", ""),
-                            "order_id": order_id,
-                            "initial_value": float(initial_value.get("amount", 0)),
-                            "currency": initial_value.get("currencyCode", "EGP"),
-                            "created_at": gift_card.get("createdAt", ""),
-                            "customer_email": gift_card.get("customer", {}).get("email", "")
-                        })
+                    initial_value = gift_card.get("initialValue", {})
+                    if not initial_value:
+                        continue
+
+                    card_data = {
+                        "id": gift_card.get("id", ""),
+                        "last_characters": gift_card.get("lastCharacters", ""),
+                        "masked_code": gift_card.get("maskedCode", ""),
+                        "order_id": order_id,
+                        "initial_value": float(initial_value.get("amount", 0)),
+                        "currency": initial_value.get("currencyCode", "EGP"),
+                        "created_at": gift_card.get("createdAt", ""),
+                        "customer_id": (gift_card.get("customer") or {}).get("id", ""),
+                        "customer_email": (gift_card.get("customer") or {}).get("email", "")
+                    }
+
+                    order_info = gift_card.get("order")
+                    if order_info and order_info.get("id") == order_gid:
+                        gift_cards.append(card_data)
+                    else:
+                        unmatched_cards.append(card_data)
                 except Exception as e:
                     logger.error(f"Error processing gift card edge: {str(e)} - Edge: {edge}")
                     continue
+            
+            # If no cards matched by order.id, fall back to amount matching
+            # from the unmatched pool (order field may be null for POS purchases)
+            if not gift_cards and unmatched_cards and gift_card_amounts:
+                logger.info(f"No gift cards matched by order.id for order {order_id}, "
+                           f"attempting fallback matching by amount from {len(unmatched_cards)} candidates")
+                remaining_amounts = list(gift_card_amounts)
+                for card in unmatched_cards:
+                    for amt in remaining_amounts:
+                        if abs(card["initial_value"] - amt) < 0.01:
+                            gift_cards.append(card)
+                            remaining_amounts.remove(amt)
+                            logger.info(f"Fallback matched gift card {card['id']} (last4: {card['last_characters']}) "
+                                       f"by amount {amt}")
+                            break
             
             logger.info(f"Found {len(gift_cards)} gift cards for order {order_id}")
             return gift_cards
@@ -1052,54 +1117,48 @@ class OrdersSalesSync:
         """
         created_gift_cards = []
         
-        # If shopify_gift_cards not provided, query them
         if shopify_gift_cards is None:
-            shopify_gift_cards = await self._get_gift_cards_for_order(order_id, order_created_at)
+            all_amounts = []
+            for gc in gift_cards:
+                all_amounts.extend([gc["unit_price"]] * gc["quantity"])
+            shopify_gift_cards = await self._get_gift_cards_for_order(order_id, order_created_at, gift_card_amounts=all_amounts)
         
         if not shopify_gift_cards:
             logger.warning(f"No gift cards found in Shopify for order {order_id} - will create with generated IDs")
-            # Continue processing even if no Shopify gift cards found
-            # This handles cases where gift cards might not be properly linked in Shopify
-            shopify_gift_cards = []  # Ensure it's an empty list, not None
+            shopify_gift_cards = []
         
         for gift_card in gift_cards:
             try:
                 quantity = gift_card["quantity"]
                 unit_price = gift_card["unit_price"]
                 
-                # For each gift card, create separate entries based on quantity
                 for i in range(quantity):
-                    # Find matching Shopify gift card by unit price (not line total)
                     matching_shopify_gift_card = None
                     
-                    # Debug: Log available gift cards and what we're looking for
                     logger.info(f"Looking for gift card with unit price: {unit_price}")
-                    logger.info(f"Available Shopify gift cards: {[{'id': gc['id'], 'amount': gc['initial_value']} for gc in shopify_gift_cards]}")
+                    logger.info(f"Available Shopify gift cards: {[{'id': gc['id'], 'last4': gc.get('last_characters', ''), 'amount': gc['initial_value']} for gc in shopify_gift_cards]}")
                     
                     for shopify_gc in shopify_gift_cards:
-                        logger.info(f"Checking gift card {shopify_gc['id']} with amount {shopify_gc['initial_value']} against unit price {unit_price}")
                         if abs(shopify_gc["initial_value"] - unit_price) < 0.01:
                             matching_shopify_gift_card = shopify_gc
-                            logger.info(f"✅ Found matching gift card: {shopify_gc['id']}")
+                            logger.info(f"Found matching gift card: {shopify_gc['id']} (last4: {shopify_gc.get('last_characters', 'N/A')})")
                             break
                     
                     if not matching_shopify_gift_card:
                         logger.warning(f"No matching gift card found in Shopify for unit price {unit_price} - creating with generated ID")
-                        # Generate a unique ID for this gift card
                         numeric_id = f"GC{order_id}_{unit_price}_{len(created_gift_cards)}"
                     else:
-                        # Use the actual Shopify gift card ID
                         shopify_gift_card_id = matching_shopify_gift_card["id"]
                         numeric_id = shopify_gift_card_id.split("/")[-1] if "/" in shopify_gift_card_id else shopify_gift_card_id
-                        # Remove the matched gift card from the list to avoid duplicate matching
                         shopify_gift_cards.remove(matching_shopify_gift_card)
                     
-                    # Skip SAP GiftCards entity creation - just prepare data for invoice lines
                     logger.info(f"Preparing gift card data for invoice line: {numeric_id} - Amount: {unit_price} - SKU: {gift_card['sku']}")
                     created_gift_cards.append({
                         "gift_card_id": numeric_id,
-                        "amount": unit_price,  # Use unit price, not line total
+                        "amount": unit_price,
                         "sku": gift_card["sku"],
+                        "last_characters": matching_shopify_gift_card.get("last_characters", "") if matching_shopify_gift_card else "",
+                        "masked_code": matching_shopify_gift_card.get("masked_code", "") if matching_shopify_gift_card else "",
                         "sap_result": {"msg": "success", "skipped_entity_creation": True}
                     })
                         
@@ -1996,6 +2055,8 @@ class OrdersSalesSync:
             
             for item_edge in line_items:
                 item = item_edge["node"]
+                if item.get("currentQuantity", item.get("quantity", 1)) == 0:
+                    continue
                 item_name = item.get("name", "Unknown Item")
                 discount_allocations = item.get("discountAllocations", [])
                 
@@ -2881,16 +2942,24 @@ class OrdersSalesSync:
                     logger.info(f"Order {order_name} is paid - creating incoming payment in SAP")
                 
                 # Prepare incoming payment data
-                payment_data = self.prepare_incoming_payment_data(
-                    shopify_order, 
-                    created_invoice_data, 
-                    sap_customer["CardCode"], 
-                    store_key,
-                    location_analysis
-                )
+                try:
+                    payment_data = self.prepare_incoming_payment_data(
+                        shopify_order, 
+                        created_invoice_data, 
+                        sap_customer["CardCode"], 
+                        store_key,
+                        location_analysis
+                    )
+                except (ValueError, KeyError) as e:
+                    logger.error(f"Failed to prepare payment data for {order_name}: {str(e)}")
+                    await self.add_order_tag(store_key, order_id, "sap_payment_failed")
+                    payment_data = None
                 
-                # Create incoming payment in SAP
-                payment_result = await self.create_incoming_payment_in_sap(payment_data, order_id_number)
+                if payment_data is None:
+                    payment_result = {"msg": "failure", "error": "Payment data preparation failed"}
+                else:
+                    # Create incoming payment in SAP
+                    payment_result = await self.create_incoming_payment_in_sap(payment_data, order_id_number)
                 if payment_result["msg"] == "success":
                     sap_payment_number = payment_result["sap_payment_number"]
                     logger.info(f"Successfully created incoming payment: {sap_payment_number}")
@@ -3095,9 +3164,10 @@ class OrdersSalesSync:
                                 total_errors += 1
                                 logger.error(f"❌ Failed to process order: {result.get('error')}")
                                 
-                                # Add invoice failure tag and log to API
                                 order_name = order_node.get('name', 'Unknown')
-                                await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
+                                tags = order_node.get("tags", [])
+                                if "sap_invoice_synced" not in tags:
+                                    await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
                                 await sl_add_log(
                                     server="shopify",
                                     endpoint="orders_sync",
@@ -3339,9 +3409,10 @@ class OrdersSalesSync:
 
                                 logger.error(f"❌ Failed to process order: {result.get('error')}")
                                 
-                                # Add invoice failure tag and log to API
                                 order_name = order_node.get('name', 'Unknown')
-                                await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
+                                tags = order_node.get("tags", [])
+                                if "sap_invoice_synced" not in tags:
+                                    await self.add_order_tag(store_key, order_id, "sap_invoice_failed")
                                 await sl_add_log(
                                     server="shopify",
                                     endpoint="orders_sync",

@@ -787,26 +787,90 @@ class MultiStoreNewItemsSync:
                         color_option_id = option["id"]
                         break
                 
-                # If Color option doesn't exist in product options, try to get it from existing variants
+                # If Color option doesn't exist, check if this is a single product with Title/Default Title
+                # that needs to be converted to a Color-based product
                 if not color_option_id:
-                    logger.info(f"Color option not found in product options, checking existing variants for store {store_key}")
+                    logger.info(f"Color option not found in product options for store {store_key}, checking if we can convert from Title option")
                     
-                    # Look for Color option in existing variants' selectedOptions (case-insensitive)
-                    for variant_edge in product.get("variants", {}).get("edges", []):
-                        variant = variant_edge["node"]
-                        for selected_option in variant.get("selectedOptions", []):
-                            if selected_option["name"].lower() == "color":  # Case-insensitive match
-                                # We found a Color option being used, but we need the option ID
-                                # Since we can't create options after product creation, we'll skip this variant
-                                logger.warning(f"Color option is being used in existing variants but not found in product options for store {store_key}")
-                                return {"msg": "failure", "error": "Color option not properly configured in existing product"}
+                    # Look for a "Title" option with "Default Title" value (single product pattern)
+                    title_option_id = None
+                    default_title_value_id = None
+                    existing_variant_sku = None
+                    for option in product.get("options", []):
+                        if option["name"].lower() == "title":
+                            title_option_id = option["id"]
+                            for ov in option.get("optionValues", []):
+                                if ov["name"].lower() == "default title":
+                                    default_title_value_id = ov["id"]
+                            break
+                    
+                    # Get the SKU of the existing variant so we can look up its color from SAP
+                    if title_option_id:
+                        for variant_edge in product.get("variants", {}).get("edges", []):
+                            existing_variant_sku = variant_edge["node"].get("sku")
+                            if existing_variant_sku:
+                                break
+                    
+                    if title_option_id and default_title_value_id and existing_variant_sku:
+                        logger.info(f"Found Title/Default Title option, converting to Color option. Existing variant SKU: {existing_variant_sku}")
+                        
+                        # Get the existing item's color from SAP via /Items endpoint
+                        sap_color_result = await sap_client.get_item_field(existing_variant_sku, "U_ShopifyColor")
+                        
+                        if sap_color_result["msg"] != "success":
+                            logger.error(f"Failed to get U_ShopifyColor for {existing_variant_sku}: {sap_color_result.get('error')}")
+                            return {"msg": "failure", "error": f"Cannot get color for existing item {existing_variant_sku}: {sap_color_result.get('error')}"}
+                        
+                        existing_color = sap_color_result["data"].get("U_ShopifyColor", "").strip()
+                        if not existing_color:
+                            logger.error(f"U_ShopifyColor is empty for item {existing_variant_sku}")
+                            return {"msg": "failure", "error": f"U_ShopifyColor is empty for existing item {existing_variant_sku}"}
+                        
+                        logger.info(f"Got color '{existing_color}' from SAP for existing variant {existing_variant_sku}")
+                        
+                        # Use productOptionUpdate to:
+                        # 1. Rename option from "Title" to "Color"
+                        # 2. Rename "Default Title" value to the actual color
+                        option_update_result = await multi_store_shopify_client.update_product_option(
+                            store_key=store_key,
+                            product_id=product_id,
+                            option_id=title_option_id,
+                            option_name="Color",
+                            option_values_to_update=[
+                                {"id": default_title_value_id, "name": existing_color}
+                            ],
+                            variant_strategy="LEAVE_AS_IS"
+                        )
+                        
+                        if option_update_result["msg"] != "success":
+                            logger.error(f"Failed to convert Title to Color option: {option_update_result.get('error')}")
+                            return {"msg": "failure", "error": f"Failed to convert option: {option_update_result.get('error')}"}
+                        
+                        # Check for user errors
+                        update_response = option_update_result["data"]["productOptionUpdate"]
+                        if update_response.get("userErrors"):
+                            errors = [e["message"] for e in update_response["userErrors"]]
+                            error_msg = "; ".join(errors)
+                            logger.error(f"User errors converting Title to Color: {error_msg}")
+                            return {"msg": "failure", "error": error_msg}
+                        
+                        # The option is now "Color" — get the updated option ID
+                        color_option_id = title_option_id
+                        logger.info(f"Successfully converted Title option to Color option (ID: {color_option_id}) with value '{existing_color}'")
+                    else:
+                        # Not a simple Title/Default Title product — check existing variants for Color
+                        for variant_edge in product.get("variants", {}).get("edges", []):
+                            variant_node = variant_edge["node"]
+                            for selected_option in variant_node.get("selectedOptions", []):
+                                if selected_option["name"].lower() == "color":
+                                    logger.warning(f"Color option is being used in existing variants but not found in product options for store {store_key}")
+                                    return {"msg": "failure", "error": "Color option not properly configured in existing product"}
+                        
+                        logger.warning(f"No Color option found in existing product for store {store_key}, will create new product")
+                        return {"msg": "failure", "error": "CREATE_NEW_PRODUCT"}
                 
                 if color_option_id:
-                    logger.info(f"Found existing Color option with ID: {color_option_id}")
-                else:
-                    logger.warning(f"No Color option found in existing product for store {store_key}, will create new product")
-                    # Return a special error that indicates we should create a new product
-                    return {"msg": "failure", "error": "CREATE_NEW_PRODUCT"}
+                    logger.info(f"Found/converted Color option with ID: {color_option_id}")
             else:
                 # This shouldn't happen if retry logic worked correctly, but handle it anyway
                 error_details = product_info.get("error", "Unknown error") if product_info else "No response"
@@ -850,8 +914,8 @@ class MultiStoreNewItemsSync:
                 value=f"Adding variant {variant_data.get('sku')} to product {product_id} in store {store_key}"
             )
             
-            # 4. Create variant using productVariantsBulkCreate
-            result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk])
+            # 4. Create variant using productVariantsBulkCreate (DEFAULT strategy to preserve existing variants)
+            result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk], strategy="DEFAULT")
             
             # Check if we got a metafield-linked option error
             is_metafield_error = False
@@ -974,8 +1038,8 @@ class MultiStoreNewItemsSync:
                 if variant_data.get('barcode'):
                     variant_for_bulk_metafield["barcode"] = variant_data.get('barcode')
                 
-                # Retry variant creation with option value ID
-                result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk_metafield])
+                # Retry variant creation with option value ID (DEFAULT strategy to preserve existing variants)
+                result = await multi_store_shopify_client.create_product_variants_bulk(store_key, product_id, [variant_for_bulk_metafield], strategy="DEFAULT")
             
             if result["msg"] == "failure":
                 logger.error(f"Failed to create variant in bulk for store {store_key}: {result.get('error')}")
@@ -1290,19 +1354,21 @@ class MultiStoreNewItemsSync:
                                     errors += 1
                                     continue  # Skip this group - don't create new product
                         else:
-                            # Status is NOT "existing" - normal flow: check if product exists
-                            # Check if we have an existing Shopify product ID
+                            # Status is NOT "existing" — trust the SAP view data
                             if existing_shopify_product_id:
                                 logger.info(f"Found existing Shopify product ID: {existing_shopify_product_id} for {main_product_name}")
-                                # Use the existing product ID directly
                                 existing_product_result = {
                                     "msg": "success",
                                     "exists": True,
                                     "product_id": f"gid://shopify/Product/{existing_shopify_product_id}"
                                 }
                             else:
-                                # Check if product already exists by handle
-                                existing_product_result = await self.check_existing_product(store_key, main_product_name)
+                                logger.info(f"No Shopify_ProductCode for {main_product_name}, will create new product")
+                                existing_product_result = {
+                                    "msg": "success",
+                                    "exists": False,
+                                    "product": None
+                                }
                         
                         if existing_product_result["msg"] == "failure":
                             logger.error(f"Failed to check existing product in store {store_key}: {existing_product_result.get('error')}")
@@ -1438,31 +1504,33 @@ class MultiStoreNewItemsSync:
                                 logger.info(f"Successfully created product in store {store_key}")
                                 shopify_product_id = store_result["shopify_product_id"].split("/")[-1]
                         
-                        # Save Shopify IDs to SAP mapping table
-                        main_product_name = group_items[0].get("MainProduct", "")
-                        
-                        # For single products (no variants), use itemcode as U_SAP_Code since MainProduct is NULL
-                        sap_code_for_mapping = main_product_name if main_product_name else group_items[0].get("itemcode", "")                    
-                        
-                        mapping_data = {
-                            "Code": shopify_product_id,
-                            "Name": shopify_product_id,
-                            "U_Shopify_Type": "product",
-                            "U_SAP_Code": sap_code_for_mapping,
-                            "U_Shopify_Store": store_key,
-                            "U_SAP_Type": "item",
-                            "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
-                        }
-                        mapping_result = await sap_client.add_shopify_mapping(mapping_data)
-                        await sl_add_log(
-                            server="sap",
-                            endpoint="U_SHOPIFY_MAPPING_2",
-                            request_data=mapping_data,
-                            response_data=mapping_result,
-                            status="success" if mapping_result.get("msg") == "success" else "failure",
-                            action="add_mapping_product",
-                            value=f"Product mapping for {sap_code_for_mapping} -> {shopify_product_id} in store {store_key}"
-                        )
+                        # Save product mapping to SAP only for NEW products (existing ones already have it)
+                        if not existing_product_result["exists"]:
+                            main_product_name = group_items[0].get("MainProduct", "")
+                            
+                            sap_code_for_mapping = main_product_name if main_product_name else group_items[0].get("itemcode", "")                    
+                            
+                            mapping_data = {
+                                "Code": shopify_product_id,
+                                "Name": shopify_product_id,
+                                "U_Shopify_Type": "product",
+                                "U_SAP_Code": sap_code_for_mapping,
+                                "U_Shopify_Store": store_key,
+                                "U_SAP_Type": "item",
+                                "U_CreateDT": datetime.now().strftime('%Y-%m-%d')
+                            }
+                            mapping_result = await sap_client.add_shopify_mapping(mapping_data)
+                            await sl_add_log(
+                                server="sap",
+                                endpoint="U_SHOPIFY_MAPPING_2",
+                                request_data=mapping_data,
+                                response_data=mapping_result,
+                                status="success" if mapping_result.get("msg") == "success" else "failure",
+                                action="add_mapping_product",
+                                value=f"Product mapping for {sap_code_for_mapping} -> {shopify_product_id} in store {store_key}"
+                            )
+                        else:
+                            logger.info(f"Skipping product mapping for existing product {shopify_product_id} in store {store_key} (already mapped)")
                         
                         # Handle variant mappings based on whether we created a new product or added to existing
                         if existing_product_result["exists"]:

@@ -306,7 +306,7 @@
         "new_items": {
             "enabled": false,
             "interval_minutes": 90,
-            "batch_size": 10
+            "batch_size": 100
         },
         "inventory": {
             "enabled": false,
@@ -322,7 +322,7 @@
             "batch_size": 50
         },
         "price_changes": {
-            "enabled": false,
+            "enabled": true,
             "interval_minutes": 20,
             "batch_size": 250
         },
@@ -352,13 +352,13 @@
                 "channel": "web,pos"
             },
             "returns": {
-                "enabled": true,
+                "enabled": false,
                 "interval_minutes": 20,
                 "batch_size": 10,
                 "from_date": "2025-10-30",
                 "channel": "web,pos",
 				"followup": {
-                    "enabled": true,
+                    "enabled": false,
                     "interval_minutes": 1440,
                     "days_old": 30
                 }

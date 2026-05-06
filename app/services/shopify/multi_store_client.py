@@ -929,34 +929,34 @@ class MultiStoreShopifyClient:
         
         return await self.execute_query(store_key, mutation, {"input": product_data})
     
-    async def create_product_variants_bulk(self, store_key: str, product_id: str, variants: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def create_product_variants_bulk(self, store_key: str, product_id: str, variants: List[Dict[str, Any]], strategy: str = "REMOVE_STANDALONE_VARIANT") -> Dict[str, Any]:
         """
-        Create product variants in bulk using the new Shopify API 2025-07 approach
-        This is step 2: Add variants to the product using productVariantsBulkCreate
+        Create product variants in bulk using the new Shopify API 2025-07 approach.
+        strategy: REMOVE_STANDALONE_VARIANT for new products, DEFAULT for existing products.
         """
-        mutation = """
-        mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-            productVariantsBulkCreate(productId: $productId, variants: $variants, strategy: REMOVE_STANDALONE_VARIANT) {
-                productVariants {
+        mutation = f"""
+        mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {{
+            productVariantsBulkCreate(productId: $productId, variants: $variants, strategy: {strategy}) {{
+                productVariants {{
                     id
                     title
                     sku
                     price
-                    selectedOptions {
+                    selectedOptions {{
                         name
                         value
-                    }
-                    inventoryItem {
+                    }}
+                    inventoryItem {{
                         id
                         sku
-                    }
-                }
-                userErrors {
+                    }}
+                }}
+                userErrors {{
                     field
                     message
-                }
-            }
-        }
+                }}
+            }}
+        }}
         """
         
         variables = {
@@ -1172,21 +1172,25 @@ class MultiStoreShopifyClient:
         
         return await self.execute_query(store_key, query, {})
     
-    async def update_product_option(self, store_key: str, product_id: str, option_id: str, option_name: str, option_values_to_add: List[Dict[str, Any]] = None, variant_strategy: str = "LEAVE_AS_IS") -> Dict[str, Any]:
+    async def update_product_option(self, store_key: str, product_id: str, option_id: str, option_name: str, option_values_to_add: List[Dict[str, Any]] = None, option_values_to_update: List[Dict[str, Any]] = None, variant_strategy: str = "LEAVE_AS_IS") -> Dict[str, Any]:
         """
-        Update product option and add new option values (for metafield-linked options)
+        Update product option, rename option values, and add new option values.
+        Supports renaming the option (e.g. Title -> Color), updating existing values
+        (e.g. Default Title -> actual color), and adding new values.
         """
         mutation = """
         mutation updateOption(
             $productId: ID!,
             $option: OptionUpdateInput!,
             $optionValuesToAdd: [OptionValueCreateInput!],
+            $optionValuesToUpdate: [OptionValueUpdateInput!],
             $variantStrategy: ProductOptionUpdateVariantStrategy
         ) {
             productOptionUpdate(
                 productId: $productId,
                 option: $option,
                 optionValuesToAdd: $optionValuesToAdd,
+                optionValuesToUpdate: $optionValuesToUpdate,
                 variantStrategy: $variantStrategy
             ) {
                 userErrors { 
@@ -1221,6 +1225,9 @@ class MultiStoreShopifyClient:
         
         if option_values_to_add:
             variables["optionValuesToAdd"] = option_values_to_add
+        
+        if option_values_to_update:
+            variables["optionValuesToUpdate"] = option_values_to_update
         
         return await self.execute_query(store_key, mutation, variables)
 
