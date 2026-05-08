@@ -322,7 +322,7 @@
             "batch_size": 50
         },
         "price_changes": {
-            "enabled": true,
+            "enabled": false,
             "interval_minutes": 20,
             "batch_size": 250
         },
@@ -338,7 +338,7 @@
         },
         "sales": {            
             "orders": {
-                "enabled": false,
+                "enabled": true,
                 "interval_minutes": 15,
                 "batch_size": 25,
                 "from_date": "2025-10-30",

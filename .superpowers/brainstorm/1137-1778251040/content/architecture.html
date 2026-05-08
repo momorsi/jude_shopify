@@ -1,0 +1,66 @@
+<h2>How should the web UI relate to the sync service?</h2>
+<p class="subtitle">The sync service currently runs as a Windows background process. Three ways to wire in a web UI.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Unified Process — FastAPI runs the sync engine</h3>
+      <p>FastAPI becomes the main entry point. Sync tasks run as <code>asyncio</code> background tasks inside the same app. One process, one Windows service.</p>
+      <div style="background:#1a1a2e;border-radius:8px;padding:12px;margin:10px 0;font-family:monospace;font-size:12px;color:#a0aec0">
+        <div style="color:#63b3ed">Windows Service → FastAPI app</div>
+        <div style="margin-left:16px;color:#68d391">├─ HTTP server (port 8000)</div>
+        <div style="margin-left:16px;color:#68d391">├─ orders_sync loop (asyncio task)</div>
+        <div style="margin-left:16px;color:#68d391">├─ inventory_sync loop (asyncio task)</div>
+        <div style="margin-left:16px;color:#68d391">└─ ... other sync tasks</div>
+        <div style="margin-top:8px;color:#a0aec0">Shared: SQLite event log + configurations.json</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>One process, one service to manage</li><li>Direct access to sync state in memory</li><li>Start/stop syncs from UI instantly</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Bigger refactor of current entry point</li><li>UI crash = sync stops</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate Processes — shared SQLite as the bridge</h3>
+      <p>Sync service keeps running as-is. FastAPI web server is a second process. They communicate through a shared SQLite database: sync writes events, UI reads them and writes commands that sync polls for.</p>
+      <div style="background:#1a1a2e;border-radius:8px;padding:12px;margin:10px 0;font-family:monospace;font-size:12px;color:#a0aec0">
+        <div style="color:#63b3ed">Windows Service 1 → continuous_main.py</div>
+        <div style="margin-left:16px;color:#68d391">└─ Reads commands from SQLite</div>
+        <div style="margin-left:16px;color:#68d391">└─ Writes events to SQLite</div>
+        <div style="margin-top:6px;color:#63b3ed">Windows Service 2 → FastAPI (web UI)</div>
+        <div style="margin-left:16px;color:#68d391">└─ Reads events from SQLite</div>
+        <div style="margin-left:16px;color:#68d391">└─ Writes commands to SQLite</div>
+        <div style="margin-top:6px;color:#f6ad55">Shared: sync_events.db + configurations.json</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Sync survives if UI crashes</li><li>Minimal change to existing sync code</li><li>Clean separation of concerns</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Two services to manage/start</li><li>Slight command latency (poll interval)</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>FastAPI wraps sync — UI triggers syncs directly via HTTP</h3>
+      <p>FastAPI is the main process. Continuous sync loops run inside it. But syncs can also be triggered immediately via API endpoints. The existing <code>continuous_main.py</code> is replaced by the FastAPI app startup.</p>
+      <div style="background:#1a1a2e;border-radius:8px;padding:12px;margin:10px 0;font-family:monospace;font-size:12px;color:#a0aec0">
+        <div style="color:#63b3ed">Windows Service → FastAPI app</div>
+        <div style="margin-left:16px;color:#68d391">├─ GET /dashboard</div>
+        <div style="margin-left:16px;color:#68d391">├─ POST /sync/orders → runs sync now</div>
+        <div style="margin-left:16px;color:#68d391">├─ POST /sync/stock?items=SKU1,SKU2</div>
+        <div style="margin-left:16px;color:#68d391">├─ Background: orders loop (asyncio)</div>
+        <div style="margin-left:16px;color:#68d391">└─ Background: inventory loop (asyncio)</div>
+        <div style="margin-top:8px;color:#a0aec0">SQLite: sync_events.db (event log)</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>One service, full control</li><li>Instant sync triggers (no polling)</li><li>Clean REST API for everything</li><li>Natural fit with asyncio already in use</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Replaces continuous_main.py (moderate refactor)</li><li>Must handle graceful shutdown carefully</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

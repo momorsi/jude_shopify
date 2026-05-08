@@ -48,7 +48,7 @@ class OrdersSalesSync:
                         fulfillmentOrders(first: 10) {
                             edges {
                                 node {
-                                    lineItems(first: 100) {
+                                    lineItems(first: 30) {
                                         edges {
                                             node {
                                                 id
@@ -248,14 +248,13 @@ class OrdersSalesSync:
                         }
 
                         # --- Refunds (to distinguish removed items from returned items) ---
-                        refunds(first: 10) {
-                        refundLineItems(first: 50) {
+                        refunds(first: 5) {
+                        refundLineItems(first: 20) {
                             edges {
                             node {
                                 lineItem {
                                 id
                                 }
-                                quantity
                             }
                             }
                         }
@@ -279,7 +278,7 @@ class OrdersSalesSync:
             # Also filter to get orders starting from today
             from_date = config_settings.sales_orders_from_date
             query_filter = f"channel:{config_settings.sales_orders_channel} fulfillment_status:fulfilled -tag:sap_invoice_synced -tag:sap_invoice_failed created_at:>={from_date}"
-            
+
             logger.info(f"Fetching orders with filter: {query_filter}")
             
             for attempt in range(max_retries):

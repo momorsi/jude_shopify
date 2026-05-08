@@ -1,0 +1,40 @@
+<h2>Which web stack for the admin UI?</h2>
+<p class="subtitle">This runs on the Windows sync server; the business team accesses it from the office network</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>FastAPI + HTMX &amp; Bootstrap</h3>
+      <p>Server-rendered HTML with lightweight JS sprinkles. No build step, no Node.js. Pages feel fast and interactive without a full SPA. Fits cleanly inside the existing Python repo.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Pure Python, zero JS toolchain</li><li>Fastest to build</li><li>Easy to maintain</li><li>Auto-refreshing tables &amp; logs via HTMX polling</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Less "app-like" feel</li><li>Complex interactions harder to implement</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>FastAPI + React (Vite)</h3>
+      <p>Full single-page app frontend served from the same Python backend. Rich interactive UI — sortable tables, live charts, modal dialogs, real-time log streaming.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Most polished UX</li><li>Easy live updates (WebSocket/SSE)</li><li>Charts &amp; data tables built-in</li><li>Separate frontend codebase scales well</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Requires Node.js + build step</li><li>More setup complexity</li><li>Bigger scope to maintain</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Streamlit</h3>
+      <p>Python-only dashboard framework. Spin up a data app in hours — charts, tables, forms, filters — all in pure Python. Best for internal ops tools and analytics.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Fastest possible build time</li><li>Native charts &amp; dataframes</li><li>Zero HTML/CSS needed</li><li>Great for ODBC query results</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Limited custom styling</li><li>Not ideal for forms/config editing</li><li>Heavier runtime dependency</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
