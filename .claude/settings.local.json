@@ -1,7 +1,47 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "PowerShell(New-Item *)",
+      "Bash(gh auth *)",
+      "Bash(pip install *)",
+      "Bash(python -c \"import aiosqlite; print\\(aiosqlite.__version__\\)\")",
+      "Read(//c/Users/morsi/OneDocs/Documents/Python Projects/Mashura/**)",
+      "Bash(grep -r \"import fastapi\\\\|from fastapi\\\\|import jinja2\\\\|from jinja2\\\\|import passlib\\\\|from passlib\\\\|import pyodbc\\\\|import aiosqlite\\\\|from aiosqlite\" app --include=\"*.py\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(python -c \"open\\('app/db/__init__.py', 'w'\\).close\\(\\); print\\('created'\\)\")",
+      "Bash(python -c \"from app.db.database import init_db; print\\('ok'\\)\")",
+      "Bash(python -c \"from app.db.lock import acquire_lock, release_lock, reset_stale_locks, is_paused; print\\('ok'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"from app.db.lock import acquire_lock, release_lock, reset_stale_locks, is_paused; print\\('ok'\\)\")",
+      "Bash(python -c \"open\\('C:/Users/morsi/OneDrive/Documents/Python Projects/Mashura/jude-shopify-admin/app/services/odbc/__init__.py', 'w'\\).close\\(\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"from app.services.odbc.client import odbc_client; print\\('ok'\\)\")",
+      "Bash(python -c \"open\\('C:/Users/morsi/OneDrive/Documents/Python Projects/Mashura/jude-shopify-admin/app/web/__init__.py', 'w'\\).close\\(\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"from app.web.auth import BasicAuthMiddleware, verify_password; print\\('ok'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"from app.web.app import app; print\\('ok'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"from app.main import ShopifySAPSync; print\\('ok'\\)\")",
+      "Bash(python -c \"from app.db import _run_id_ctx; from app.db.models import emit_event; print\\('db imports ok'\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"from app.sync.sales.orders_sync import OrdersSalesSync; print\\('ok'\\)\")",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(PYTHONIOENCODING=utf-8 python -c ' *)",
+      "Bash(python -c \"import ast; tree = ast.parse\\(open\\('app/sync/sales/orders_sync.py'\\).read\\(\\)\\); methods = [\\(n.name, n.lineno\\) for n in ast.walk\\(tree\\) if isinstance\\(n, ast.AsyncFunctionDef\\) and 'sync' in n.name.lower\\(\\)]; print\\('\\\\n'.join\\(str\\(m\\) for m in methods\\)\\)\")",
+      "Bash(python -c \"import ast; tree = ast.parse\\(open\\('app/sync/sales/orders_sync.py', encoding='utf-8'\\).read\\(\\)\\); methods = [\\(n.name, n.lineno\\) for n in ast.walk\\(tree\\) if isinstance\\(n, ast.AsyncFunctionDef\\) and 'sync' in n.name.lower\\(\\)]; print\\('\\\\n'.join\\(str\\(m\\) for m in methods\\)\\)\")",
+      "Bash(python -c \"import ast; tree = ast.parse\\(open\\('app/sync/sales/orders_sync.py', encoding='utf-8'\\).read\\(\\)\\); classes = [\\(n.name, n.lineno\\) for n in ast.walk\\(tree\\) if isinstance\\(n, ast.ClassDef\\)]; print\\('\\\\n'.join\\(str\\(c\\) for c in classes\\)\\)\")",
+      "Bash(python -c \"import sys; sys.stdout.reconfigure\\(encoding='utf-8'\\); exec\\(open\\('app/sync/sales/orders_sync.py'\\).read\\(\\)\\)\")",
+      "Bash(Get-Content \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\\\\app\\\\sync\\\\sales\\\\orders_sync.py\" -TotalCount 500)",
+      "Bash(Select-String -Pattern \"async def sync_orders|emit_event|try:|except Exception|total_errors\")",
+      "Bash(Select-Object LineNumber, Line)",
+      "Bash(Format-Table -AutoSize -Wrap)",
+      "Bash(grep -n \"sync_events.db\\\\|\\\\.env$\" \"C:/Users/morsi/OneDrive/Documents/Python Projects/Mashura/jude-shopify-admin/.gitignore\")",
+      "Bash(git push *)",
+      "PowerShell($env:PYTHONIOENCODING='utf-8'; cd \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\"; python -c \"from app.web.queries import get_dashboard_kpis; print\\('ok'\\)\")",
+      "PowerShell($env:PYTHONIOENCODING='utf-8'; cd \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\"; python -c \"from app.web.sync_meta import build_sync_status_rows; print\\('ok'\\)\")",
+      "Bash(New-Item -ItemType Directory -Path \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\\\\app\\\\web\\\\routes\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\\\\app\\\\web\\\\templates\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\\\\app\\\\web\\\\templates\\\\partials\" -Force)",
+      "PowerShell($env:PYTHONIOENCODING='utf-8'; cd \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\"; python -c \"from jinja2 import Environment, FileSystemLoader; env = Environment\\(loader=FileSystemLoader\\('app/web/templates'\\)\\); env.get_template\\('dashboard.html'\\); env.get_template\\('partials/dashboard_data.html'\\); print\\('templates parse ok'\\)\")",
+      "PowerShell($env:PYTHONIOENCODING='utf-8'; cd \"C:\\\\Users\\\\morsi\\\\OneDrive\\\\Documents\\\\Python Projects\\\\Mashura\\\\jude-shopify-admin\"; python -c \"from jinja2 import Environment, FileSystemLoader; env = Environment\\(loader=FileSystemLoader\\('app/web/templates'\\)\\); env.get_template\\('logs.html'\\); env.get_template\\('partials/run_events.html'\\); print\\('logs templates parse ok'\\)\")"
     ]
   }
 }

@@ -139,7 +139,7 @@ class ReturnsSyncV4:
                         -tag:sap_return_synced
                         -tag:sap_return_failed
                         created_at:>={self.config.returns_from_date}"""
-                    )                
+                    )
                 
                 query = """
                 query getOrders($first: Int!, $after: String, $query: String) {

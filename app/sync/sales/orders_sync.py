@@ -247,11 +247,13 @@ class OrdersSalesSync:
                         receiptJson   # contains gift_card_id, last_characters etc if gift card used
                         }
 
-                        # --- Refunds (to distinguish removed items from returned items) ---
+                        # --- Refunds (to distinguish removed/cancelled items from returned items) ---
                         refunds(first: 5) {
                         refundLineItems(first: 20) {
                             edges {
                             node {
+                                quantity
+                                restockType
                                 lineItem {
                                 id
                                 }
@@ -352,7 +354,23 @@ class OrdersSalesSync:
             location_analysis = self._analyze_order_location_from_retail_location(order_node, store_key)
             sap_codes = location_analysis.get('sap_codes', {})
             location_type = config_settings.get_location_type(location_analysis.get('location_mapping', {}))
-            
+
+            # Online local-pickup (BOPIS): the order is placed/paid online but the
+            # customer collects it from a physical store. The sale stays an online
+            # sale (cost centers, document series, salesperson, and payment all keep
+            # the online store's values) - only the WAREHOUSE is taken from the pickup
+            # store, since that is where the stock physically leaves from.
+            pickup_location_mapping = self._get_online_pickup_location_mapping(order_node, store_key)
+            if pickup_location_mapping:
+                pickup_warehouse = pickup_location_mapping.get('warehouse', 'SW')
+                sap_codes = dict(sap_codes)
+                sap_codes['Warehouse'] = pickup_warehouse
+                logger.info(
+                    f"🏬 Online local-pickup order {order_node.get('name', 'Unknown')} - "
+                    f"using pickup store warehouse '{pickup_warehouse}' (cost centers, "
+                    f"series, and salesperson stay on the online store)"
+                )
+
             courier_name = ""
             if location_type == "online":
                 courier_name = self._extract_courier_from_metafields(order_node)
@@ -432,14 +450,22 @@ class OrdersSalesSync:
                                 }
                                 logger.info(f"Mapped line item {line_item_id} to location {location_id} (warehouse: {warehouse_code}, qty: {quantity}, method: {method_type})")
             
-            # Build set of line item IDs that were refunded, so we can distinguish
-            # "removed from order edit" (no refund) from "sold then returned" (has refund).
-            refunded_line_item_ids = set()
+            # Build a per-line map of quantities that were genuinely RETURNED (sold, then
+            # sent back and restocked). These stay on the invoice at full quantity so that
+            # returns_sync can later issue the matching credit note.
+            #
+            # Refunds with restockType CANCEL or NO_RESTOCK are treated as cancellations:
+            # the unit was removed from the order (typically before/at fulfillment) and was
+            # never really sold, so it must NOT be invoiced. currentQuantity already excludes
+            # those units, so we simply do not add them back.
+            returned_qty_by_line = {}
             for refund in order_node.get("refunds", []):
                 for rli_edge in refund.get("refundLineItems", {}).get("edges", []):
-                    li_id = rli_edge.get("node", {}).get("lineItem", {}).get("id")
-                    if li_id:
-                        refunded_line_item_ids.add(li_id)
+                    rli = rli_edge.get("node", {})
+                    li_id = (rli.get("lineItem") or {}).get("id")
+                    restock_type = rli.get("restockType")
+                    if li_id and restock_type in ("RETURN", "LEGACY_RESTOCK"):
+                        returned_qty_by_line[li_id] = returned_qty_by_line.get(li_id, 0) + (rli.get("quantity") or 0)
 
             # Map line items with discount information
             line_items = []
@@ -448,17 +474,22 @@ class OrdersSalesSync:
                 sku = item.get("sku")
                 quantity = item["quantity"]
                 current_quantity = item.get("currentQuantity", quantity)
+                line_item_id = item.get("id", "")
+                returned_qty = returned_qty_by_line.get(line_item_id, 0)
 
-                if current_quantity == 0:
-                    line_item_id = item.get("id", "")
-                    if line_item_id in refunded_line_item_ids:
-                        # Item was sold and then fully refunded — include it in the invoice
-                        # using the original ordered quantity so SAP records the sale correctly.
-                        logger.info(f"Line item currentQuantity=0 but has a refund — including with original quantity {quantity}: {item.get('name')} SKU={sku}")
-                    else:
-                        # Item was removed via order edit and never actually sold — skip it.
-                        logger.info(f"Skipping removed line item (currentQuantity=0, no refund): {item.get('name')} SKU={sku}")
-                        continue
+                # Quantity actually sold = units still in the order (currentQuantity) plus
+                # units that were sold and then returned (kept on the invoice so returns_sync
+                # can issue the matching credit note). Cancelled / order-edit-removed units are
+                # already excluded by currentQuantity and are intentionally NOT added back, so
+                # they never reach SAP.
+                invoice_qty = current_quantity + returned_qty
+                if invoice_qty <= 0:
+                    logger.info(
+                        f"Skipping line item with no sold quantity "
+                        f"(ordered={quantity}, current={current_quantity}, returned={returned_qty}): "
+                        f"{item.get('name')} SKU={sku}"
+                    )
+                    continue
                 
                 # Skip gift card line items (POS refunds) - these have sku: null and variant: null
                 if (item.get("name") == "Gift Card" and 
@@ -571,11 +602,11 @@ class OrdersSalesSync:
                             break
                 
                 # For gift card items with quantity > 1, create separate lines
-                if is_gift_card_item and quantity > 1:
-                    logger.info(f"Creating {quantity} separate lines for gift card item: {item_code}")
+                if is_gift_card_item and invoice_qty > 1:
+                    logger.info(f"Creating {invoice_qty} separate lines for gift card item: {item_code}")
                     
                     # Create separate lines for each gift card
-                    for i in range(quantity):
+                    for i in range(invoice_qty):
                         # Find the corresponding gift card for this line
                         matching_gift_card = None
                         for gift_card_info in created_gift_cards:
@@ -602,7 +633,7 @@ class OrdersSalesSync:
                         # Add gift card ID to this line
                         if matching_gift_card:
                             line_item["U_GiftCard"] = matching_gift_card.get("gift_card_id")
-                            logger.info(f"Added U_GiftCard field to line item: {matching_gift_card.get('gift_card_id')} for gift card {i+1}/{quantity}")
+                            logger.info(f"Added U_GiftCard field to line item: {matching_gift_card.get('gift_card_id')} for gift card {i+1}/{invoice_qty}")
                         
                         # Calculate discount percentage based on compareAtPrice vs sale price
                         # Note: For gift card lines, quantity is always 1
@@ -652,7 +683,7 @@ class OrdersSalesSync:
                     # Regular line item (non-gift card or gift card with quantity 1)
                     line_item = {
                         "ItemCode": item_code,
-                        "Quantity": quantity,
+                        "Quantity": invoice_qty,
                         "UnitPrice": float(original_price),  # Always use original price (compareAtPrice)
                         "WarehouseCode": warehouse_code,
                         "COGSCostingCode": costing_codes['COGSCostingCode'],
@@ -669,8 +700,8 @@ class OrdersSalesSync:
                         unit_discount_amount = original_price - sale_price
                         discount_percentage = (unit_discount_amount / original_price) * 100
                         line_item["DiscountPercent"] = float(discount_percentage)
-                        # U_ItemDiscountAmount stores total discount for the line (unit * quantity)
-                        line_item["U_ItemDiscountAmount"] = float(unit_discount_amount * quantity)
+                        # U_ItemDiscountAmount stores total discount for the line (unit * invoiced qty)
+                        line_item["U_ItemDiscountAmount"] = float(unit_discount_amount * invoice_qty)
                         logger.info(f"🎯 Pricing for {item_code}: Original={original_price}, Sale={sale_price}, Discount={discount_percentage:.1f}%")
                     
                     # Also check for additional discount allocations (coupons, etc.)
@@ -682,17 +713,18 @@ class OrdersSalesSync:
                             for allocation in discount_allocations
                         )
                         if total_item_discount > 0:
-                            # Add additional discount amount to existing discount
-                            # discountAllocations contains total discount for the line, so add it directly to U_ItemDiscountAmount
+                            # discountAllocations holds the discount for the ORIGINAL ordered
+                            # quantity, so convert to per-unit then apply to the invoiced qty.
+                            allocation_for_invoiced_qty = (total_item_discount / quantity) * invoice_qty if quantity else total_item_discount
                             if "U_ItemDiscountAmount" in line_item:
-                                line_item["U_ItemDiscountAmount"] += total_item_discount
+                                line_item["U_ItemDiscountAmount"] += allocation_for_invoiced_qty
                             else:
-                                line_item["U_ItemDiscountAmount"] = total_item_discount
+                                line_item["U_ItemDiscountAmount"] = allocation_for_invoiced_qty
                             
                             # Recalculate total discount percentage from unit discount
-                            # IMPORTANT: DiscountPercent should be per unit, so divide total by quantity
-                            if original_price > 0:
-                                unit_discount_total = line_item["U_ItemDiscountAmount"] / quantity
+                            # IMPORTANT: DiscountPercent should be per unit, so divide total by invoiced qty
+                            if original_price > 0 and invoice_qty > 0:
+                                unit_discount_total = line_item["U_ItemDiscountAmount"] / invoice_qty
                                 total_discount_percentage = (unit_discount_total / float(original_price)) * 100
                                 line_item["DiscountPercent"] = total_discount_percentage
                                 logger.info(f"🎯 Additional discount for {item_code}: {total_item_discount} total (unit: {unit_discount_total}), Total Discount: {total_discount_percentage:.1f}%")
@@ -1165,6 +1197,51 @@ class OrdersSalesSync:
                 logger.error(f"Error preparing gift card data: {str(e)}")
         
         return created_gift_cards
+
+    def _get_online_pickup_location_mapping(self, order_node: Dict[str, Any], store_key: str) -> Optional[Dict[str, Any]]:
+        """
+        Detect a "buy online, pick up in store" (local pickup) order and return the
+        pickup store's location mapping.
+
+        Online local-pickup orders arrive with sourceName="web" and retailLocation=null,
+        so they are otherwise indistinguishable from regular online orders. The physical
+        store is only exposed via the fulfillment order's assignedLocation when the
+        deliveryMethod is PICK_UP.
+
+        Returns the store location mapping (dict) when the order is a web order fulfilled
+        via in-store pickup AND the assigned location resolves to a configured store
+        location; otherwise returns None.
+        """
+        try:
+            source_name = (order_node.get("sourceName") or "").lower()
+            if source_name == "pos":
+                return None
+
+            fulfillment_orders = order_node.get("fulfillmentOrders", {}).get("edges", [])
+            for fulfillment_edge in fulfillment_orders:
+                node = fulfillment_edge.get("node", {})
+                delivery_method = node.get("deliveryMethod") or {}
+                if delivery_method.get("methodType") != "PICK_UP":
+                    continue
+
+                location = (node.get("assignedLocation") or {}).get("location") or {}
+                location_gid = location.get("id")
+                if not location_gid:
+                    continue
+
+                location_id = location_gid.split("/")[-1] if "/" in location_gid else location_gid
+                location_mapping = config_settings.get_location_mapping_for_location(store_key, location_id)
+
+                # Only attribute to a real, configured store location. The default
+                # fallback mapping ({"warehouse": "SW"}) has no "type", so this guards
+                # against treating an unknown/unmapped location as a store.
+                if location_mapping and location_mapping.get("type") == "store":
+                    return location_mapping
+
+            return None
+        except Exception as e:
+            logger.error(f"Error detecting online pickup location: {str(e)}")
+            return None
 
     def _analyze_order_location_from_retail_location(self, order_node: Dict[str, Any], store_key: str) -> Dict[str, Any]:
         """

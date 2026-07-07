@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  .topbar { background: #1a1d2e; border-bottom: 1px solid #2d3748; padding: 0 24px; display: flex; align-items: center; height: 56px; gap: 28px; }
+  .logo { font-weight: 700; font-size: 15px; color: #fff; }
+  .logo span { color: #667eea; }
+  .nav-link { font-size: 13px; color: #a0aec0; text-decoration: none; padding: 6px 0; border-bottom: 2px solid transparent; cursor: pointer; }
+  .nav-link.active { color: #fff; border-bottom-color: #667eea; }
+  .spacer { flex: 1; }
+
+  /* Global stop/start */
+  .integration-state { display: flex; align-items: center; gap: 10px; background: #161827; border: 1px solid #2d3748; border-radius: 8px; padding: 6px 14px; }
+  .state-label { font-size: 12px; color: #718096; }
+  .state-badge { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; }
+  .state-badge.running { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+  .state-badge.stopped { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; }
+  .stop-btn { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+  .start-btn { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+
+  .main { padding: 24px; overflow-y: auto; }
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: #718096; margin-bottom: 24px; }
+
+  .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .card { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; padding: 16px; }
+  .card .label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .card .value { font-size: 22px; font-weight: 700; }
+  .card .meta { font-size: 11px; color: #718096; margin-top: 4px; }
+  .card.ok { border-left: 3px solid #22c55e; }
+  .card.err { border-left: 3px solid #ef4444; }
+  .card.warn { border-left: 3px solid #f59e0b; }
+
+  .section-title { font-size: 11px; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+
+  .sync-table { width: 100%; border-collapse: collapse; background: #1a1d2e; border-radius: 10px; overflow: hidden; border: 1px solid #2d3748; margin-bottom: 24px; }
+  .sync-table th { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 16px; text-align: left; border-bottom: 1px solid #2d3748; background: #161827; }
+  .sync-table td { padding: 11px 16px; font-size: 13px; border-bottom: 1px solid #1e2333; vertical-align: middle; }
+  .sync-table tr:last-child td { border-bottom: none; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.ok { background: #22c55e22; color: #22c55e; }
+  .pill.err { background: #ef444422; color: #ef4444; }
+  .pill.running { background: #667eea22; color: #818cf8; }
+  .pill.running .pill-dot { animation: pulse 1.2s infinite; }
+  .pill.disabled { background: #4a556822; color: #718096; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; }
+  .btn-run { background: #667eea22; color: #667eea; border: 1px solid #667eea44; }
+  .btn-run:disabled, .btn-run.locked { background: #1e2333; color: #4a5568; border-color: #2d3748; cursor: not-allowed; }
+  .btn-enable { background: transparent; color: #a0aec0; border: 1px solid #2d3748; }
+  .lock-icon { font-size: 10px; }
+
+  .tooltip { position: relative; display: inline-block; }
+  .tooltip .tip { visibility: hidden; background: #2d3748; color: #e2e8f0; font-size: 11px; padding: 4px 8px; border-radius: 4px; position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 10; }
+  .tooltip:hover .tip { visibility: visible; }
+
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; padding: 16px; }
+  .panel-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+
+  .failure-row { padding: 10px 0; border-bottom: 1px solid #1e2333; font-size: 12px; }
+  .failure-row:last-child { border-bottom: none; }
+  .failure-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+  .failure-title { color: #e2e8f0; font-weight: 500; }
+  .failure-meta { color: #718096; font-size: 11px; margin-bottom: 6px; }
+  .failure-actions { display: flex; gap: 6px; }
+  .btn-action { font-size: 11px; padding: 3px 9px; border-radius: 5px; cursor: pointer; border: none; }
+  .btn-remove-tag { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; }
+  .btn-view { background: #667eea22; color: #667eea; border: 1px solid #667eea44; }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1e2333; font-size: 12px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: #a0aec0; }
+  .stat-val { font-weight: 600; }
+  .green { color: #22c55e; }
+  .red { color: #ef4444; }
+  .yellow { color: #f59e0b; }
+
+  .info-note { background: #f59e0b11; border: 1px solid #f59e0b33; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #f59e0b; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Jude <span>Sync</span></div>
+  <a class="nav-link active">Dashboard</a>
+  <a class="nav-link">Logs</a>
+  <a class="nav-link">Run Sync</a>
+  <a class="nav-link">Mapping Check</a>
+  <a class="nav-link">Config</a>
+  <a class="nav-link">Notifications</a>
+  <div class="spacer"></div>
+  <!-- Global integration stop/start -->
+  <div class="integration-state">
+    <span class="state-label">Integration</span>
+    <span class="state-badge running">● RUNNING</span>
+    <button class="stop-btn">⏹ Stop All</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-title">Dashboard</div>
+  <div class="page-sub">Today · Local Store (EGP) · Auto-refreshes every 30s</div>
+
+  <div class="cards-grid">
+    <div class="card ok">
+      <div class="label">Orders synced today</div>
+      <div class="value">47</div>
+      <div class="meta">Last run 2 min ago</div>
+    </div>
+    <div class="card err">
+      <div class="label">Failed orders</div>
+      <div class="value red">3</div>
+      <div class="meta">Tagged — need retry action</div>
+    </div>
+    <div class="card ok">
+      <div class="label">Stock updates today</div>
+      <div class="value">1,240</div>
+      <div class="meta">Last run 5 min ago</div>
+    </div>
+    <div class="card warn">
+      <div class="label">Mapping issues</div>
+      <div class="value yellow">7</div>
+      <div class="meta">Shopify_Mapping2 — last check 1h ago</div>
+    </div>
+  </div>
+
+  <div class="section-title">Sync Processes</div>
+
+  <div class="info-note">
+    ⓘ "Run Now" is disabled while that sync is already running. The scheduled loop will also skip its next fire if a manual run is in progress.
+  </div>
+
+  <table class="sync-table">
+    <thead>
+      <tr>
+        <th>Process</th>
+        <th>Direction</th>
+        <th>Status</th>
+        <th>Last Run</th>
+        <th>Processed</th>
+        <th>Errors</th>
+        <th>Next Run</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Orders</strong></td>
+        <td style="color:#718096;font-size:12px">Shopify → SAP</td>
+        <td><span class="pill running"><span class="pill-dot"></span>Running now</span></td>
+        <td style="color:#718096;font-size:12px">14:20:01</td>
+        <td>47</td>
+        <td class="red"><strong>3</strong></td>
+        <td style="color:#718096;font-size:12px">14:35:00</td>
+        <td>
+          <div class="tooltip">
+            <button class="btn btn-run locked" disabled>🔒 Running</button>
+            <span class="tip">Already running — wait for it to finish</span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Stock</strong></td>
+        <td style="color:#718096;font-size:12px">SAP → Shopify</td>
+        <td><span class="pill ok"><span class="pill-dot"></span>OK</span></td>
+        <td style="color:#718096;font-size:12px">14:17:44</td>
+        <td>1,240</td>
+        <td>0</td>
+        <td style="color:#718096;font-size:12px">14:22:44</td>
+        <td><button class="btn btn-run">▶ Run now</button></td>
+      </tr>
+      <tr>
+        <td><strong>Returns</strong></td>
+        <td style="color:#718096;font-size:12px">Shopify → SAP</td>
+        <td><span class="pill ok"><span class="pill-dot"></span>OK</span></td>
+        <td style="color:#718096;font-size:12px">14:10:22</td>
+        <td>5</td>
+        <td>0</td>
+        <td style="color:#718096;font-size:12px">14:30:22</td>
+        <td><button class="btn btn-run">▶ Run now</button></td>
+      </tr>
+      <tr>
+        <td><strong>Price Changes</strong></td>
+        <td style="color:#718096;font-size:12px">SAP → Shopify</td>
+        <td><span class="pill err"><span class="pill-dot"></span>Last run failed</span></td>
+        <td style="color:#718096;font-size:12px">13:55:00</td>
+        <td>0</td>
+        <td class="red"><strong>1</strong></td>
+        <td style="color:#718096;font-size:12px">14:15:00 (overdue)</td>
+        <td><button class="btn btn-run">▶ Run now</button></td>
+      </tr>
+      <tr>
+        <td><strong>New Items</strong></td>
+        <td style="color:#718096;font-size:12px">SAP → Shopify</td>
+        <td><span class="pill disabled"><span class="pill-dot"></span>Disabled</span></td>
+        <td style="color:#718096;font-size:12px">Yesterday 09:00</td>
+        <td>—</td>
+        <td>—</td>
+        <td style="color:#718096;font-size:12px">—</td>
+        <td><button class="btn btn-enable">Enable</button></td>
+      </tr>
+      <tr>
+        <td><strong>Payment Recovery</strong></td>
+        <td style="color:#718096;font-size:12px">SAP → Shopify</td>
+        <td><span class="pill disabled"><span class="pill-dot"></span>Disabled</span></td>
+        <td style="color:#718096;font-size:12px">—</td>
+        <td>—</td>
+        <td>—</td>
+        <td style="color:#718096;font-size:12px">—</td>
+        <td><button class="btn btn-enable">Enable</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-title">Recent Failures</div>
+
+      <div class="failure-row">
+        <div class="failure-header">
+          <span class="failure-title">Order #4521 — customer not found in SAP</span>
+        </div>
+        <div class="failure-meta">Orders · 14:20:03 · Location: Zamalek · tagged sap_order_failed</div>
+        <div class="failure-actions">
+          <button class="btn-action btn-remove-tag">Remove failure tag → retry next cycle</button>
+          <button class="btn-action btn-view">View details</button>
+        </div>
+      </div>
+
+      <div class="failure-row">
+        <div class="failure-header">
+          <span class="failure-title">Order #4518 — invoice series mismatch</span>
+        </div>
+        <div class="failure-meta">Orders · 14:20:01 · Location: Arkan · tagged sap_order_failed</div>
+        <div class="failure-actions">
+          <button class="btn-action btn-remove-tag">Remove failure tag → retry next cycle</button>
+          <button class="btn-action btn-view">View details</button>
+        </div>
+      </div>
+
+      <div class="failure-row">
+        <div class="failure-header">
+          <span class="failure-title">SKU JB-RED-M — item not found in Shopify</span>
+        </div>
+        <div class="failure-meta">New Items · 09:15:44</div>
+        <div class="failure-actions">
+          <button class="btn-action btn-view">View details</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Today's Summary</div>
+      <div class="stat-row"><span class="stat-label">Orders synced</span><span class="stat-val green">47</span></div>
+      <div class="stat-row"><span class="stat-label">Orders failed (tagged)</span><span class="stat-val red">3</span></div>
+      <div class="stat-row"><span class="stat-label">Stock items updated</span><span class="stat-val">1,240</span></div>
+      <div class="stat-row"><span class="stat-label">Returns processed</span><span class="stat-val">5</span></div>
+      <div class="stat-row"><span class="stat-label">Price changes pushed</span><span class="stat-val">0</span></div>
+      <div class="stat-row"><span class="stat-label">Mapping issues (ODBC check)</span><span class="stat-val yellow">7</span></div>
+      <div class="stat-row"><span class="stat-label">Total sync runs today</span><span class="stat-val">38</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

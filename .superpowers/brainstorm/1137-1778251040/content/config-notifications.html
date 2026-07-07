@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Config + Notifications</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; }
+
+  .topbar { background: #1a1d2e; border-bottom: 1px solid #2d3748; padding: 0 24px; display: flex; align-items: center; height: 56px; gap: 28px; }
+  .logo { font-weight: 700; font-size: 15px; color: #fff; }
+  .logo span { color: #667eea; }
+  .nav-link { font-size: 13px; color: #a0aec0; cursor: pointer; padding: 6px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .nav-link.active { color: #fff; border-bottom-color: #667eea; }
+  .spacer { flex: 1; }
+  .store-selector { display: flex; align-items: center; gap: 8px; background: #13151f; border: 1px solid #2d3748; border-radius: 8px; padding: 5px 12px; }
+  .store-selector label { font-size: 11px; color: #718096; }
+  .store-select { background: transparent; border: none; color: #e2e8f0; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; }
+  .store-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+  .integration-state { display: flex; align-items: center; gap: 10px; background: #161827; border: 1px solid #2d3748; border-radius: 8px; padding: 6px 14px; }
+  .state-label { font-size: 12px; color: #718096; }
+  .state-badge { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+  .stop-btn { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+
+  .page-tabs { display: flex; border-bottom: 1px solid #2d3748; background: #1a1d2e; padding: 0 24px; }
+  .tab { padding: 12px 20px; font-size: 13px; color: #718096; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: #fff; border-bottom-color: #667eea; }
+
+  .page { display: none; padding: 24px; max-width: 960px; }
+  .page.active { display: block; }
+
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: #718096; margin-bottom: 24px; }
+
+  /* Warning banner */
+  .warn-banner { background: #f59e0b11; border: 1px solid #f59e0b44; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #f59e0b; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+
+  /* Config sections */
+  .config-section { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .cs-header { padding: 14px 18px; border-bottom: 1px solid #2d3748; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .cs-title { font-size: 14px; font-weight: 600; }
+  .cs-sub { font-size: 12px; color: #718096; margin-top: 2px; }
+  .cs-body { padding: 18px; }
+  .cs-chevron { color: #718096; transition: transform 0.2s; }
+  .config-section.open .cs-chevron { transform: rotate(90deg); }
+  .cs-content { display: none; }
+  .config-section.open .cs-content { display: block; }
+
+  /* Form fields */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field input, .field select { background: #13151f; border: 1px solid #2d3748; color: #e2e8f0; font-size: 13px; padding: 8px 10px; border-radius: 6px; outline: none; }
+  .field input:focus, .field select:focus { border-color: #667eea; }
+  .field .hint { font-size: 11px; color: #4a5568; }
+  .pass-wrap { position: relative; }
+  .pass-wrap input { width: 100%; padding-right: 36px; }
+  .pass-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #718096; cursor: pointer; font-size: 14px; }
+  .field-full { grid-column: 1 / -1; }
+
+  /* Toggle switch */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #1e2333; }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-info { flex: 1; }
+  .toggle-label { font-size: 13px; font-weight: 500; }
+  .toggle-desc { font-size: 12px; color: #718096; margin-top: 2px; }
+  .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle input { display: none; }
+  .toggle-track { position: absolute; inset: 0; background: #2d3748; border-radius: 20px; cursor: pointer; transition: background 0.2s; }
+  .toggle input:checked + .toggle-track { background: #667eea; }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform 0.2s; pointer-events: none; }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+  /* Sync settings rows */
+  .sync-settings-row { padding: 12px 0; border-bottom: 1px solid #1e2333; }
+  .sync-settings-row:last-child { border-bottom: none; }
+  .ssr-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .ssr-name { font-size: 13px; font-weight: 600; min-width: 140px; }
+  .ssr-dir { font-size: 11px; color: #718096; }
+  .ssr-fields { display: grid; grid-template-columns: 100px 120px 120px 160px; gap: 10px; margin-left: 0; }
+  .ssr-field label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 4px; }
+  .ssr-field input, .ssr-field select { background: #13151f; border: 1px solid #2d3748; color: #e2e8f0; font-size: 12px; padding: 5px 8px; border-radius: 5px; width: 100%; outline: none; }
+
+  /* Action bar */
+  .action-bar { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-top: 1px solid #2d3748; margin-top: 8px; }
+  .btn-save { background: #667eea; color: #fff; border: none; font-size: 14px; font-weight: 600; padding: 9px 28px; border-radius: 7px; cursor: pointer; }
+  .btn-discard { background: transparent; color: #718096; border: 1px solid #2d3748; font-size: 14px; padding: 9px 20px; border-radius: 7px; cursor: pointer; }
+  .btn-test { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+  .unsaved-note { font-size: 12px; color: #f59e0b; }
+
+  /* ── NOTIFICATIONS PAGE ── */
+  .notif-section { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; margin-bottom: 16px; padding: 20px; }
+  .ns-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .ns-sub { font-size: 13px; color: #718096; margin-bottom: 16px; }
+
+  .recipients-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .recipient-row { display: flex; align-items: center; gap: 8px; background: #13151f; border: 1px solid #2d3748; border-radius: 6px; padding: 7px 12px; font-size: 13px; }
+  .recipient-email { flex: 1; }
+  .recipient-remove { color: #718096; cursor: pointer; font-size: 16px; line-height: 1; }
+  .recipient-remove:hover { color: #ef4444; }
+  .add-recipient { display: flex; gap: 8px; }
+  .add-recipient input { flex: 1; background: #13151f; border: 1px solid #2d3748; color: #e2e8f0; font-size: 13px; padding: 7px 10px; border-radius: 6px; outline: none; }
+  .add-recipient input::placeholder { color: #4a5568; }
+  .btn-add { background: #667eea22; color: #667eea; border: 1px solid #667eea44; font-size: 12px; padding: 7px 14px; border-radius: 6px; cursor: pointer; }
+
+  /* Alert rules */
+  .alert-rules { display: flex; flex-direction: column; gap: 0; }
+  .alert-rule { display: grid; grid-template-columns: 200px 1fr 160px; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #1e2333; font-size: 13px; }
+  .alert-rule:last-child { border-bottom: none; }
+  .ar-name { font-weight: 500; }
+  .ar-desc { font-size: 12px; color: #718096; }
+  .ar-threshold { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #718096; }
+  .ar-threshold input { width: 56px; background: #13151f; border: 1px solid #2d3748; color: #e2e8f0; font-size: 12px; padding: 4px 8px; border-radius: 5px; text-align: center; }
+
+  /* SMTP */
+  .smtp-grid { display: grid; grid-template-columns: 1fr 80px; gap: 12px; margin-bottom: 14px; }
+  .smtp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+  .pill-ok { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #22c55e22; color: #22c55e; }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+</style>
+<script>
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-tab="'+tab+'"]').classList.add('active');
+    document.getElementById(tab).classList.add('active');
+  }
+  function toggleSection(el) {
+    el.closest('.config-section').classList.toggle('open');
+  }
+</script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Jude <span>Sync</span></div>
+  <a class="nav-link">Dashboard</a>
+  <a class="nav-link">Logs</a>
+  <a class="nav-link">Run Sync</a>
+  <a class="nav-link">Mapping Check</a>
+  <a class="nav-link active">Config</a>
+  <a class="nav-link">Notifications</a>
+  <div class="spacer"></div>
+  <div class="store-selector">
+    <span class="store-dot"></span>
+    <label>Store</label>
+    <select class="store-select">
+      <option>Local Store (EGP)</option>
+      <option>International Store (USD)</option>
+    </select>
+  </div>
+  <div class="integration-state">
+    <span class="state-label">Integration</span>
+    <span class="state-badge">● RUNNING</span>
+    <button class="stop-btn">⏹ Stop All</button>
+  </div>
+</div>
+
+<div class="page-tabs">
+  <div class="tab active" data-tab="config" onclick="switchTab('config')">Configuration</div>
+  <div class="tab" data-tab="notifications" onclick="switchTab('notifications')">Notifications</div>
+</div>
+
+<!-- ══ CONFIG PAGE ══ -->
+<div class="page active" id="config">
+  <div class="page-title">Configuration</div>
+  <div class="page-sub">Changes are saved to <code style="background:#1a1d2e;padding:1px 6px;border-radius:3px;font-size:12px">configurations.json</code> — the integration reloads settings automatically without a restart</div>
+
+  <div class="warn-banner">⚠ Changes to SAP/Shopify credentials or sync intervals take effect on the next sync cycle. Test your connection after saving.</div>
+
+  <!-- General -->
+  <div class="config-section open">
+    <div class="cs-header" onclick="toggleSection(this)">
+      <div><div class="cs-title">General</div><div class="cs-sub">Test mode, retry behaviour</div></div>
+      <span class="cs-chevron">›</span>
+    </div>
+    <div class="cs-content">
+      <div class="cs-body">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">Test Mode</div>
+            <div class="toggle-desc">When enabled, all syncs run as dry-runs — no data is written to SAP or Shopify</div>
+          </div>
+          <label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div style="height:14px"></div>
+        <div class="form-grid">
+          <div class="field"><label>Max retry attempts</label><input type="number" value="3"><div class="hint">How many times to retry a failed SAP/Shopify call</div></div>
+          <div class="field"><label>Retry delay (seconds)</label><input type="number" value="5"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAP Connection -->
+  <div class="config-section open">
+    <div class="cs-header" onclick="toggleSection(this)">
+      <div><div class="cs-title">SAP B1 Connection</div><div class="cs-sub">Service Layer + ODBC credentials</div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn-test" onclick="event.stopPropagation()">Test SAP Connection</button>
+        <span class="cs-chevron">›</span>
+      </div>
+    </div>
+    <div class="cs-content">
+      <div class="cs-body">
+        <div class="form-grid">
+          <div class="field field-full"><label>Service Layer URL</label><input type="text" value="https://10.0.0.100:50000/b1s/v1"></div>
+          <div class="field"><label>Company DB</label><input type="text" value="JudeBenHalim_New"></div>
+          <div class="field"><label>Username</label><input type="text" value="manager"></div>
+          <div class="field"><label>Password</label><div class="pass-wrap"><input type="password" value="Azmjude$1"><span class="pass-eye">👁</span></div></div>
+          <div class="field"><label>Timeout (seconds)</label><input type="number" value="30"></div>
+        </div>
+        <div style="height:16px;border-top:1px solid #2d3748;margin-top:16px;padding-top:16px">
+          <div style="font-size:12px;color:#718096;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">ODBC / MSSQL Direct Connection</div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>MSSQL Host</label><input type="text" placeholder="10.0.0.100"></div>
+          <div class="field"><label>MSSQL Port</label><input type="number" value="1433"></div>
+          <div class="field"><label>Database</label><input type="text" placeholder="JudeBenHalim_New"></div>
+          <div class="field"><label>ODBC Driver</label><select><option>ODBC Driver 17 for SQL Server</option><option>ODBC Driver 18 for SQL Server</option><option>SQL Server</option></select></div>
+          <div class="field"><label>Username</label><input type="text" placeholder="sa"></div>
+          <div class="field"><label>Password</label><div class="pass-wrap"><input type="password" placeholder="••••••••"><span class="pass-eye">👁</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shopify Stores -->
+  <div class="config-section open">
+    <div class="cs-header" onclick="toggleSection(this)">
+      <div><div class="cs-title">Shopify Stores</div><div class="cs-sub">Credentials and settings per store</div></div>
+      <span class="cs-chevron">›</span>
+    </div>
+    <div class="cs-content">
+      <div class="cs-body">
+        <!-- Local store -->
+        <div style="font-size:12px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span class="store-dot"></span> Local Store (EGP)
+          <label class="toggle" style="margin-left:8px"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:11px;color:#718096;text-transform:none;letter-spacing:0">Enabled</span>
+        </div>
+        <div class="form-grid" style="margin-bottom:18px">
+          <div class="field"><label>Shop URL</label><input type="text" value="eg-judebenhalim.myshopify.com"></div>
+          <div class="field"><label>API Version</label><input type="text" value="2025-07"></div>
+          <div class="field"><label>Client ID</label><input type="text" value="74dd4817df2915ef…"></div>
+          <div class="field"><label>Client Secret</label><div class="pass-wrap"><input type="password" value="shpss_5a11e09fa401…"><span class="pass-eye">👁</span></div></div>
+          <div class="field"><label>Currency</label><input type="text" value="EGP" style="width:80px"></div>
+          <div class="field"><label>SAP Price List</label><input type="number" value="1"></div>
+        </div>
+
+        <div style="border-top:1px solid #2d3748;margin-bottom:14px"></div>
+
+        <!-- International store -->
+        <div style="font-size:12px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span class="store-dot off" style="background:#718096"></span> International Store (USD)
+          <label class="toggle" style="margin-left:8px"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:11px;color:#718096;text-transform:none;letter-spacing:0">Disabled</span>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>Shop URL</label><input type="text" value="int-judebenhalim.myshopify.com"></div>
+          <div class="field"><label>API Version</label><input type="text" value="2025-07"></div>
+          <div class="field"><label>Client ID</label><input type="text" value="efd2b8a53bcbfe8f…"></div>
+          <div class="field"><label>Client Secret</label><div class="pass-wrap"><input type="password" value="shpss_a874ff993d85…"><span class="pass-eye">👁</span></div></div>
+          <div class="field"><label>Currency</label><input type="text" value="USD" style="width:80px"></div>
+          <div class="field"><label>SAP Price List</label><input type="number" value="7"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync Schedule -->
+  <div class="config-section open">
+    <div class="cs-header" onclick="toggleSection(this)">
+      <div><div class="cs-title">Sync Schedule</div><div class="cs-sub">Enable/disable each sync and set its run interval</div></div>
+      <span class="cs-chevron">›</span>
+    </div>
+    <div class="cs-content">
+      <div class="cs-body">
+        <div style="font-size:11px;color:#718096;display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;padding-bottom:8px;border-bottom:1px solid #2d3748;text-transform:uppercase;letter-spacing:0.5px">
+          <span>Sync</span><span>Enabled</span><span>Interval (min)</span><span>Batch size</span><span>From date</span>
+        </div>
+
+        <div class="sync-settings-row">
+          <div style="display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;align-items:center">
+            <span style="font-size:13px;font-weight:600">Orders</span>
+            <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            <div class="ssr-field"><input type="number" value="15"></div>
+            <div class="ssr-field"><input type="number" value="25"></div>
+            <div class="ssr-field"><input type="date" value="2025-10-30"></div>
+          </div>
+        </div>
+
+        <div class="sync-settings-row">
+          <div style="display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;align-items:center">
+            <span style="font-size:13px;font-weight:600">Stock</span>
+            <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            <div class="ssr-field"><input type="number" value="5"></div>
+            <div class="ssr-field"><input type="number" value="50"></div>
+            <div class="ssr-field"><span style="font-size:12px;color:#718096">N/A</span></div>
+          </div>
+        </div>
+
+        <div class="sync-settings-row">
+          <div style="display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;align-items:center">
+            <span style="font-size:13px;font-weight:600">Returns</span>
+            <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            <div class="ssr-field"><input type="number" value="20"></div>
+            <div class="ssr-field"><input type="number" value="10"></div>
+            <div class="ssr-field"><input type="date" value="2025-10-30"></div>
+          </div>
+        </div>
+
+        <div class="sync-settings-row">
+          <div style="display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;align-items:center">
+            <span style="font-size:13px;font-weight:600">Price Changes</span>
+            <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            <div class="ssr-field"><input type="number" value="20"></div>
+            <div class="ssr-field"><input type="number" value="250"></div>
+            <div class="ssr-field"><span style="font-size:12px;color:#718096">N/A</span></div>
+          </div>
+        </div>
+
+        <div class="sync-settings-row">
+          <div style="display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;align-items:center">
+            <span style="font-size:13px;font-weight:600">New Items</span>
+            <label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            <div class="ssr-field"><input type="number" value="90" disabled style="opacity:0.4"></div>
+            <div class="ssr-field"><input type="number" value="100" disabled style="opacity:0.4"></div>
+            <div class="ssr-field"><span style="font-size:12px;color:#718096">N/A</span></div>
+          </div>
+        </div>
+
+        <div class="sync-settings-row">
+          <div style="display:grid;grid-template-columns:160px 80px 120px 120px 160px;gap:10px;align-items:center">
+            <span style="font-size:13px;font-weight:600">Payment Recovery</span>
+            <label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+            <div class="ssr-field"><input type="number" value="30" disabled style="opacity:0.4"></div>
+            <div class="ssr-field"><input type="number" value="50" disabled style="opacity:0.4"></div>
+            <div class="ssr-field"><input type="date" value="2025-10-30" disabled style="opacity:0.4"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn-save">Save Configuration</button>
+    <button class="btn-discard">Discard changes</button>
+    <span class="unsaved-note">● Unsaved changes</span>
+  </div>
+</div>
+
+<!-- ══ NOTIFICATIONS PAGE ══ -->
+<div class="page" id="notifications">
+  <div class="page-title">Notifications</div>
+  <div class="page-sub">Configure email alerts for sync failures and errors</div>
+
+  <!-- SMTP -->
+  <div class="notif-section">
+    <div class="ns-title">SMTP Settings</div>
+    <div class="ns-sub">Email server used to send alerts</div>
+    <div class="smtp-grid">
+      <div class="field"><label>SMTP Host</label><input type="text" placeholder="smtp.gmail.com"></div>
+      <div class="field"><label>Port</label><input type="number" value="587"></div>
+    </div>
+    <div class="smtp-row">
+      <div class="field"><label>Username / From address</label><input type="text" placeholder="alerts@company.com"></div>
+      <div class="field"><label>Password</label><div class="pass-wrap"><input type="password" placeholder="••••••••"><span class="pass-eye">👁</span></div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+      <span style="font-size:13px">Use TLS</span>
+      <button class="btn-test" style="margin-left:16px">Send test email</button>
+      <span style="font-size:12px;color:#718096">Sends a test message to all recipients below</span>
+    </div>
+  </div>
+
+  <!-- Recipients -->
+  <div class="notif-section">
+    <div class="ns-title">Recipients</div>
+    <div class="ns-sub">Everyone on this list receives alerts when errors occur</div>
+    <div class="recipients-list">
+      <div class="recipient-row"><span class="recipient-email">mohamedmorsi1088@gmail.com</span><span style="font-size:11px;background:#667eea22;color:#667eea;padding:1px 7px;border-radius:10px">Admin</span><span class="recipient-remove">×</span></div>
+      <div class="recipient-row"><span class="recipient-email">operations@judebenhalim.com</span><span style="font-size:11px;background:#2d374844;color:#718096;padding:1px 7px;border-radius:10px">Staff</span><span class="recipient-remove">×</span></div>
+    </div>
+    <div class="add-recipient">
+      <input type="email" placeholder="Add email address…">
+      <button class="btn-add">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Alert rules -->
+  <div class="notif-section">
+    <div class="ns-title">Alert Rules</div>
+    <div class="ns-sub">Choose which sync types send alerts and the minimum error count before an alert fires</div>
+    <div class="alert-rules">
+      <div style="font-size:11px;color:#718096;display:grid;grid-template-columns:200px 1fr 160px;gap:12px;padding-bottom:8px;border-bottom:1px solid #2d3748;text-transform:uppercase;letter-spacing:0.5px">
+        <span>Sync type</span><span>When to alert</span><span>Min errors to alert</span>
+      </div>
+
+      <div class="alert-rule">
+        <div><div class="ar-name">Orders</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:12px;color:#718096">Any failed order</span>
+        </div>
+        <div class="ar-threshold"><input type="number" value="1"><span>error(s)</span></div>
+      </div>
+
+      <div class="alert-rule">
+        <div><div class="ar-name">Returns</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:12px;color:#718096">Any failed return</span>
+        </div>
+        <div class="ar-threshold"><input type="number" value="1"><span>error(s)</span></div>
+      </div>
+
+      <div class="alert-rule">
+        <div><div class="ar-name">Stock</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:12px;color:#718096;opacity:0.5">Alert disabled</span>
+        </div>
+        <div class="ar-threshold" style="opacity:0.4"><input type="number" value="10" disabled><span>error(s)</span></div>
+      </div>
+
+      <div class="alert-rule">
+        <div><div class="ar-name">Price Changes</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:12px;color:#718096">If run fails entirely</span>
+        </div>
+        <div class="ar-threshold"><input type="number" value="1"><span>error(s)</span></div>
+      </div>
+
+      <div class="alert-rule">
+        <div><div class="ar-name">New Items</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:12px;color:#718096">Any failed item</span>
+        </div>
+        <div class="ar-threshold"><input type="number" value="1"><span>error(s)</span></div>
+      </div>
+
+      <div class="alert-rule">
+        <div><div class="ar-name">Mapping Issues</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          <span style="font-size:12px;color:#718096">New issues found in check</span>
+        </div>
+        <div class="ar-threshold"><input type="number" value="1"><span>issue(s)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn-save">Save Notification Settings</button>
+    <button class="btn-discard">Discard changes</button>
+  </div>
+</div>
+
+</body>
+</html>

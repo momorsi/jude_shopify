@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logs + Run Sync v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; }
+
+  .topbar { background: #1a1d2e; border-bottom: 1px solid #2d3748; padding: 0 24px; display: flex; align-items: center; height: 56px; gap: 28px; }
+  .logo { font-weight: 700; font-size: 15px; color: #fff; }
+  .logo span { color: #667eea; }
+  .nav-link { font-size: 13px; color: #a0aec0; cursor: pointer; padding: 6px 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .nav-link.active { color: #fff; border-bottom-color: #667eea; }
+  .spacer { flex: 1; }
+
+  /* Store selector */
+  .store-selector { display: flex; align-items: center; gap: 8px; background: #13151f; border: 1px solid #2d3748; border-radius: 8px; padding: 5px 12px; }
+  .store-selector label { font-size: 11px; color: #718096; white-space: nowrap; }
+  .store-select { background: transparent; border: none; color: #e2e8f0; font-size: 13px; font-weight: 600; outline: none; cursor: pointer; padding-right: 4px; }
+  .store-select option { background: #1a1d2e; }
+  .store-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+  .store-dot.off { background: #718096; }
+
+  .integration-state { display: flex; align-items: center; gap: 10px; background: #161827; border: 1px solid #2d3748; border-radius: 8px; padding: 6px 14px; }
+  .state-label { font-size: 12px; color: #718096; }
+  .state-badge { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+  .stop-btn { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+
+  .page-tabs { display: flex; gap: 0; border-bottom: 1px solid #2d3748; background: #1a1d2e; padding: 0 24px; }
+  .tab { padding: 12px 20px; font-size: 13px; color: #718096; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: #fff; border-bottom-color: #667eea; }
+
+  .page { display: none; padding: 24px; }
+  .page.active { display: block; }
+
+  /* Store context banner */
+  .store-banner { display: flex; align-items: center; gap: 10px; background: #1a1d2e; border: 1px solid #2d3748; border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 13px; }
+  .store-banner .sb-name { font-weight: 600; color: #e2e8f0; }
+  .store-banner .sb-detail { color: #718096; font-size: 12px; }
+  .store-banner .sb-sep { color: #2d3748; }
+  .sb-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+  .sb-badge.off { background: #71809622; color: #718096; border-color: #2d374844; }
+
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: #718096; margin-bottom: 20px; }
+
+  .filters { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .filter-select { background: #1a1d2e; border: 1px solid #2d3748; color: #e2e8f0; font-size: 12px; padding: 6px 10px; border-radius: 6px; }
+  .filter-input { background: #1a1d2e; border: 1px solid #2d3748; color: #e2e8f0; font-size: 12px; padding: 6px 10px; border-radius: 6px; width: 130px; }
+  .filter-btn { background: #667eea22; color: #667eea; border: 1px solid #667eea44; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+
+  .runs-col { display: flex; flex-direction: column; gap: 6px; }
+  .run-row { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
+  .run-header { display: grid; grid-template-columns: 28px 160px 110px 90px 70px 60px 60px 1fr; align-items: center; padding: 11px 14px; gap: 8px; cursor: pointer; font-size: 13px; }
+  .run-header:hover { background: #1e2336; }
+  .chevron { color: #718096; font-size: 12px; transition: transform 0.2s; }
+  .run-row.open .chevron { transform: rotate(90deg); }
+  .run-type { font-weight: 600; }
+  .run-ok { color: #22c55e; font-weight: 600; }
+  .run-err { color: #ef4444; font-weight: 600; }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .pill.ok { background: #22c55e22; color: #22c55e; }
+  .pill.err { background: #ef444422; color: #ef4444; }
+  .pill.partial { background: #f59e0b22; color: #f59e0b; }
+
+  .run-items { display: none; border-top: 1px solid #2d3748; background: #13151f; }
+  .run-row.open .run-items { display: block; }
+  .items-header { display: grid; grid-template-columns: 160px 90px 140px 1fr; gap: 8px; padding: 8px 42px; font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #1e2333; }
+  .item-row { display: grid; grid-template-columns: 160px 90px 140px 1fr; gap: 8px; padding: 8px 42px; font-size: 12px; border-bottom: 1px solid #1a1d2e; }
+  .item-row:last-child { border-bottom: none; }
+  .item-ok { color: #22c55e; }
+  .item-err { color: #ef4444; }
+  .item-doc { color: #818cf8; font-size: 11px; }
+  .item-errtext { color: #ef4444; font-size: 11px; }
+  .more-link { padding: 8px 42px; font-size: 12px; color: #667eea; cursor: pointer; }
+
+  /* Run Sync page */
+  .section-title { font-size: 11px; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; margin-top: 24px; }
+  .section-title:first-child { margin-top: 0; }
+
+  .sync-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+  .sync-card { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; padding: 16px; }
+  .sc-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .sc-name { font-weight: 600; font-size: 14px; }
+  .sc-dir { font-size: 11px; color: #718096; }
+  .sc-last { font-size: 11px; color: #718096; }
+  .sc-last span { color: #a0aec0; }
+  .sc-store { font-size: 11px; color: #818cf8; margin-top: 4px; }
+
+  .btn-run { background: #667eea22; color: #667eea; border: 1px solid #667eea44; font-size: 12px; padding: 5px 14px; border-radius: 6px; cursor: pointer; }
+  .btn-run.locked { background: #1e2333; color: #4a5568; border-color: #2d3748; cursor: not-allowed; }
+  .btn-disabled-sync { background: transparent; color: #4a5568; border: 1px solid #2d3748; font-size: 12px; padding: 5px 14px; border-radius: 6px; cursor: not-allowed; }
+
+  .stock-panel { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; margin-bottom: 12px; }
+  .stock-panel h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .stock-panel p { font-size: 13px; color: #718096; margin-bottom: 14px; }
+  .stock-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .textarea-wrap label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px; }
+  textarea { width: 100%; background: #13151f; border: 1px solid #2d3748; color: #e2e8f0; font-size: 12px; font-family: monospace; padding: 10px; border-radius: 6px; resize: vertical; min-height: 120px; }
+  .stock-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .btn-primary { background: #667eea; color: #fff; border: none; font-size: 13px; font-weight: 600; padding: 7px 20px; border-radius: 6px; cursor: pointer; }
+  .progress-area { background: #13151f; border: 1px solid #2d3748; border-radius: 6px; padding: 10px; min-height: 120px; font-size: 12px; font-family: monospace; color: #a0aec0; white-space: pre; }
+  .prog-ok { color: #22c55e; }
+  .prog-err { color: #ef4444; }
+  .prog-info { color: #667eea; }
+
+  .mapping-panel { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 10px; padding: 20px; }
+  .mapping-panel h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .mapping-panel p { font-size: 13px; color: #718096; margin-bottom: 14px; }
+  .mapping-actions { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; }
+  .btn-check { background: #818cf822; color: #818cf8; border: 1px solid #818cf844; font-size: 13px; font-weight: 600; padding: 7px 20px; border-radius: 6px; cursor: pointer; }
+  .btn-fix { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; font-size: 13px; font-weight: 600; padding: 7px 20px; border-radius: 6px; cursor: pointer; }
+  .mapping-results { background: #13151f; border: 1px solid #2d3748; border-radius: 6px; overflow: hidden; }
+  .map-row { display: grid; grid-template-columns: 140px 1fr 130px 100px; gap: 8px; padding: 8px 12px; font-size: 12px; border-bottom: 1px solid #1a1d2e; align-items: center; }
+  .map-row.header { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #2d3748; background: #161827; }
+  .map-row:last-child { border-bottom: none; }
+  .issue-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .issue-missing { background: #ef444422; color: #ef4444; }
+  .issue-mismatch { background: #f59e0b22; color: #f59e0b; }
+  .issue-ok { background: #22c55e22; color: #22c55e; }
+  .fix-link { color: #667eea; font-size: 11px; cursor: pointer; }
+</style>
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector('[data-tab="'+tab+'"]').classList.add('active');
+  document.getElementById(tab).classList.add('active');
+}
+function toggleRun(el) { el.closest('.run-row').classList.toggle('open'); }
+
+function switchStore(val) {
+  const isLocal = val === 'local';
+  document.getElementById('store-dot').className = 'store-dot' + (isLocal ? '' : ' off');
+  document.getElementById('banner-name').textContent = isLocal ? 'Local Store (EGP)' : 'International Store (USD)';
+  document.getElementById('banner-url').textContent = isLocal ? 'eg-judebenhalim.myshopify.com' : 'int-judebenhalim.myshopify.com';
+  document.getElementById('banner-badge').textContent = isLocal ? '● Enabled' : '● Disabled';
+  document.getElementById('banner-badge').className = 'sb-badge' + (isLocal ? '' : ' off');
+  document.getElementById('store-label-bar').textContent = isLocal ? 'Local Store (EGP)' : 'International Store (USD)';
+  // swap sync log store labels
+  document.querySelectorAll('.sc-store').forEach(el => {
+    el.textContent = isLocal ? 'Store: Local (EGP)' : 'Store: International (USD)';
+  });
+}
+</script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Jude <span>Sync</span></div>
+  <a class="nav-link">Dashboard</a>
+  <a class="nav-link active">Logs</a>
+  <a class="nav-link">Run Sync</a>
+  <a class="nav-link">Mapping Check</a>
+  <a class="nav-link">Config</a>
+  <a class="nav-link">Notifications</a>
+  <div class="spacer"></div>
+
+  <!-- Store Selector -->
+  <div class="store-selector">
+    <span id="store-dot" class="store-dot"></span>
+    <label>Store</label>
+    <select class="store-select" onchange="switchStore(this.value)">
+      <option value="local">Local Store (EGP)</option>
+      <option value="international">International Store (USD)</option>
+    </select>
+  </div>
+
+  <div class="integration-state">
+    <span class="state-label">Integration</span>
+    <span class="state-badge">● RUNNING</span>
+    <button class="stop-btn">⏹ Stop All</button>
+  </div>
+</div>
+
+<div class="page-tabs">
+  <div class="tab active" data-tab="logs" onclick="switchTab('logs')">Sync Logs</div>
+  <div class="tab" data-tab="runsync" onclick="switchTab('runsync')">Run Sync</div>
+</div>
+
+<!-- ══ LOGS PAGE ══ -->
+<div class="page active" id="logs">
+  <div class="page-title">Sync Logs</div>
+  <div class="page-sub">Full history of every sync run — click a row to see per-item detail</div>
+
+  <!-- Store context banner -->
+  <div class="store-banner">
+    <span id="banner-name" class="sb-name">Local Store (EGP)</span>
+    <span class="sb-sep">·</span>
+    <span id="banner-url" class="sb-detail">eg-judebenhalim.myshopify.com</span>
+    <span class="sb-sep">·</span>
+    <span id="banner-badge" class="sb-badge">● Enabled</span>
+    <div style="flex:1"></div>
+    <span style="font-size:12px;color:#718096">All data below is scoped to this store</span>
+  </div>
+
+  <div class="filters">
+    <select class="filter-select">
+      <option>All sync types</option>
+      <option>Orders</option>
+      <option>Stock</option>
+      <option>Returns</option>
+      <option>New Items</option>
+      <option>Price Changes</option>
+    </select>
+    <select class="filter-select">
+      <option>All statuses</option>
+      <option>Success</option>
+      <option>Has errors</option>
+      <option>Failed</option>
+    </select>
+    <input class="filter-input" type="date" value="2026-05-08">
+    <input class="filter-input" type="date" value="2026-05-08">
+    <button class="filter-btn">Apply</button>
+    <span style="font-size:12px;color:#718096;margin-left:4px">Showing 42 runs</span>
+  </div>
+
+  <div style="font-size:11px;color:#718096;display:grid;grid-template-columns:28px 160px 110px 90px 70px 60px 60px 1fr;gap:8px;padding:4px 14px;margin-bottom:4px">
+    <span></span><span>SYNC TYPE</span><span>STARTED</span><span>DURATION</span><span>PROCESSED</span><span>OK</span><span>ERRORS</span><span>STATUS</span>
+  </div>
+
+  <div class="runs-col">
+    <div class="run-row open">
+      <div class="run-header" onclick="toggleRun(this)">
+        <span class="chevron">›</span>
+        <span class="run-type">Orders</span>
+        <span style="color:#718096;font-size:12px">14:20:01</span>
+        <span style="color:#718096;font-size:12px">1m 12s</span>
+        <span>50</span>
+        <span class="run-ok">47</span>
+        <span class="run-err">3</span>
+        <span><span class="pill partial"><span class="pill-dot"></span>3 errors</span></span>
+      </div>
+      <div class="run-items">
+        <div class="items-header"><span>ORDER / ENTITY</span><span>STATUS</span><span>SAP DOCUMENT</span><span>DETAIL</span></div>
+        <div class="item-row"><span>#4521</span><span class="item-err">✕ Failed</span><span class="item-doc">—</span><span class="item-errtext">Customer CardCode not found: C-0041234</span></div>
+        <div class="item-row"><span>#4518</span><span class="item-err">✕ Failed</span><span class="item-doc">—</span><span class="item-errtext">Invoice series 99 not valid for location Arkan</span></div>
+        <div class="item-row"><span>#4502</span><span class="item-err">✕ Failed</span><span class="item-doc">—</span><span class="item-errtext">SAP timeout after 30s</span></div>
+        <div class="item-row"><span>#4519</span><span class="item-ok">✓ OK</span><span class="item-doc">INV-82-00441</span><span style="color:#718096">—</span></div>
+        <div class="item-row"><span>#4520</span><span class="item-ok">✓ OK</span><span class="item-doc">INV-82-00442</span><span style="color:#718096">—</span></div>
+        <div class="more-link">+ 45 more items — click to load all</div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <div class="run-header" onclick="toggleRun(this)">
+        <span class="chevron">›</span>
+        <span class="run-type">Stock</span>
+        <span style="color:#718096;font-size:12px">14:17:44</span>
+        <span style="color:#718096;font-size:12px">28s</span>
+        <span>1,240</span>
+        <span class="run-ok">1,240</span>
+        <span>0</span>
+        <span><span class="pill ok"><span class="pill-dot"></span>Success</span></span>
+      </div>
+      <div class="run-items">
+        <div class="items-header"><span>SKU</span><span>STATUS</span><span>STOCK QTY</span><span>DETAIL</span></div>
+        <div class="item-row"><span>JB-BLK-S</span><span class="item-ok">✓ OK</span><span>14</span><span style="color:#718096">Warehouse SW</span></div>
+        <div class="item-row"><span>JB-BLK-M</span><span class="item-ok">✓ OK</span><span>8</span><span style="color:#718096">Warehouse SW</span></div>
+        <div class="more-link">+ 1,238 more — click to load all</div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <div class="run-header" onclick="toggleRun(this)">
+        <span class="chevron">›</span>
+        <span class="run-type">Returns</span>
+        <span style="color:#718096;font-size:12px">14:10:22</span>
+        <span style="color:#718096;font-size:12px">15s</span>
+        <span>5</span>
+        <span class="run-ok">5</span>
+        <span>0</span>
+        <span><span class="pill ok"><span class="pill-dot"></span>Success</span></span>
+      </div>
+      <div class="run-items"></div>
+    </div>
+
+    <div class="run-row">
+      <div class="run-header" onclick="toggleRun(this)">
+        <span class="chevron">›</span>
+        <span class="run-type">Price Changes</span>
+        <span style="color:#718096;font-size:12px">13:55:00</span>
+        <span style="color:#718096;font-size:12px">3s</span>
+        <span>0</span>
+        <span>0</span>
+        <span class="run-err">1</span>
+        <span><span class="pill err"><span class="pill-dot"></span>Run failed</span></span>
+      </div>
+      <div class="run-items">
+        <div class="items-header"><span>ENTITY</span><span>STATUS</span><span>SAP DOCUMENT</span><span>DETAIL</span></div>
+        <div class="item-row"><span>—</span><span class="item-err">✕ Failed</span><span>—</span><span class="item-errtext">SAP login failed — session expired, re-login returned 401</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RUN SYNC PAGE ══ -->
+<div class="page" id="runsync">
+  <div class="page-title">Run Sync</div>
+  <div class="page-sub">Trigger syncs manually, resync specific stock items, or run a mapping health check</div>
+
+  <!-- Store context banner -->
+  <div class="store-banner">
+    <span id="banner-name2" class="sb-name">Local Store (EGP)</span>
+    <span class="sb-sep">·</span>
+    <span id="banner-url2" class="sb-detail">eg-judebenhalim.myshopify.com</span>
+    <span class="sb-sep">·</span>
+    <span class="sb-badge">● Enabled</span>
+    <div style="flex:1"></div>
+    <span style="font-size:12px;color:#718096">Manual triggers and resync run against this store</span>
+  </div>
+
+  <div class="section-title">Manual Sync Triggers</div>
+  <div class="sync-grid">
+    <div class="sync-card">
+      <div class="sc-head">
+        <div><div class="sc-name">Orders</div><div class="sc-dir">Shopify → SAP</div></div>
+        <button class="btn-run locked" disabled>🔒 Running</button>
+      </div>
+      <div class="sc-last">Last: <span>14:20:01 · 50 processed · 3 errors</span></div>
+      <div class="sc-store">Store: Local (EGP)</div>
+    </div>
+    <div class="sync-card">
+      <div class="sc-head">
+        <div><div class="sc-name">Stock</div><div class="sc-dir">SAP → Shopify</div></div>
+        <button class="btn-run">▶ Run now</button>
+      </div>
+      <div class="sc-last">Last: <span>14:17:44 · 1,240 updated</span></div>
+      <div class="sc-store">Store: Local (EGP)</div>
+    </div>
+    <div class="sync-card">
+      <div class="sc-head">
+        <div><div class="sc-name">Returns</div><div class="sc-dir">Shopify → SAP</div></div>
+        <button class="btn-run">▶ Run now</button>
+      </div>
+      <div class="sc-last">Last: <span>14:10:22 · 5 processed</span></div>
+      <div class="sc-store">Store: Local (EGP)</div>
+    </div>
+    <div class="sync-card">
+      <div class="sc-head">
+        <div><div class="sc-name">Price Changes</div><div class="sc-dir">SAP → Shopify</div></div>
+        <button class="btn-run">▶ Run now</button>
+      </div>
+      <div class="sc-last">Last: <span>13:55:00 · failed</span></div>
+      <div class="sc-store">Store: Local (EGP)</div>
+    </div>
+    <div class="sync-card" style="opacity:0.5">
+      <div class="sc-head">
+        <div><div class="sc-name">New Items</div><div class="sc-dir">SAP → Shopify</div></div>
+        <button class="btn-disabled-sync" disabled>Disabled</button>
+      </div>
+      <div class="sc-last">Last: <span>Yesterday 09:00</span></div>
+      <div class="sc-store">Store: Local (EGP)</div>
+    </div>
+    <div class="sync-card" style="opacity:0.5">
+      <div class="sc-head">
+        <div><div class="sc-name">Payment Recovery</div><div class="sc-dir">SAP → Shopify</div></div>
+        <button class="btn-disabled-sync" disabled>Disabled</button>
+      </div>
+      <div class="sc-last">Last: <span>Never</span></div>
+      <div class="sc-store">Store: Local (EGP)</div>
+    </div>
+  </div>
+
+  <div class="section-title">Selective Stock Resync</div>
+  <div class="stock-panel">
+    <h3>Resync stock for specific items</h3>
+    <p>Paste SAP item codes below (one per line). Fetches current stock from SAP via ODBC and pushes to the selected store.</p>
+    <div class="stock-layout">
+      <div class="textarea-wrap">
+        <label>SAP Item Codes — scoped to <span id="store-label-bar" style="color:#818cf8">Local Store (EGP)</span></label>
+        <textarea placeholder="JB-BLK-S&#10;JB-BLK-M&#10;JB-RED-S&#10;...">JB-BLK-S
+JB-BLK-M
+JB-RED-S
+JB-WHT-XL</textarea>
+        <div class="stock-actions">
+          <button class="btn-primary">▶ Start Resync</button>
+          <span style="font-size:12px;color:#718096">4 items queued</span>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#718096;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px">Live Progress</label>
+        <div class="progress-area"><span class="prog-info">[14:21:30] Starting for 4 items → Local Store (EGP)...</span>
+<span class="prog-ok">[14:21:31] ✓ JB-BLK-S → 14 units pushed</span>
+<span class="prog-ok">[14:21:31] ✓ JB-BLK-M → 8 units pushed</span>
+<span class="prog-err">[14:21:32] ✗ JB-RED-S → not found in Shopify_Mapping2</span>
+<span style="color:#718096">[14:21:32] ⏳ JB-WHT-XL → waiting...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Mapping Health Check</div>
+  <div class="mapping-panel">
+    <h3>Shopify_Mapping2 validation</h3>
+    <p>Checks every row in <code style="background:#13151f;padding:1px 5px;border-radius:3px;font-size:12px">Shopify_Mapping2</code> via ODBC for the selected store — verifies the mapped Shopify product/variant exists and the SKU matches.</p>
+    <div class="mapping-actions">
+      <button class="btn-check">Run Check — Local Store</button>
+      <button class="btn-fix">Fix All Auto-fixable</button>
+      <span style="font-size:12px;color:#718096">Last checked: 1h ago · 7 issues found</span>
+    </div>
+    <div class="mapping-results">
+      <div class="map-row header"><span>SAP ITEM CODE</span><span>SHOPIFY VARIANT</span><span>ISSUE</span><span>ACTION</span></div>
+      <div class="map-row"><span>JB-RED-S</span><span style="color:#718096">variant/4421…</span><span><span class="issue-badge issue-missing">Not in Shopify</span></span><span class="fix-link">Fix manually</span></div>
+      <div class="map-row"><span>JB-GRN-M</span><span style="color:#718096">variant/5512…</span><span><span class="issue-badge issue-mismatch">SKU mismatch</span></span><span class="fix-link">Auto-fix by SKU</span></div>
+      <div class="map-row"><span>JB-BLU-L</span><span style="color:#718096">variant/6601…</span><span><span class="issue-badge issue-mismatch">SKU mismatch</span></span><span class="fix-link">Auto-fix by SKU</span></div>
+      <div class="map-row"><span>JB-BLK-S</span><span style="color:#718096">variant/3301…</span><span><span class="issue-badge issue-ok">OK</span></span><span style="color:#718096">—</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

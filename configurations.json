@@ -22,8 +22,8 @@
             "local": {
                 "name": "Local Store",
                 "shop_url": "eg-judebenhalim.myshopify.com",
-                "client_id": "74dd4817df2915eff237aa9654a47c1c",
-                "client_secret": "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",
+                "client_id": "e4b6b7765a24ca3ed30738e01bd63adf",
+                "client_secret": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "EGP",
@@ -65,7 +65,8 @@
                                 "Tuyingo": "10801245",
                                 "Loadbugs": "10801238",
                                 "Payfort": "10801236",
-                                "Paymob": "10801247"
+                                "Paymob": "10801247",
+								"Geidea Pay": "10801253"
                             },
                             "international": {
                                 "N-Genius Online by Network": "10801237"

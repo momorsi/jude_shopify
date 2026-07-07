@@ -4,9 +4,9 @@
             "edges": [
                 {
                     "node": {
-                        "id": "gid://shopify/Order/6824921989186",
-                        "name": "#5409",
-                        "createdAt": "2026-03-13T23:50:18Z",
+                        "id": "gid://shopify/Order/7142839025730",
+                        "name": "#9069",
+                        "createdAt": "2026-07-05T05:35:05Z",
                         "returnStatus": "NO_RETURN",
                         "displayFinancialStatus": "PAID",
                         "displayFulfillmentStatus": "FULFILLED",
@@ -16,13 +16,14 @@
                             "edges": [
                                 {
                                     "node": {
-                                        "id": "gid://shopify/ShippingLine/5406376853570",
+                                        "id": "gid://shopify/ShippingLine/5600898154562",
                                         "title": "Standard Shipping",
                                         "isRemoved": false
                                     }
                                 }
                             ]
                         },
+                        "refunds": [],
                         "fulfillmentOrders": {
                             "edges": [
                                 {
@@ -31,11 +32,11 @@
                                             "edges": [
                                                 {
                                                     "node": {
-                                                        "id": "gid://shopify/FulfillmentOrderLineItem/17262691385410",
+                                                        "id": "gid://shopify/FulfillmentOrderLineItem/17852613558338",
                                                         "lineItem": {
-                                                            "id": "gid://shopify/LineItem/16931163603010",
-                                                            "sku": "FG-0000614",
-                                                            "currentQuantity": 0,
+                                                            "id": "gid://shopify/LineItem/17512001732674",
+                                                            "sku": "FG-0000739",
+                                                            "currentQuantity": 1,
                                                             "quantity": 1
                                                         }
                                                     }
@@ -51,46 +52,19 @@
                                             "methodType": "SHIPPING"
                                         }
                                     }
-                                },
-                                {
-                                    "node": {
-                                        "lineItems": {
-                                            "edges": [
-                                                {
-                                                    "node": {
-                                                        "id": "gid://shopify/FulfillmentOrderLineItem/17276132327490",
-                                                        "lineItem": {
-                                                            "id": "gid://shopify/LineItem/16944557097026",
-                                                            "sku": "FG-0000616",
-                                                            "currentQuantity": 1,
-                                                            "quantity": 1
-                                                        }
-                                                    }
-                                                }
-                                            ]
-                                        },
-                                        "assignedLocation": {
-                                            "location": {
-                                                "id": "gid://shopify/Location/72407023682"
-                                            }
-                                        },
-                                        "deliveryMethod": {
-                                            "methodType": "SHIPPING"
-                                        }
-                                    }
                                 }
                             ]
                         },
                         "retailLocation": null,
                         "totalPriceSet": {
                             "shopMoney": {
-                                "amount": "16720.0",
+                                "amount": "5020.0",
                                 "currencyCode": "EGP"
                             }
                         },
                         "subtotalPriceSet": {
                             "shopMoney": {
-                                "amount": "16600.0",
+                                "amount": "4900.0",
                                 "currencyCode": "EGP"
                             }
                         },
@@ -104,20 +78,29 @@
                             "edges": []
                         },
                         "customer": {
-                            "id": "gid://shopify/Customer/8733184360514",
-                            "firstName": "Noreen",
-                            "lastName": "Naguib",
-                            "email": "noreennaguib@aucegypt.edu",
-                            "phone": "+201113300300",
+                            "id": "gid://shopify/Customer/9182538432578",
+                            "firstName": "Nermine",
+                            "lastName": "Ragheb",
+                            "email": "nermine.ragheb@gmail.com",
+                            "phone": "+201015116333",
                             "addresses": [
                                 {
-                                    "address1": "Palm Parks Compound, Waslet Dahshur Road",
-                                    "address2": "Building 84 Ground Floor Apt 03",
-                                    "city": "6th Of October",
+                                    "address1": null,
+                                    "address2": null,
+                                    "city": null,
+                                    "province": null,
+                                    "zip": null,
+                                    "country": "Egypt",
+                                    "phone": null
+                                },
+                                {
+                                    "address1": "226 Beverly hills",
+                                    "address2": "31 (3rd flour)",
+                                    "city": "Sheikh Zayed",
                                     "province": "Giza",
                                     "zip": null,
                                     "country": "Egypt",
-                                    "phone": "01113300300"
+                                    "phone": "01015116333"
                                 }
                             ]
                         },
@@ -127,100 +110,70 @@
                                     "node": {
                                         "namespace": "custom",
                                         "key": "courier",
-                                        "value": "[\"1 - Pick Up\"]"
+                                        "value": "[\"4 - Tuyingo\"]"
                                     }
                                 }
                             ]
                         },
                         "tags": [
-                            "sap_invoice_failed"
+                            "sap_invoice_34563",
+                            "sap_invoice_synced",
+                            "sap_payment_failed"
                         ],
                         "shippingAddress": {
-                            "address1": "Palm Parks Compound, Waslet Dahshur Road",
-                            "address2": "Building 84 Ground Floor Apt 03",
-                            "city": "6th Of October",
+                            "address1": "226 Beverly hills",
+                            "address2": "31 (3rd flour)",
+                            "city": "Sheikh Zayed",
                             "province": "Giza",
                             "zip": null,
                             "country": "Egypt",
-                            "phone": "01113300300",
-                            "firstName": "Noreen",
-                            "lastName": "Naguib",
+                            "phone": "01015116333",
+                            "firstName": "Nermine",
+                            "lastName": "Ragheb",
                             "company": null
                         },
                         "billingAddress": {
-                            "address1": "Palm Parks Compound, Waslet Dahshur Road",
-                            "address2": "Building 84 Ground Floor Apt 03",
-                            "city": "6th Of October",
+                            "address1": "226 Beverly hills",
+                            "address2": "31 (3rd flour)",
+                            "city": "Sheikh Zayed",
                             "province": "Giza",
                             "zip": null,
                             "country": "Egypt",
-                            "phone": "01113300300",
-                            "firstName": "Noreen",
-                            "lastName": "Naguib",
+                            "phone": "01015116333",
+                            "firstName": "Nermine",
+                            "lastName": "Ragheb",
                             "company": null
                         },
                         "lineItems": {
                             "edges": [
                                 {
                                     "node": {
-                                        "id": "gid://shopify/LineItem/16931163603010",
-                                        "name": "Elara Earrings",
+                                        "id": "gid://shopify/LineItem/17512001732674",
+                                        "name": "Ripple Bracelet",
                                         "quantity": 1,
-                                        "sku": "FG-0000614",
-                                        "currentQuantity": 0,
-                                        "originalUnitPriceSet": {
-                                            "shopMoney": {
-                                                "amount": "8100.0",
-                                                "currencyCode": "EGP"
-                                            }
-                                        },
-                                        "discountedUnitPriceSet": {
-                                            "shopMoney": {
-                                                "amount": "8100.0",
-                                                "currencyCode": "EGP"
-                                            }
-                                        },
-                                        "discountAllocations": [],
-                                        "variant": {
-                                            "id": "gid://shopify/ProductVariant/42135111598146",
-                                            "sku": "FG-0000614",
-                                            "price": "8100.00",
-                                            "compareAtPrice": "8100.00",
-                                            "product": {
-                                                "id": "gid://shopify/Product/7476672561218",
-                                                "title": "Elara Earrings"
-                                            }
-                                        }
-                                    }
-                                },
-                                {
-                                    "node": {
-                                        "id": "gid://shopify/LineItem/16944557097026",
-                                        "name": "Elara Hoops",
-                                        "quantity": 1,
-                                        "sku": "FG-0000616",
+                                        "sku": "FG-0000739",
                                         "currentQuantity": 1,
                                         "originalUnitPriceSet": {
                                             "shopMoney": {
-                                                "amount": "8500.0",
+                                                "amount": "4900.0",
                                                 "currencyCode": "EGP"
                                             }
                                         },
                                         "discountedUnitPriceSet": {
                                             "shopMoney": {
-                                                "amount": "8500.0",
+                                                "amount": "4900.0",
                                                 "currencyCode": "EGP"
                                             }
                                         },
                                         "discountAllocations": [],
                                         "variant": {
-                                            "id": "gid://shopify/ProductVariant/42135115890754",
-                                            "sku": "FG-0000616",
-                                            "price": "8500.00",
-                                            "compareAtPrice": "8500.00",
+                                            "id": "gid://shopify/ProductVariant/42833051582530",
+                                            "sku": "FG-0000739",
+                                            "price": "4900.00",
+                                            "compareAtPrice": "4900.00",
                                             "product": {
-                                                "id": "gid://shopify/Product/7476673839170",
-                                                "title": "Elara Hoops"
+                                                "id": "gid://shopify/Product/7656886665282",
+                                                "title": "Ripple Bracelet"
                                             }
                                         }
                                     }
@@ -229,32 +182,32 @@
                         },
                         "transactions": [
                             {
-                                "id": "gid://shopify/OrderTransaction/8791911071810",
+                                "id": "gid://shopify/OrderTransaction/9188097327170",
                                 "kind": "SALE",
                                 "status": "SUCCESS",
-                                "gateway": "Paymob",
+                                "gateway": "Geidea Pay",
                                 "amountSet": {
                                     "shopMoney": {
-                                        "amount": "8220.0",
+                                        "amount": "1420.0",
                                         "currencyCode": "EGP"
                                     }
                                 },
-                                "processedAt": "2026-03-13T19:06:41Z",
-                                "receiptJson": "{\"payment_id\":\"ru8Nc6dn1qfZovtRVW9zMtxFW\"}"
+                                "processedAt": "2026-07-05T05:34:45Z",
+                                "receiptJson": "{\"payment_id\":\"r4UJuASoOPnD7yhlfIyJuKowF\",\"network_transaction_id\":\"2ef349eb-80e4-4b55-71f8-08ded0712d2d\"}"
                             },
                             {
-                                "id": "gid://shopify/OrderTransaction/8801733148738",
+                                "id": "gid://shopify/OrderTransaction/9188097753154",
                                 "kind": "SALE",
                                 "status": "SUCCESS",
-                                "gateway": "Cash on Delivery (COD)",
+                                "gateway": "gift_card",
                                 "amountSet": {
                                     "shopMoney": {
-                                        "amount": "400.0",
+                                        "amount": "3600.0",
                                         "currencyCode": "EGP"
                                     }
                                 },
-                                "processedAt": "2026-03-16T11:22:10Z",
-                                "receiptJson": "{}"
+                                "processedAt": "2026-07-05T05:35:04Z",
+                                "receiptJson": "{\"gift_card_id\":554886037570,\"gift_card_last_characters\":\"4e6e\",\"gift_card_presentment_rate\":\"1.0\"}"
                             }
                         ]
                     }
@@ -262,13 +215,13 @@
             ],
             "pageInfo": {
                 "hasNextPage": false,
-                "endCursor": "eyJsYXN0X2lkIjo2ODI0OTIxOTg5MTg2LCJsYXN0X3ZhbHVlIjoiMjAyNi0wMy0xMyAyMzo1MDoxOC44OTk0MDkifQ=="
+                "endCursor": "eyJsYXN0X2lkIjo3MTQyODM5MDI1NzMwLCJsYXN0X3ZhbHVlIjoiMjAyNi0wNy0wNSAwNTozNTowNS41NTc0NTMifQ=="
             }
         }
     },
     "extensions": {
         "cost": {
-            "requestedQueryCost": 638,
+            "requestedQueryCost": 706,
             "actualQueryCost": 12,
             "throttleStatus": {
                 "maximumAvailable": 2000,
