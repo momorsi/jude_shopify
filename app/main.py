@@ -19,6 +19,7 @@ from app.sync.sales.returns_sync_v4 import ReturnsSyncV4
 from app.sync.sales.gift_card_expiry_sync import GiftCardExpirySync
 from app.sync.item_changes import item_changes_sync
 from app.sync.price_changes import price_changes_sync
+from app.sync.variant_operations import variant_operations_sync
 from app.utils.logging import logger
 from app.core.config import config_settings
 
@@ -104,6 +105,13 @@ class ShopifySAPSync:
         logger.info("Starting price changes sync...")
         return await price_changes_sync.sync_price_changes()
     
+    async def run_variant_operations_sync(self) -> Dict[str, Any]:
+        """
+        Run variant operations sync (SAP queue → Shopify restructuring)
+        """
+        logger.info("Starting variant operations sync...")
+        return await variant_operations_sync.sync_variant_operations()
+    
     async def run_freight_prices_sync(self) -> Dict[str, Any]:
         """
         Run freight prices sync (SAP → Configuration)
@@ -179,6 +187,10 @@ class ShopifySAPSync:
         if config_settings.price_changes_enabled:
             results["price_changes"] = await self.run_price_changes_sync()
         
+        # Variant operations sync (check config)
+        if config_settings.variant_operations_enabled:
+            results["variant_operations"] = await self.run_variant_operations_sync()
+        
         # Freight prices sync (check config)
         if config_settings.freight_prices_enabled:
             results["freight_prices"] = await self.run_freight_prices_sync()
@@ -232,6 +244,11 @@ class ShopifySAPSync:
                 "msg": "failure",
                 "error": "Price changes sync is disabled in configuration"
             }
+        elif sync_type == "variant_operations" and not config_settings.variant_operations_enabled:
+            return {
+                "msg": "failure",
+                "error": "Variant operations sync is disabled in configuration"
+            }
         elif sync_type == "sales_orders" and not config_settings.sales_orders_enabled:
             return {
                 "msg": "failure",
@@ -263,6 +280,7 @@ class ShopifySAPSync:
             "stock": self.run_stock_change_sync,
             "item_changes": self.run_item_changes_sync,
             "price_changes": self.run_price_changes_sync,
+            "variant_operations": self.run_variant_operations_sync,
             "freight_prices": self.run_freight_prices_sync,
             "color_metaobjects": self.run_color_metaobjects_sync,
     
@@ -319,6 +337,13 @@ class ShopifySAPSync:
             )
             tasks.append(price_changes_task)
             logger.info(f"Price changes sync scheduled to run every {config_settings.price_changes_interval} minutes")
+        
+        if config_settings.variant_operations_enabled:
+            variant_operations_task = asyncio.create_task(
+                self._run_sync_with_interval("variant_operations", config_settings.variant_operations_interval)
+            )
+            tasks.append(variant_operations_task)
+            logger.info(f"Variant operations sync scheduled to run every {config_settings.variant_operations_interval} minutes")
         
         if config_settings.freight_prices_enabled:
             freight_prices_task = asyncio.create_task(
@@ -548,7 +573,7 @@ async def main():
         "--sync", 
         type=str, 
         default="all",
-        choices=["new_items", "stock", "item_changes", "price_changes", "freight_prices", "color_metaobjects", "sales_orders", "payment_recovery", "returns", "all"],
+        choices=["new_items", "stock", "item_changes", "price_changes", "variant_operations", "freight_prices", "color_metaobjects", "sales_orders", "payment_recovery", "returns", "all"],
         help="Type of sync to run (default: all)"
     )
     parser.add_argument(
@@ -588,6 +613,8 @@ async def main():
                 print(f"🔄 Item Changes: Every {config_settings.item_changes_interval} minutes")
             if config_settings.price_changes_enabled:
                 print(f"💰 Price Changes: Every {config_settings.price_changes_interval} minutes")
+            if config_settings.variant_operations_enabled:
+                print(f"🔀 Variant Operations: Every {config_settings.variant_operations_interval} minutes")
             if config_settings.sales_orders_enabled:
                 print(f"🛒 Sales Orders: Every {config_settings.sales_orders_interval} minutes")
             if config_settings.payment_recovery_enabled:

@@ -33,13 +33,13 @@
             "international": {
                 "name": "International Store",
                 "shop_url": "int-judebenhalim.myshopify.com",
-                "client_id": "efd2b8a53bcbfe8f1707775607802b91",
-                "client_secret": "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",
+                "client_id": "e11d8210b60fde690355a991c5fee05b",
+                "client_secret": "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",
                 "api_version": "2025-07",
                 "timeout": 45,
                 "currency": "USD",
                 "price_list": 7,
-                "enabled": false
+                "enabled": true
             }
         },
         "webhook_secret": "my_webhook_secret",
@@ -326,6 +326,11 @@
             "enabled": false,
             "interval_minutes": 20,
             "batch_size": 250
+        },
+        "variant_operations": {
+            "enabled": true,
+            "interval_minutes": 30,
+            "batch_size": 20
         },
         "freight_prices": {
             "enabled": false,

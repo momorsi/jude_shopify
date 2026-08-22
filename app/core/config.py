@@ -469,6 +469,11 @@ class ConfigSettings(BaseSettings):
     price_changes_interval: int = config_data['sync']['price_changes']['interval_minutes']
     price_changes_batch_size: int = config_data['sync']['price_changes']['batch_size']
     
+    # Variant Operations Sync Settings (to_master / move queue)
+    variant_operations_enabled: bool = config_data['sync'].get('variant_operations', {}).get('enabled', False)
+    variant_operations_interval: int = config_data['sync'].get('variant_operations', {}).get('interval_minutes', 30)
+    variant_operations_batch_size: int = config_data['sync'].get('variant_operations', {}).get('batch_size', 20)
+    
     # Freight Prices Sync Settings
     freight_prices_enabled: bool = config_data['sync']['freight_prices']['enabled']
     freight_prices_run_time: str = config_data['sync']['freight_prices']['run_time']

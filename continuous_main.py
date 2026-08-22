@@ -84,6 +84,9 @@ class ContinuousSyncRunner:
         if config_settings.price_changes_enabled:
             enabled_syncs.append(f"💰 Price Changes: Every {config_settings.price_changes_interval} minutes")
         
+        if config_settings.variant_operations_enabled:
+            enabled_syncs.append(f"🔀 Variant Operations: Every {config_settings.variant_operations_interval} minutes")
+        
         if config_settings.sales_orders_enabled:
             enabled_syncs.append(f"🛒 Sales Orders: Every {config_settings.sales_orders_interval} minutes")
         

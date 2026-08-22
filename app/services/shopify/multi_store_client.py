@@ -152,9 +152,45 @@ class MultiStoreShopifyClient:
             'Content-Type': 'application/json',
         }
 
+    # Errors worth retrying: transient transport issues (timeouts, dropped connections,
+    # rate limits) plus the generic "graphql query error" our transport raises on timeout
+    # with an empty message. Matches the convention used elsewhere (e.g. get_inventory_level).
+    RETRYABLE_ERROR_KEYWORDS = ("timeout", "rate limit", "temporary", "network",
+                                "connection", "graphql query error")
+
     async def execute_query(self, store_key: str, query: str, variables: dict = None) -> Dict[str, Any]:
         """
-        Execute a GraphQL query for a specific store.
+        Execute a GraphQL query/mutation for a specific store with retry on transient errors.
+        Retries (with exponential backoff) only on transient transport failures such as
+        timeouts, network drops, and rate limits; deterministic GraphQL/user errors are
+        returned immediately without retrying. Attempt count and base delay come from the
+        shared retry config (retry.max_attempts / retry.delay_seconds).
+        """
+        max_retries = max(1, config_settings.retry_max_attempts)
+        retry_delay = config_settings.retry_delay
+
+        result = None
+        for attempt in range(max_retries):
+            result = await self._execute_query_once(store_key, query, variables)
+            if result["msg"] == "success":
+                return result
+
+            error_msg = (result.get("error") or "").lower()
+            is_retryable = any(keyword in error_msg for keyword in self.RETRYABLE_ERROR_KEYWORDS)
+            if is_retryable and attempt < max_retries - 1:
+                logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed for store "
+                               f"{store_key} (retryable); retrying in {retry_delay}s")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+                continue
+            # Non-retryable error, or retries exhausted
+            return result
+
+        return result
+
+    async def _execute_query_once(self, store_key: str, query: str, variables: dict = None) -> Dict[str, Any]:
+        """
+        Execute a single GraphQL attempt for a specific store (no transient-error retry).
         Automatically handles token refresh and GQL client rebuild.
         """
         if store_key not in self._enabled_store_keys:
@@ -386,8 +422,8 @@ class MultiStoreShopifyClient:
     
     async def get_inventory_level(self, store_key: str, inventory_item_id: str, location_id: str) -> Dict[str, Any]:
         """
-        Get current inventory level including committed quantity for a specific location
-        Includes retry logic for handling transient failures (timeouts, etc.)
+        Get current inventory level including committed quantity for a specific location.
+        Transient-failure retry (timeouts, etc.) is handled centrally by execute_query.
         Returns: {"msg": "success", "available": int, "committed": int, "onHand": int} or error
         """
         if store_key not in self._enabled_store_keys:
@@ -422,63 +458,31 @@ class MultiStoreShopifyClient:
             "inventoryItemId": inventory_item_id,
             "locationId": location_id
         }
-        
-        # Retry logic for GraphQL query (similar to other sync processes)
-        max_retries = config_settings.retry_max_attempts
-        retry_delay = config_settings.retry_delay  # Start with configured delay
-        
-        for attempt in range(max_retries):
-            try:
-                result = await self.execute_query(store_key, query, variables)
-                
-                if result["msg"] == "success":
-                    data = result.get("data", {})
-                    inventory_item = data.get("inventoryItem", {})
-                    inventory_level = inventory_item.get("inventoryLevel")
-                    
-                    if inventory_level:
-                        # Parse quantities array to extract values
-                        quantities = inventory_level.get("quantities", [])
-                        quantity_map = {}
-                        for qty in quantities:
-                            quantity_map[qty.get("name")] = qty.get("quantity", 0)
-                        
-                        return {
-                            "msg": "success",
-                            "available": quantity_map.get("available", 0),
-                            "committed": quantity_map.get("committed", 0),
-                            "onHand": quantity_map.get("on_hand", 0)
-                        }
-                    else:
-                        return {"msg": "failure", "error": "Inventory level not found for this location"}
-                else:
-                    # Check if this is a retryable error
-                    error_msg = result.get("error", "").lower() if result else "Unknown error"
-                    logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed for inventory level query: {error_msg}")
-                    
-                    # Check if error is retryable (timeout, rate limit, network issues, etc.)
-                    retryable_keywords = ["timeout", "rate limit", "temporary", "network", "connection", "graphql query error"]
-                    is_retryable = any(keyword in error_msg for keyword in retryable_keywords)
-                    
-                    if is_retryable and attempt < max_retries - 1:
-                        logger.info(f"Retrying in {retry_delay} seconds...")
-                        await asyncio.sleep(retry_delay)
-                        retry_delay *= 2  # Exponential backoff
-                        continue
-                    else:
-                        # Non-retryable error or last attempt, return failure
-                        return result
-                        
-            except Exception as e:
-                logger.error(f"Exception on attempt {attempt + 1}/{max_retries}: {str(e)}")
-                if attempt < max_retries - 1:
-                    logger.info(f"Retrying in {retry_delay} seconds...")
-                    await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
-                else:
-                    return {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
-        
-        return {"msg": "failure", "error": "All retry attempts failed"}
+
+        # execute_query handles transient-failure retry with exponential backoff
+        result = await self.execute_query(store_key, query, variables)
+
+        if result["msg"] != "success":
+            return result
+
+        data = result.get("data", {})
+        inventory_item = data.get("inventoryItem", {})
+        inventory_level = inventory_item.get("inventoryLevel")
+
+        if not inventory_level:
+            return {"msg": "failure", "error": "Inventory level not found for this location"}
+
+        # Parse quantities array to extract values
+        quantity_map = {}
+        for qty in inventory_level.get("quantities", []):
+            quantity_map[qty.get("name")] = qty.get("quantity", 0)
+
+        return {
+            "msg": "success",
+            "available": quantity_map.get("available", 0),
+            "committed": quantity_map.get("committed", 0),
+            "onHand": quantity_map.get("on_hand", 0)
+        }
     
     async def get_locations(self, store_key: str) -> Dict[str, Any]:
         """
@@ -1230,6 +1234,118 @@ class MultiStoreShopifyClient:
             variables["optionValuesToUpdate"] = option_values_to_update
         
         return await self.execute_query(store_key, mutation, variables)
+    
+    async def get_variant_by_sku(self, store_key: str, sku: str) -> Dict[str, Any]:
+        """
+        Find a variant by exact SKU in a specific store.
+        Returns variant ID, product ID, inventory item ID and the product's total variant count.
+        Returns {"msg": "success", "found": False} when the SKU doesn't exist in the store.
+        """
+        query = """
+        query getVariantBySku($query: String!) {
+            productVariants(first: 5, query: $query) {
+                edges {
+                    node {
+                        id
+                        sku
+                        inventoryItem {
+                            id
+                        }
+                        product {
+                            id
+                            title
+                            handle
+                            variantsCount {
+                                count
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        """
+        
+        result = await self.execute_query(store_key, query, {"query": f"sku:{sku}"})
+        
+        if result["msg"] == "failure":
+            return result
+        
+        edges = result.get("data", {}).get("productVariants", {}).get("edges", [])
+        # The search query can return partial matches, so verify the exact SKU
+        for edge in edges:
+            node = edge["node"]
+            if node.get("sku") == sku:
+                product = node.get("product", {}) or {}
+                return {
+                    "msg": "success",
+                    "found": True,
+                    "variant_id": node["id"],
+                    "inventory_item_id": (node.get("inventoryItem") or {}).get("id"),
+                    "product_id": product.get("id"),
+                    "product_title": product.get("title"),
+                    "product_handle": product.get("handle"),
+                    "product_variants_count": (product.get("variantsCount") or {}).get("count", 0)
+                }
+        
+        return {"msg": "success", "found": False}
+    
+    async def delete_product_variants(self, store_key: str, product_id: str, variant_ids: List[str]) -> Dict[str, Any]:
+        """
+        Delete variants from a product using productVariantsBulkDelete.
+        """
+        mutation = """
+        mutation productVariantsBulkDelete($productId: ID!, $variantsIds: [ID!]!) {
+            productVariantsBulkDelete(productId: $productId, variantsIds: $variantsIds) {
+                product {
+                    id
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        result = await self.execute_query(store_key, mutation, {"productId": product_id, "variantsIds": variant_ids})
+        
+        if result["msg"] == "failure":
+            return result
+        
+        user_errors = result.get("data", {}).get("productVariantsBulkDelete", {}).get("userErrors", [])
+        if user_errors:
+            error_msg = "; ".join([e.get("message", "") for e in user_errors])
+            return {"msg": "failure", "error": f"productVariantsBulkDelete userErrors: {error_msg}"}
+        
+        return {"msg": "success", "data": result["data"]}
+    
+    async def delete_product(self, store_key: str, product_id: str) -> Dict[str, Any]:
+        """
+        Delete a whole product using productDelete.
+        """
+        mutation = """
+        mutation productDelete($input: ProductDeleteInput!) {
+            productDelete(input: $input) {
+                deletedProductId
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        """
+        
+        result = await self.execute_query(store_key, mutation, {"input": {"id": product_id}})
+        
+        if result["msg"] == "failure":
+            return result
+        
+        user_errors = result.get("data", {}).get("productDelete", {}).get("userErrors", [])
+        if user_errors:
+            error_msg = "; ".join([e.get("message", "") for e in user_errors])
+            return {"msg": "failure", "error": f"productDelete userErrors: {error_msg}"}
+        
+        return {"msg": "success", "deleted_product_id": result.get("data", {}).get("productDelete", {}).get("deletedProductId")}
 
 # Create singleton instance
 multi_store_shopify_client = MultiStoreShopifyClient() 

@@ -85,7 +85,8 @@ class SAPClient:
             skip_patterns = [
                 'MASHURA_StockChangeB1SLQuery',
                 'MASHURA_ItemChangeB1SLQuery',
-                'MASHURA_PriceChangeB1SLQuery'
+                'MASHURA_PriceChangeB1SLQuery',
+                'U_VARIANT_OPERATIONS'
             ]
             
             # Check if endpoint should be skipped
@@ -241,9 +242,59 @@ class SAPClient:
         result = await self._make_request('GET', endpoint, headers=headers)
         return result
 
+    async def get_new_item_by_code(self, item_code: str, store_key: str = None) -> Dict[str, Any]:
+        """Get a single item row from the new items view, optionally filtered by store"""
+        headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
+        filter_query = f"itemcode eq '{item_code}'"
+        if store_key:
+            filter_query += f" and Shopify_Store eq '{store_key}'"
+        endpoint = f"view.svc/MASHURA_New_ItemsB1SLQuery?$filter={filter_query}"
+        return await self._make_request('GET', endpoint, headers=headers)
+
     async def add_shopify_mapping(self, mapping_data: dict) -> dict:
         """Add a mapping row to the SAP Shopify mapping table."""
         return await self._make_request('POST', 'U_SHOPIFY_MAPPING_2', data=mapping_data)
+
+    async def get_shopify_mapping(self, sap_code: str = None, store_key: str = None,
+                                  shopify_type: str = None, code: str = None) -> dict:
+        """Get mapping rows from U_SHOPIFY_MAPPING_2 filtered by any combination of
+        SAP code, store key, Shopify type, or the Shopify ID (Code)."""
+        filters = []
+        if sap_code:
+            filters.append(f"U_SAP_Code eq '{sap_code}'")
+        if store_key:
+            filters.append(f"U_Shopify_Store eq '{store_key}'")
+        if shopify_type:
+            filters.append(f"U_Shopify_Type eq '{shopify_type}'")
+        if code:
+            filters.append(f"Code eq '{code}'")
+        
+        endpoint = 'U_SHOPIFY_MAPPING_2'
+        if filters:
+            endpoint += f"?$filter={' and '.join(filters)}"
+        
+        return await self._make_request('GET', endpoint)
+
+    async def delete_shopify_mapping(self, code: str) -> dict:
+        """Delete a mapping row from U_SHOPIFY_MAPPING_2 by its Code (Shopify ID)."""
+        return await self._make_request('DELETE', f"U_SHOPIFY_MAPPING_2('{code}')")
+
+    # Variant Operations queue (U_VARIANT_OPERATIONS UDT)
+    async def get_pending_variant_operations(self, batch_size: int = 20) -> dict:
+        """Get pending rows from the variant operations queue table.
+        Rows with blank/null status are treated as pending (users often leave it empty)."""
+        params = {
+            '$filter': "U_Status eq 'pending' or U_Status eq null",
+            '$orderby': 'Code',
+            '$top': batch_size
+        }
+        return await self._make_request('GET', 'U_VARIANT_OPERATIONS', params=params)
+
+    async def update_variant_operation(self, code, data: dict) -> dict:
+        """Update a variant operations queue row (status, error, process date).
+        The UDT key may be numeric or alphanumeric; quote only non-numeric keys."""
+        key = str(code) if str(code).isdigit() else f"'{code}'"
+        return await self._make_request('PATCH', f"U_VARIANT_OPERATIONS({key})", data=data)
 
     async def create_gift_card(self, gift_card_data: dict) -> dict:
         """Create a gift card entry in SAP."""

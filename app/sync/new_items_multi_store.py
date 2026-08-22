@@ -666,6 +666,88 @@ class MultiStoreNewItemsSync:
     
 
     
+    async def _sku_exists_in_shopify(self, store_key: str, sap_item: Dict[str, Any]) -> bool:
+        """
+        Duplicate-SKU guard: check whether this SKU is already present in Shopify
+        (via the mapping table first, then Shopify itself) before creating it.
+        When found in Shopify but missing from the mapping table, backfill the
+        mapping rows so future cycles see it as mapped.
+        """
+        itemcode = sap_item.get("itemcode", "")
+        if not itemcode:
+            return False
+        
+        try:
+            # 1. Check the SAP mapping table first (cheap and authoritative for synced items)
+            mapping_result = await sap_client.get_shopify_mapping(
+                sap_code=itemcode, store_key=store_key, shopify_type="variant"
+            )
+            if mapping_result["msg"] == "success" and mapping_result.get("data", {}).get("value", []):
+                logger.warning(f"SKU {itemcode} is already mapped in U_SHOPIFY_MAPPING_2 for store {store_key}, skipping creation")
+                return True
+            
+            # 2. Not mapped - check Shopify directly by SKU
+            shopify_lookup = await multi_store_shopify_client.get_variant_by_sku(store_key, itemcode)
+            if shopify_lookup["msg"] == "failure":
+                # Can't confirm either way - let the existing reactive duplicate handling catch it
+                logger.warning(f"Duplicate-SKU check against Shopify failed for {itemcode} in {store_key}: {shopify_lookup.get('error')}")
+                return False
+            
+            if not shopify_lookup.get("found"):
+                return False
+            
+            # SKU exists in Shopify but has no mapping - backfill so future cycles see it as mapped
+            logger.warning(
+                f"SKU {itemcode} already exists in Shopify store {store_key} "
+                f"(variant {shopify_lookup['variant_id']}) but was not mapped; backfilling mapping and skipping creation"
+            )
+            
+            variant_numeric_id = shopify_lookup["variant_id"].split("/")[-1]
+            v_map_data = {"Code": variant_numeric_id, "Name": variant_numeric_id, "U_Shopify_Type": "variant", "U_SAP_Code": itemcode, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+            await sap_client.add_shopify_mapping(v_map_data)
+            
+            if shopify_lookup.get("inventory_item_id"):
+                inventory_numeric_id = shopify_lookup["inventory_item_id"].split("/")[-1]
+                i_map_data = {"Code": inventory_numeric_id, "Name": inventory_numeric_id, "U_Shopify_Type": "variant_inventory", "U_SAP_Code": itemcode, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+                await sap_client.add_shopify_mapping(i_map_data)
+            
+            # Backfill the product-level mapping row if it's absent
+            if shopify_lookup.get("product_id"):
+                product_numeric_id = shopify_lookup["product_id"].split("/")[-1]
+                product_mapping = await sap_client.get_shopify_mapping(
+                    store_key=store_key, shopify_type="product", code=product_numeric_id
+                )
+                if product_mapping["msg"] == "success" and not product_mapping.get("data", {}).get("value", []):
+                    sap_code_for_product = sap_item.get("MainProduct") or itemcode
+                    p_map_data = {"Code": product_numeric_id, "Name": product_numeric_id, "U_Shopify_Type": "product", "U_SAP_Code": sap_code_for_product, "U_Shopify_Store": store_key, "U_SAP_Type": "item", "U_CreateDT": datetime.now().strftime('%Y-%m-%d')}
+                    await sap_client.add_shopify_mapping(p_map_data)
+            
+            await sl_add_log(
+                server="shopify",
+                endpoint=f"/admin/api/graphql_{store_key}",
+                response_data={"variant_id": shopify_lookup["variant_id"], "product_id": shopify_lookup.get("product_id")},
+                status="success",
+                action="duplicate_sku_guard",
+                value=f"SKU {itemcode} already exists in {store_key}, backfilled mapping and skipped creation"
+            )
+            return True
+            
+        except Exception as e:
+            logger.warning(f"Duplicate-SKU check errored for {itemcode} in {store_key}: {str(e)}")
+            return False
+    
+    async def _filter_out_duplicate_skus(self, store_key: str, group_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Remove items whose SKU already exists in Shopify (mapped or unmapped)
+        so the sync never creates duplicates.
+        """
+        remaining = []
+        for sap_item in group_items:
+            if await self._sku_exists_in_shopify(store_key, sap_item):
+                continue
+            remaining.append(sap_item)
+        return remaining
+    
     async def check_existing_product(self, store_key: str, main_product_name: str) -> Dict[str, Any]:
         """
         Check if a product already exists in the store by creating a handle from the main product name
@@ -1319,6 +1401,13 @@ class MultiStoreNewItemsSync:
                 for parent_key, group_items in parent_groups.items():
                     try:
                         logger.info(f"Processing product group: {parent_key} with {len(group_items)} items for store {store_key}")
+                        
+                        # Duplicate-SKU guard: never create a SKU that already exists in Shopify
+                        group_items = await self._filter_out_duplicate_skus(store_key, group_items)
+                        if not group_items:
+                            logger.info(f"All items in group {parent_key} already exist in Shopify for store {store_key}, skipping group")
+                            processed += 1
+                            continue
                         
                         # Extract main product name and existing Shopify product ID from the first item
                         main_product_name = group_items[0].get("MainProduct", "")

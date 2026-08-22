@@ -76,6 +76,43 @@ This document outlines all the SAP custom fields required for the multi-store Sh
 | `U_InventorySyncStatus` | Text | Inventory sync status ("SYNCED", "PENDING", "ERROR") | ✅ |
 | `U_InventorySyncDT` | DateTime | Last inventory sync timestamp | ✅ |
 
+## 3a. Variant Operations Queue Table: `U_VARIANT_OPERATIONS`
+
+This user-defined table acts as a request queue for variant restructuring operations. Users insert a row with `U_Status = 'pending'`; the scheduled `variant_operations` sync picks up pending rows, processes them (Shopify delete + recreate + mapping updates + SAP item patch), and updates the row status so it is never reprocessed.
+
+### Required Fields
+| Field Name | Type | Description | Required |
+|------------|------|-------------|----------|
+| `Code` | Text | Sequential unique key | ✅ |
+| `Name` | Text | Same as Code | ✅ |
+| `U_ItemCode` | Text | SKU (SAP ItemCode) of the variant to operate on | ✅ |
+| `U_Operation` | Text | Operation type: `to_master` (convert variant to standalone product) or `move` (move variant under another parent) | ✅ |
+| `U_NewParent` | Text | Target parent **commercial name** (the same value used as `MainProduct` / `U_SAP_Code` on product rows in `U_SHOPIFY_MAPPING_2`), NOT an item code. Required for `move`, ignored for `to_master` | For `move` |
+| `U_Status` | Text | `pending` (default) / `done` / `error` | ✅ |
+| `U_Error` | Text (254) | Error message when processing failed | Optional |
+| `U_Shopify_Store` | Text | Optional store key (`local` / `international`). Blank = apply to every enabled store where the variant exists. Set it to fix a single store (e.g. bad mappings in `international` only) | Optional |
+| `U_CreateDT` | Date | Date the request was created | ✅ |
+| `U_ProcessDT` | Date | Date the request was processed | Set by sync |
+
+Store filtering caveat: the SAP item's parent field (`U_ParentCommercialName`) is a single field per item, so it is updated globally even when `U_Shopify_Store` targets one store. Store-filtered operations are intended for repairing one store's Shopify data where SAP is already correct — NOT for putting the variant under different parents per store (unsupported by the data model).
+
+### Operation Semantics
+- **`to_master`**: The variant is deleted from its current Shopify product (the whole product is deleted if it was the last variant), the SAP item's parent field (`U_ParentCommercialName`) is **cleared** so the item becomes standalone, and the item is recreated in Shopify as a standalone product. Mapping rows in `U_SHOPIFY_MAPPING_2` are cleaned up and rewritten.
+- **`move`**: The variant is deleted from its current Shopify product (product deleted if last variant), the SAP item's parent field (`U_ParentCommercialName`) is set to the `U_NewParent` commercial name, and the variant is recreated under the new parent's existing Shopify product (resolved from the mapping table by `U_SAP_Code = U_NewParent`, `U_Shopify_Type = 'product'`, then **verified against Shopify** — a mapping row alone is not trusted).
+
+### Move: Special Cases
+- **Repair-only**: If the variant is already under the (verified) target product in Shopify, nothing is deleted or recreated — only the `U_SHOPIFY_MAPPING_2` rows for the variant are rewritten. This repairs cases where Shopify is correct but the mapping table is wrong.
+- **Stale / missing target parent (cleanup-and-defer)**: If the target parent has no product row in the mapping table, OR its mapped product **no longer exists in Shopify** (e.g. someone manually deleted it), the sync does NOT recreate anything inline. Instead it:
+  1. Deletes the misplaced variant from its wrong Shopify product (whole product if it was the last variant) and removes its mapping rows.
+  2. Deletes the stale `product` mapping row for the target parent (store-scoped, if one exists).
+  3. Finds sibling items in SAP (`Items` where `U_ParentCommercialName` = `U_NewParent`) that still have `variant`/`variant_inventory` mapping rows for this store but **no longer exist in Shopify** (orphans left by manual deletions), and deletes those stale rows too. Siblings that still exist in Shopify are left untouched (a warning is logged).
+  4. Patches `U_ParentCommercialName` on the moved item and marks the queue row `done`.
+  5. **Recreation is deferred to the regular new-items sync**: with the stale mappings gone, the next new-items cycle picks up the parent and recreates the product with ALL of its variants (the moved item plus any cleaned-up orphans).
+
+### Error Handling
+- Any failure marks the row `U_Status = 'error'` with the message in `U_Error`.
+- Rows are never retried automatically; fix the cause and reset `U_Status` to `pending` to reprocess.
+
 ## 4. SAP Endpoints Required
 
 ### Items Endpoints
