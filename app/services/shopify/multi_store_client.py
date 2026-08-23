@@ -715,15 +715,23 @@ class MultiStoreShopifyClient:
         """
         Update a variant directly using productVariantsBulkUpdate - no lookups needed
         """
-        # If product_id not provided, extract it from variant_id
+        # If product_id not provided, look it up. It used to be built by pasting the
+        # variant's numeric id into a Product gid, which is a different object entirely -
+        # the mutation then targeted a product that does not exist, Shopify replied with
+        # userErrors and changed nothing, and the caller logged it as a success.
         if not product_id:
-            variant_parts = variant_id.split('/')
-            if len(variant_parts) >= 2:
-                variant_number = variant_parts[-1]
-                product_id = f"gid://shopify/Product/{variant_number}"
-            else:
-                return {"msg": "failure", "error": f"Invalid variant ID format: {variant_id}"}
-        
+            lookup = await self.execute_query(
+                store_key,
+                "query($id: ID!) { productVariant(id: $id) { product { id } } }",
+                {"id": variant_id}
+            )
+            if lookup.get("msg") == "failure":
+                return lookup
+            variant_node = (lookup.get("data") or {}).get("productVariant") or {}
+            product_id = (variant_node.get("product") or {}).get("id")
+            if not product_id:
+                return {"msg": "failure", "error": f"Could not resolve product for variant {variant_id}"}
+
         # Prepare the variant update data
         variant_update_data = {
             "id": variant_id
@@ -765,7 +773,25 @@ class MultiStoreShopifyClient:
             "variants": [variant_update_data]
         }
         
-        return await self.execute_query(store_key, mutation, update_data)
+        result = await self.execute_query(store_key, mutation, update_data)
+        if result.get("msg") == "failure":
+            return result
+
+        # A GraphQL call that reaches Shopify and is rejected still comes back as a
+        # successful request. Without this check a refused price update was reported as
+        # applied, and the caller wrote a success row to U_API_LOG - which then made the
+        # price view skip that item on every later run.
+        payload = (result.get("data") or {}).get("productVariantsBulkUpdate") or {}
+        user_errors = payload.get("userErrors") or []
+        if user_errors:
+            return {"msg": "failure",
+                    "error": "productVariantsBulkUpdate userErrors: "
+                             + "; ".join(e.get("message", "") for e in user_errors)}
+        if not payload.get("productVariants"):
+            return {"msg": "failure",
+                    "error": f"productVariantsBulkUpdate returned no variant for {variant_id}"}
+
+        return result
     
     async def update_product(self, store_key: str, product_id: str, product_data: Dict[str, Any]) -> Dict[str, Any]:
         """
