@@ -16,6 +16,7 @@ from app.services.sap.client import SAPClient
 from app.core.config import config_settings
 from app.sync.sales.sap_operations import SAPOperations
 from app.sync.sales.returns_tracking import ReturnsTrackingDB
+from app.sync.sales import bundle_sku
 
 logger = logging.getLogger(__name__)
 
@@ -567,7 +568,8 @@ class ReturnsSyncV4:
                 return {"success": False, "return_id": return_id, "error": "No CardCode found in invoice"}
             
             # Extract returned items from return details
-            returned_items = self._extract_items_from_return_details(return_details, order, invoice_result)
+            await bundle_sku.prefetch_prices(order, store_key)
+            returned_items = self._extract_items_from_return_details(return_details, order, invoice_result, store_key)
             if not returned_items:
                 logger.warning(f"No returned items found in return {return_id}")
                 return {"success": False, "return_id": return_id, "error": "No returned items found"}
@@ -1238,8 +1240,8 @@ class ReturnsSyncV4:
             return self._analyze_order_location_from_retail_location(order, store_key)
 
     def _extract_items_from_return_details(
-        self, return_details: Dict[str, Any], order: Dict[str, Any], 
-        invoice_result: Dict[str, Any]
+        self, return_details: Dict[str, Any], order: Dict[str, Any],
+        invoice_result: Dict[str, Any], store_key: str
     ) -> List[Dict[str, Any]]:
         """
         Extract returned items from return details (reverseFulfillmentOrders)
@@ -1341,15 +1343,18 @@ class ReturnsSyncV4:
                     "UnitPrice": float(original_price),
                     "_line_item_id": line_item_id
                 }
-                
+
                 # Calculate discount if applicable
                 if original_price > 0 and sale_price > 0 and original_price != sale_price:
                     discount_amount = original_price - sale_price
                     discount_percentage = (discount_amount / original_price) * 100
                     returned_item["DiscountPercent"] = float(discount_percentage)
-                
-                returned_items.append(returned_item)
-                logger.info(f"Found returned item from return: {item_code}, Qty: {returned_qty}")
+
+                # A combo variant's SKU packs several SAP item codes - credit one line per
+                # component, matching how the invoice was written.
+                for component_code, component_price, _ in bundle_sku.split_line(item_code, original_price, store_key):
+                    returned_items.append(dict(returned_item, ItemCode=component_code, UnitPrice=float(component_price)))
+                    logger.info(f"Found returned item from return: {component_code}, Qty: {returned_qty}")
         
         return returned_items
 

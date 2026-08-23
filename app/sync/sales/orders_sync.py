@@ -13,6 +13,7 @@ from app.utils.ssl_cert import get_ssl_context
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.sync.sales.customers import CustomerManager
+from app.sync.sales import bundle_sku
 from datetime import datetime, date
 from order_location_mapper import OrderLocationMapper
 
@@ -757,8 +758,15 @@ class OrdersSalesSync:
                             if not matched:
                                 logger.warning(f"Could not find matching gift card for line item {item_code} with amount {original_price}. Available gift cards: {[gc.get('gift_card_id', 'N/A') for gc in created_gift_cards]}")
                     
-                    line_items.append(line_item)
-            
+                    # A combo variant's SKU packs several SAP item codes ("MOD-0000007,FG-0000909").
+                    # Expand it into one line per component - same quantity, price split by SAP
+                    # price list. DiscountPercent is a ratio so it carries over unchanged.
+                    for component_code, component_price, share in bundle_sku.split_line(item_code, original_price, store_key):
+                        component_line = dict(line_item, ItemCode=component_code, UnitPrice=float(component_price))
+                        if "U_ItemDiscountAmount" in component_line:
+                            component_line["U_ItemDiscountAmount"] = float(Decimal(str(component_line["U_ItemDiscountAmount"])) * share)
+                        line_items.append(component_line)
+
             # Extract payment info (needed for payment_id and other purposes)
             # Gift cards are now handled as payment methods in incoming payment, not as invoice expenses
             payment_info = self._extract_payment_info(order_node)
@@ -2882,6 +2890,9 @@ class OrdersSalesSync:
                     logger.warning(f"Failed to create gift cards in SAP for order {order_name}")
                     # Continue with invoice creation even if gift card creation fails
             
+            # Load SAP prices for any combo-variant SKUs before mapping (mapping is sync)
+            await bundle_sku.prefetch_prices(shopify_order.get("node", shopify_order), store_key)
+
             # Map order to SAP format (pass created gift cards for line item mapping)
             sap_invoice_data = self.map_shopify_order_to_sap(shopify_order, sap_customer["CardCode"], store_key, created_gift_cards)
             if not sap_invoice_data:
