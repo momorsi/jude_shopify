@@ -38,8 +38,10 @@ def build_executable():
     
     # Build the executable
     print("🔨 Building executable...")
+    # Invoke through the running interpreter - a bare "pyinstaller" is only on PATH
+    # when the venv is activated, which it often is not on the build server.
     result = subprocess.run([
-        "pyinstaller",
+        sys.executable, "-m", "PyInstaller",
         "--clean",
         "continuous_sync.spec"
     ], capture_output=True, text=True)
@@ -47,8 +49,10 @@ def build_executable():
     if result.returncode == 0:
         print("✅ Build completed successfully!")
         
-        # Check if executable was created
+        # Check if executable was created (.exe only exists when building on Windows)
         exe_path = dist_dir / "ShopifySAPIntegration.exe"
+        if not exe_path.exists():
+            exe_path = dist_dir / "ShopifySAPIntegration"
         if exe_path.exists():
             print(f"📦 Executable created: {exe_path}")
             print(f"📁 Size: {exe_path.stat().st_size / (1024*1024):.1f} MB")
