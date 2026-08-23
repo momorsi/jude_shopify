@@ -1,0 +1,43 @@
+name: Build Windows exe
+
+# PyInstaller cannot cross-compile, so the Windows executable for the production
+# server has to be produced on a Windows runner.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build
+        run: python build_exe.py
+
+      # Deliberately NOT running the exe here. Every sync writes to SAP or Shopify,
+      # and a runner has no business doing either. The bundle-load check belongs on
+      # a machine that can be trusted with the credentials.
+      - name: Check the executable exists
+        run: |
+          if (-not (Test-Path dist\ShopifySAPIntegration.exe)) { throw "exe not produced" }
+          Get-Item dist\ShopifySAPIntegration.exe | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShopifySAPIntegration-windows
+          path: |
+            dist/ShopifySAPIntegration.exe
+            dist/run_continuous_sync.bat
+            dist/color_metaobject_mappings.json
+          if-no-files-found: error
