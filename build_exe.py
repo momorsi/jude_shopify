@@ -9,6 +9,12 @@ import os
 import shutil
 from pathlib import Path
 
+# The progress messages below use emoji. A Windows console defaults to cp1252 and
+# raises UnicodeEncodeError on them, killing the build before PyInstaller even starts.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 def build_executable():
     """
     Build the executable using PyInstaller
