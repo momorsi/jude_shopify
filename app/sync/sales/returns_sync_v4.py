@@ -20,6 +20,10 @@ from app.sync.sales import bundle_sku
 
 logger = logging.getLogger(__name__)
 
+# Follow-up asks Shopify for tracked orders by id; chunked so the search query
+# string stays well inside Shopify's length limit.
+FOLLOWUP_ID_CHUNK = 50
+
 class ReturnsSyncV4:
     def __init__(self):
         self.shopify_client = MultiStoreShopifyClient()
@@ -110,8 +114,9 @@ class ReturnsSyncV4:
                         logger.info(f"No orders to check for follow-up (orders must be within last {days_old} days)")
                         return {"orders": {"edges": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}}
                     
-                    # Build query filter for specific order IDs
-                    # Extract numeric IDs from GraphQL IDs
+                    # Ask Shopify for exactly the tracked orders, by id. A tag+date filter
+                    # would return whatever orders happen to be oldest in the window and
+                    # silently drop the rest once the window holds more than one page.
                     order_numeric_ids = []
                     for oid in orders_to_check:
                         if "/" in oid:
@@ -119,18 +124,20 @@ class ReturnsSyncV4:
                         else:
                             order_numeric_ids.append(oid)
                     
-                    # Build query with order name filters (Shopify uses order name in queries)
-                    # We'll query by order name pattern or use a broader filter
-                    filter_query = (
-                        f"tag:sap_invoice_synced "
-                        f"tag:sap_payment_synced "
-                        f"-tag:sap_return_failed "
-                        f"created_at:>={(datetime.now() - timedelta(days=days_old)).strftime('%Y-%m-%d')}"
+                    filter_queries = [
+                        "(" + " OR ".join(f"id:{oid}" for oid in order_numeric_ids[i:i + FOLLOWUP_ID_CHUNK]) + ") "
+                        "-tag:sap_return_failed"
+                        for i in range(0, len(order_numeric_ids), FOLLOWUP_ID_CHUNK)
+                    ]
+                    page_size = FOLLOWUP_ID_CHUNK
+                    logger.info(
+                        f"Follow-up mode: Checking {len(orders_to_check)} orders for new returns "
+                        f"in {len(filter_queries)} request(s)"
                     )
-                    logger.info(f"Follow-up mode: Checking {len(orders_to_check)} orders for new returns")
                 else:
                     # Regular mode: new orders without sap_return_synced
-                    filter_query = (
+                    page_size = self.config.returns_batch_size
+                    filter_queries = [
                         f"""channel:{self.config.returns_channel}
                         fulfillment_status:fulfilled 
                         -financial_status:PENDING -financial_status:VOIDED -return_status:NO_RETURN 
@@ -140,7 +147,7 @@ class ReturnsSyncV4:
                         -tag:sap_return_synced
                         -tag:sap_return_failed
                         created_at:>={self.config.returns_from_date}"""
-                    )
+                    ]
                 
                 query = """
                 query getOrders($first: Int!, $after: String, $query: String) {
@@ -294,34 +301,34 @@ class ReturnsSyncV4:
                 }
                 """
                 
-                # For followup mode, filter results to only include orders we're tracking
-                result = await self.shopify_client.execute_query(
-                    store_key,
-                    query,
-                    {
-                        "first": self.config.returns_batch_size,
-                        "after": None,
-                        "query": filter_query
+                all_edges = []
+                error_msg = None
+                for filter_query in filter_queries:
+                    result = await self.shopify_client.execute_query(
+                        store_key,
+                        query,
+                        {
+                            "first": page_size,
+                            "after": None,
+                            "query": filter_query
+                        }
+                    )
+                    
+                    if result and result.get("msg") == "success" and "data" in result:
+                        all_edges.extend(result["data"].get("orders", {}).get("edges", []))
+                    else:
+                        error_msg = result.get("error", "Unknown error") if result else "No response"
+                        break
+                
+                if error_msg is None:
+                    logger.info(f"Retrieved {len(all_edges)} refunded orders from Shopify store {store_key}")
+                    return {
+                        "orders": {
+                            "edges": all_edges,
+                            "pageInfo": {"hasNextPage": False, "endCursor": None}
+                        }
                     }
-                )
-                
-                # Filter results in followup mode to only include tracked orders
-                if check_mode == "followup" and result.get("msg") == "success" and "data" in result:
-                    orders_to_check_set = set(orders_to_check)
-                    filtered_edges = []
-                    for edge in result["data"].get("orders", {}).get("edges", []):
-                        order_id = edge.get("node", {}).get("id", "")
-                        if order_id in orders_to_check_set:
-                            filtered_edges.append(edge)
-                    result["data"]["orders"]["edges"] = filtered_edges
-                    result["data"]["orders"]["pageInfo"]["hasNextPage"] = False  # Disable pagination for followup
-                
-                if result.get("msg") == "success" and "data" in result:
-                    orders = result["data"].get("orders", {}).get("edges", [])
-                    logger.info(f"Retrieved {len(orders)} refunded orders from Shopify store {store_key}")
-                    return result["data"]
                 else:
-                    error_msg = result.get("error", "Unknown error") if result else "No response"
                     logger.warning(f"GraphQL query attempt {attempt + 1} failed: {error_msg}")
                     
                     if attempt < max_retries - 1:
@@ -579,8 +586,12 @@ class ReturnsSyncV4:
             processed_return_ids = tracking_db.get_processed_return_ids(order_id)
             has_existing_returns = len(processed_return_ids) > 0
             
-            # For refund case (not multiple returns), reuse existing credit note if it exists
-            if existing_cn_entry and not has_existing_returns:
+            # For refund case (not multiple returns), reuse existing credit note if it exists.
+            # A later return covers different items, so it needs its own credit note --
+            # this single flag has to gate both the reuse branch and the create branch,
+            # or one is skipped without the other running.
+            reuse_credit_note = bool(existing_cn_entry) and not has_existing_returns
+            if reuse_credit_note:
                 logger.info(f"Found existing Credit Note {existing_cn_entry} for order {order_name}, reusing it")
                 
                 # Fetch credit note details from SAP
@@ -607,10 +618,10 @@ class ReturnsSyncV4:
                     }
                 else:
                     logger.warning(f"Failed to fetch existing credit note {existing_cn_entry}, will create new one")
-                    existing_cn_entry = None  # Fall through to create new credit note
+                    reuse_credit_note = False  # Fall through to create new credit note
             
-            # Create Credit Note if it doesn't exist
-            if not existing_cn_entry:
+            # Create Credit Note if we are not reusing one
+            if not reuse_credit_note:
                 # Check document status and reopen if needed
                 # Skip reopening if there are already processed returns (multiple returns scenario)
                 mapping = False
@@ -772,6 +783,17 @@ class ReturnsSyncV4:
             
             # Check for existing gift card invoice
             existing_invoice_entry = self._get_existing_gift_card_invoice_entry(order)
+            
+            # The tag lookup returns the FIRST gift card invoice on the order, which belongs
+            # to an earlier return and is already reconciled against that return's credit
+            # note. A later return has to get its own invoice, or reconciliation fails with
+            # "Reconciliation amount must be less than the balance due" [3821-7].
+            if existing_invoice_entry and tracking_db and tracking_db.get_processed_return_ids(order_id):
+                logger.info(
+                    f"Ignoring gift card invoice {existing_invoice_entry} from an earlier return "
+                    f"on order {order_name}; this return needs its own"
+                )
+                existing_invoice_entry = None
             
             if existing_invoice_entry:
                 logger.info(f"Found existing Gift Card Invoice {existing_invoice_entry} for order {order_name}, reusing it")
