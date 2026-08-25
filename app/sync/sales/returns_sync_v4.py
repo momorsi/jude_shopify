@@ -519,6 +519,27 @@ class ReturnsSyncV4:
                     results.append({"success": False, "return_id": return_id, "error": "Failed to get return details"})
                     continue
                 
+                if self._is_gift_card_only_return(return_details, order):
+                    logger.info(
+                        f"Return {return_id} on order {order_name} only covers gift card lines "
+                        f"(duplicate issued at the till) - recording as skipped, no SAP documents"
+                    )
+                    tracking_db.add_processed_return(
+                        order_id=order_id,
+                        order_name=order_name,
+                        order_created_at=order_created_at,
+                        return_id=return_id,
+                        credit_note_entry=None,
+                        items=[],
+                        skipped_reason="gift_card_only",
+                    )
+                    await self._add_order_tag_with_retry(
+                        order_id, f"sap_return_{return_id.split('/')[-1]}", store_key
+                    )
+                    results.append({"success": True, "return_id": return_id, "skipped": True,
+                                    "reason": "gift_card_only"})
+                    continue
+
                 # Process this single return
                 result = await self._process_single_return(
                     order, return_id, return_details, store_key, store_config, tracking_db, sap_doc_entries
@@ -2626,6 +2647,34 @@ class ReturnsSyncV4:
         
         return {"msg": "failure", "error": "Max retries exceeded"}
     
+    def _is_gift_card_only_return(
+        self, return_details: Dict[str, Any], order: Dict[str, Any]
+    ) -> bool:
+        """
+        True when every line the return covers is a gift card line rather than merchandise.
+
+        A till that issues the store-credit gift card twice leaves two identical gift card
+        lines on the order, and staff void the duplicate by returning one of them. That
+        return is a correction, not goods coming back: crediting it would refund the
+        customer a second time.
+        """
+        line_items = {
+            e.get("node", {}).get("id"): e.get("node", {})
+            for e in order.get("lineItems", {}).get("edges", [])
+        }
+
+        covered = []
+        for rfo_edge in return_details.get("reverseFulfillmentOrders", {}).get("edges", []):
+            for li_edge in rfo_edge.get("node", {}).get("lineItems", {}).get("edges", []):
+                node = li_edge.get("node", {})
+                line_item_id = ((node.get("fulfillmentLineItem") or {}).get("lineItem") or {}).get("id")
+                order_line = line_items.get(line_item_id)
+                if order_line is None:
+                    return False  # unknown line - do not assume it is a gift card
+                covered.append(order_line)
+
+        return bool(covered) and all(li.get("isGiftCard") for li in covered)
+
     def _has_return_tag(self, order: Dict[str, Any], return_id: str) -> bool:
         """Check if order has tag for specific return"""
         tags = order.get("tags", [])

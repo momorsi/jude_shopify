@@ -67,7 +67,7 @@ class ReturnsTrackingDB:
     def add_processed_return(
         self, order_id: str, order_name: str, order_created_at: str,
         return_id: str, credit_note_entry: int, items: List[Dict[str, Any]],
-        gift_card_id: str = None
+        gift_card_id: str = None, skipped_reason: str = None
     ):
         """Add a processed return to tracking"""
         if order_id not in self.data:
@@ -88,6 +88,10 @@ class ReturnsTrackingDB:
             "gift_card_id": gift_card_id,
             "items": items
         }
+        if skipped_reason:
+            # No SAP document was created; say why, so a null credit note entry is not
+            # mistaken for a failed run.
+            processed_return["skipped_reason"] = skipped_reason
         
         self.data[order_id]["processed_returns"].append(processed_return)
         self._save()
