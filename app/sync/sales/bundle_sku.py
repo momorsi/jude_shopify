@@ -49,38 +49,51 @@ def _collect_skus(order_node: Dict[str, Any]) -> Iterable[str]:
             yield sku
 
 
+async def load_prices(codes: Iterable[str], store_key: str) -> None:
+    """Warm the price cache for these item codes. Batched - one `or` chain per 50 codes,
+    because a few hundred item codes in a single $filter overflows the URL."""
+    price_list = _price_list_for(store_key)
+    missing = sorted({code for code in codes if (code, price_list) not in _price_cache})
+    if not missing:
+        return
+
+    for start in range(0, len(missing), 50):
+        chunk = missing[start:start + 50]
+        filter_query = " or ".join(f"ItemCode eq '{code}'" for code in chunk)
+        # Without Prefer the Service Layer pages at 20 rows and silently drops the rest of
+        # the chunk - the missing items then look like items that simply have no price.
+        result = await sap_client._make_request(
+            "GET", "Items",
+            params={"$filter": filter_query, "$select": "ItemCode,ItemPrices"},
+            headers={"Prefer": "odata.maxpagesize=50"}
+        )
+        if result.get("msg") != "success":
+            logger.error(f"Failed to load SAP prices for items {chunk}: {result.get('error')}")
+            continue
+
+        for item in (result.get("data") or {}).get("value", []):
+            for entry in item.get("ItemPrices", []):
+                if entry.get("PriceList") == price_list:
+                    _price_cache[(item["ItemCode"], price_list)] = Decimal(str(entry.get("Price") or 0))
+
+    logger.info(f"Loaded SAP price list {price_list} for {len(missing)} item(s)")
+
+
+def price_of(item_code: str, store_key: str) -> Decimal:
+    """Cached SAP price-list price for one item, or None if load_prices never found it."""
+    return _price_cache.get((item_code, _price_list_for(store_key)))
+
+
 async def prefetch_prices(order_node: Dict[str, Any], store_key: str) -> None:
     """Warm the price cache for every bundle component in an order, in one SAP call.
 
     Best-effort: a failure here is not fatal, split_line() raises later if a price
     it needs is genuinely unavailable.
     """
-    price_list = _price_list_for(store_key)
-    codes = {
-        code
-        for sku in _collect_skus(order_node)
-        if is_bundle(sku)
-        for code in split_sku(sku)
-    }
-    missing = sorted(code for code in codes if (code, price_list) not in _price_cache)
-    if not missing:
-        return
-
-    filter_query = " or ".join(f"ItemCode eq '{code}'" for code in missing)
-    result = await sap_client._make_request(
-        "GET", "Items",
-        params={"$filter": filter_query, "$select": "ItemCode,ItemPrices"}
+    await load_prices(
+        (code for sku in _collect_skus(order_node) if is_bundle(sku) for code in split_sku(sku)),
+        store_key,
     )
-    if result.get("msg") != "success":
-        logger.error(f"Failed to load SAP prices for bundle components {missing}: {result.get('error')}")
-        return
-
-    for item in (result.get("data") or {}).get("value", []):
-        for entry in item.get("ItemPrices", []):
-            if entry.get("PriceList") == price_list:
-                _price_cache[(item["ItemCode"], price_list)] = Decimal(str(entry.get("Price") or 0))
-
-    logger.info(f"Loaded SAP price list {price_list} for bundle components: {missing}")
 
 
 def split_line(sku: Any, unit_price: Decimal, store_key: str) -> List[Tuple[str, Decimal, Decimal]]:

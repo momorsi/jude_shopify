@@ -305,8 +305,9 @@ class MultiStoreNewItemsSync:
             "inventoryItem": inventory_item
         }
         
-        # Add compare price (regular price) if sale price is available
-        if sale_price is not None:
+        # compareAtPrice is always the regular SAP price: equal to price when there is no
+        # discount, higher when there is. Shopify only shows a sale badge on the gap.
+        if price:
             variant["compareAtPrice"] = str(price)
         
         # Add barcode directly to the variant if available
@@ -396,8 +397,9 @@ class MultiStoreNewItemsSync:
                 "inventoryItem": inventory_item
             }
             
-            # Add compare price (regular price) if sale price is available
-            if sale_price is not None:
+            # compareAtPrice is always the regular SAP price: equal to price when there is no
+            # discount, higher when there is. Shopify only shows a sale badge on the gap.
+            if price:
                 variant["compareAtPrice"] = str(price)
             
             # Add barcode directly to the variant if available
@@ -625,8 +627,9 @@ class MultiStoreNewItemsSync:
             "taxable": False  # Disable tax on this variant
         }
         
-        # Add compare price (regular price) if sale price is available
-        if sale_price is not None:
+        # compareAtPrice is always the regular SAP price: equal to price when there is no
+        # discount, higher when there is. Shopify only shows a sale badge on the gap.
+        if price:
             variant_data["compareAtPrice"] = str(price)
         
         # Store color for potential later use (not sent to GraphQL)
@@ -983,6 +986,13 @@ class MultiStoreNewItemsSync:
                 "inventoryItem": inventory_item
             }
             
+            # Carry the compare-at price over. This dict is rebuilt from scratch rather than
+            # passed through, so every field _create_variant set has to be copied here - the
+            # variant used to be created with a price and a blank compareAtPrice, and nothing
+            # refilled it afterwards: the price sync only emits items that changed that day.
+            if variant_data.get('compareAtPrice'):
+                variant_for_bulk["compareAtPrice"] = variant_data['compareAtPrice']
+
             # Add barcode directly to the variant if available
             if variant_data.get('barcode'):
                 variant_for_bulk["barcode"] = variant_data.get('barcode')
@@ -1117,6 +1127,13 @@ class MultiStoreNewItemsSync:
                     "inventoryItem": inventory_item
                 }
                 
+                # Carry the compare-at price over. This dict is rebuilt from scratch rather than
+                # passed through, so every field _create_variant set has to be copied here - the
+                # variant used to be created with a price and a blank compareAtPrice, and nothing
+                # refilled it afterwards: the price sync only emits items that changed that day.
+                if variant_data.get('compareAtPrice'):
+                    variant_for_bulk_metafield["compareAtPrice"] = variant_data['compareAtPrice']
+
                 if variant_data.get('barcode'):
                     variant_for_bulk_metafield["barcode"] = variant_data.get('barcode')
                 
