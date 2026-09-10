@@ -94,6 +94,20 @@ class OrdersSalesSync:
                             currencyCode
                         }
                         }
+                        # discountedPriceSet is what the customer actually paid for shipping;
+                        # totalShippingPriceSet above ignores shipping discounts.
+                        shippingLines(first: 5) {
+                        edges {
+                            node {
+                            discountedPriceSet {
+                                shopMoney {
+                                    amount
+                                    currencyCode
+                                }
+                            }
+                            }
+                        }
+                        }
 
                         # --- Discounts applied ---
                         discountApplications(first: 10) {
@@ -639,7 +653,7 @@ class OrdersSalesSync:
                         # Calculate discount percentage based on compareAtPrice vs sale price
                         # Note: For gift card lines, quantity is always 1
                         line_quantity = 1  # Gift card lines always have quantity 1
-                        if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                        if original_price > 0 and sale_price >= 0 and original_price != sale_price:
                             # Calculate discount percentage: (original - sale) / original * 100
                             unit_discount_amount = original_price - sale_price
                             discount_percentage = (unit_discount_amount / original_price) * 100
@@ -696,7 +710,7 @@ class OrdersSalesSync:
                     }
                     
                     # Calculate discount percentage based on compareAtPrice vs sale price
-                    if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                    if original_price > 0 and sale_price >= 0 and original_price != sale_price:
                         # Calculate discount percentage: (original - sale) / original * 100
                         unit_discount_amount = original_price - sale_price
                         discount_percentage = (unit_discount_amount / original_price) * 100
@@ -1414,12 +1428,31 @@ class OrdersSalesSync:
         Calculate freight expenses based on shipping fee and store configuration
         """
         try:
-            # Get shipping price from order
+            # Get shipping price from order. totalShippingPriceSet is the price BEFORE
+            # shipping discounts, so it still picks the right freight tier, but what the
+            # customer actually pays comes from the shipping lines' discountedPriceSet.
+            # Without this a "LOYALTY FREE SHIPPING" order is invoiced for freight the
+            # customer never paid and the invoice stays open by the shipping amount.
             shipping_price = float(order_node.get("totalShippingPriceSet", {}).get("shopMoney", {}).get("amount", 0))
-            
-            if shipping_price == 0:
+
+            shipping_line_edges = order_node.get("shippingLines", {}).get("edges", [])
+            if shipping_line_edges:
+                charged_shipping = sum(
+                    float((edge["node"].get("discountedPriceSet") or {}).get("shopMoney", {}).get("amount", 0))
+                    for edge in shipping_line_edges
+                )
+            else:
+                charged_shipping = shipping_price
+
+            if shipping_price == 0 or charged_shipping == 0:
+                if shipping_price and not charged_shipping:
+                    logger.info(f"Shipping fully discounted ({shipping_price} -> 0) - no freight expense on invoice")
                 return []
-            
+
+            # Ratio of what was charged vs. the tier price, so a partial shipping discount
+            # scales both freight lines instead of falling off the config lookup.
+            charged_share = charged_shipping / shipping_price
+
             # Get freight configuration from config_data
             from app.core.config import config_data
             freight_config = config_data['shopify'].get("freight_config", {})
@@ -1438,24 +1471,21 @@ class OrdersSalesSync:
                 
                 if shipping_price_str in store_freight_config:
                     config = store_freight_config[shipping_price_str]
-                    
-                    # Add revenue expense
-                    if "revenue" in config: 
-                        config["revenue"]["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
-                        config["revenue"]["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
-                        config["revenue"]["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                                                                          
-                        config["revenue"]["ExpenseCode"] = freight_code
-                        expenses.append(config["revenue"])
-                    
-                    # Add cost expense
-                    if "cost" in config:
-                        config["cost"]["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"                                             
-                        config["cost"]["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"                                             
-                        config["cost"]["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"                                             
-                        config["cost"]["ExpenseCode"] = freight_master_data["Cost"]
-                        expenses.append(config["cost"])
-                        
-                    logger.info(f"Applied freight expenses for shipping fee {shipping_price}: {expenses}")
+
+                    for kind, expense_code in (("revenue", freight_code), ("cost", freight_master_data["Cost"])):
+                        if kind not in config:
+                            continue
+                        # Copy: config_data is a process-wide singleton, writing into it
+                        # here would leak this order's costing codes into the next order.
+                        expense = dict(config[kind])
+                        expense["LineTotal"] = round(float(expense["LineTotal"]) * charged_share, 2)
+                        expense["ExpenseCode"] = expense_code
+                        expense["DistributionRule"] = costing_codes.get('CostingCode', 'ONL') if costing_codes else "ONL"
+                        expense["DistributionRule2"] = costing_codes.get('CostingCode2', 'ONL') if costing_codes else "ONL"
+                        expense["DistributionRule3"] = costing_codes.get('CostingCode3', 'ONL') if costing_codes else "ONL"
+                        expenses.append(expense)
+
+                    logger.info(f"Applied freight expenses for shipping fee {shipping_price} (charged {charged_shipping}): {expenses}")
                 else:
                     logger.warning(f"No freight configuration found for shipping fee {shipping_price} in local store")
                     
@@ -1465,7 +1495,7 @@ class OrdersSalesSync:
                 if dhl_config:
                     # Set the actual shipping price as the line total
                     dhl_expense = dhl_config.copy()
-                    dhl_expense["LineTotal"] = shipping_price
+                    dhl_expense["LineTotal"] = charged_shipping
                     
                     # Apply location-specific costing codes to DHL expense
                     if sap_codes:

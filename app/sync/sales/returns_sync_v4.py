@@ -1388,7 +1388,7 @@ class ReturnsSyncV4:
                 }
 
                 # Calculate discount if applicable
-                if original_price > 0 and sale_price > 0 and original_price != sale_price:
+                if original_price > 0 and sale_price >= 0 and original_price != sale_price:
                     discount_amount = original_price - sale_price
                     discount_percentage = (discount_amount / original_price) * 100
                     returned_item["DiscountPercent"] = float(discount_percentage)
@@ -1500,7 +1500,7 @@ class ReturnsSyncV4:
             }
             
             # Calculate discount if applicable
-            if original_price > 0 and sale_price > 0 and original_price != sale_price:
+            if original_price > 0 and sale_price >= 0 and original_price != sale_price:
                 discount_amount = original_price - sale_price
                 discount_percentage = (discount_amount / original_price) * 100
                 returned_item["DiscountPercent"] = float(discount_percentage)
