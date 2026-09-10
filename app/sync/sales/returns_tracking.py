@@ -118,27 +118,84 @@ class ReturnsTrackingDB:
         shopify_ids = set(shopify_return_ids)
         return shopify_ids.issubset(processed_ids) and len(shopify_ids) > 0
     
-    def get_orders_to_check(self, days_old: int = 30) -> List[str]:
-        """Get order IDs that are within the last N days (for follow-up sync)"""
-        cutoff_date = datetime.now() - timedelta(days=days_old)
-        orders_to_check = []
-        
-        for order_id, tracking in self.data.items():
-            created_at_str = tracking.get("created_at", "")
-            try:
-                # Handle both with and without timezone
-                if 'Z' in created_at_str or '+' in created_at_str:
-                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-                    created_at = created_at.replace(tzinfo=None)
-                else:
-                    created_at = datetime.fromisoformat(created_at_str)
-                
-                # Changed from <= to >= to get orders within last 30 days, not older than 30 days
-                if created_at >= cutoff_date:
-                    orders_to_check.append(order_id)
-            except Exception as e:
-                logger.warning(f"Error parsing created_at for order {order_id}: {e}")
-                continue
-        
-        return orders_to_check
+    def get_orders_to_check(self) -> List[str]:
+        """Tracked orders that could still produce a return.
 
+        This used to drop orders older than N days, which meant a return raised
+        more than N days after the sale could never reach SAP (order #9092 was
+        placed 2026-07-05 and its second return came 2026-09-06). Follow-up now
+        narrows on the Shopify side by updated_at instead, so the whole tracked
+        set is the right scope -- minus the orders with nothing left to return.
+        """
+        return [oid for oid, t in self.data.items() if not t.get("fully_returned")]
+
+    def is_fully_returned(self, order: Dict[str, Any]) -> bool:
+        """Can this order still produce a return we would have to process?
+
+        Shopify drops a line item's currentQuantity to 0 when it is returned or
+        refunded, so an order whose every non-gift-card line reads 0 -- and whose
+        returns are all processed -- can never produce another return.
+        """
+        order_id = order.get("id", "")
+        tracking = self.data.get(order_id)
+        if not tracking or tracking.get("fully_returned"):
+            return False
+
+        shopify_return_ids = [
+            e.get("node", {}).get("id")
+            for e in order.get("returns", {}).get("edges", [])
+            if e.get("node", {}).get("id")
+        ]
+        if not self.is_all_returns_processed(order_id, shopify_return_ids):
+            return False
+
+        line_edges = order.get("lineItems", {}).get("edges", [])
+        # The order query asks for 50 line items. At the cap we cannot see the whole
+        # order, so we cannot say it is exhausted -- keep checking it.
+        if not line_edges or len(line_edges) >= 50:
+            return False
+
+        for edge in line_edges:
+            line = edge.get("node", {})
+            if line.get("isGiftCard"):
+                # A gift card line is never returned; it keeps its quantity for ever.
+                continue
+            current = line.get("currentQuantity")
+            if current is None or current > 0:
+                return False
+
+        return True
+
+    def mark_fully_returned_if_exhausted(self, order: Dict[str, Any]) -> bool:
+        """Retire an order from follow-up once nothing on it can be returned again.
+
+        Carrying a spent order through every future window costs a processing pass
+        for nothing.
+        """
+        if not self.is_fully_returned(order):
+            return False
+
+        tracking = self.data[order.get("id", "")]
+        tracking["fully_returned"] = True
+        self._save()
+        logger.info(
+            f"Order {tracking.get('order_name')} has nothing left to return; "
+            f"retiring it from follow-up"
+        )
+        return True
+
+    def prune_fully_returned(self) -> int:
+        """Delete retired orders outright. Returns how many rows went.
+
+        Flagging already keeps them out of follow-up, so this only reclaims file
+        size -- at the cost of the record of which returns reached SAP. Deliberately
+        not called by the sync; run scripts/prune_returns_tracking.py if the file
+        ever grows enough to matter.
+        """
+        doomed = [oid for oid, t in self.data.items() if t.get("fully_returned")]
+        for oid in doomed:
+            del self.data[oid]
+        if doomed:
+            self._save()
+            logger.info(f"Pruned {len(doomed)} fully returned order(s) from tracking")
+        return len(doomed)

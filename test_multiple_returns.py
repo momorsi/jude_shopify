@@ -87,9 +87,11 @@ async def main():
 
     assert result.get("success"), f"second return failed: {result}"
 
-    # The earlier return's gift card invoice must not be reused or even fetched.
-    fetched = [c for c in sync.calls if c[0] == "sap_get" and "35651" in str(c[1])]
-    assert not fetched, f"reused the earlier return's gift card invoice: {fetched}"
+    # The earlier return's gift card invoice is read once, to check whose it is, and
+    # must then be left alone -- reconciliation goes against this return's own invoice.
+    reconciles = [c for c in sync.calls if c[0] == "reconcile"]
+    assert reconciles == [("reconcile", 3222, 36264)], \
+        f"must reconcile against this return's own invoice, got {reconciles}"
 
     created = [c for c in sync.calls if c[0] == "create_gift_card_invoice"]
     assert len(created) == 1, f"expected exactly one new gift card invoice, got {created}"

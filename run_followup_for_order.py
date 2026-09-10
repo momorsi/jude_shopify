@@ -22,7 +22,7 @@ class SingleOrderDB(ReturnsTrackingDB):
         super().__init__()
         self._only = order_gid
 
-    def get_orders_to_check(self, days_old=30):
+    def get_orders_to_check(self):
         return [self._only] if self._only in self.data else []
 
 

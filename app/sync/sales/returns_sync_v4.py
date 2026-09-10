@@ -20,9 +20,10 @@ from app.sync.sales import bundle_sku
 
 logger = logging.getLogger(__name__)
 
-# Follow-up asks Shopify for tracked orders by id; chunked so the search query
-# string stays well inside Shopify's length limit.
-FOLLOWUP_ID_CHUNK = 50
+# Follow-up pages through every order touched inside its window. Shopify caps a
+# page at 250 rows, but the per-order payload below costs ~12 points, so 100 rows
+# blows the 1000-point single-query limit. 50 leaves headroom.
+FOLLOWUP_PAGE_SIZE = 50
 
 class ReturnsSyncV4:
     def __init__(self):
@@ -106,35 +107,32 @@ class ReturnsSyncV4:
         for attempt in range(max_retries):
             try:
                 if check_mode == "followup":
-                    # For follow-up: get orders from tracking DB that are within the last N days
-                    days_old = self.config.returns_followup_days_old if hasattr(self.config, 'returns_followup_days_old') else 30
-                    orders_to_check = tracking_db.get_orders_to_check(days_old=days_old)
+                    # Ask Shopify which orders changed recently, not which orders are
+                    # young. Creating a return bumps the order's updatedAt, so that is
+                    # where the window belongs: order #9092 was placed 2026-07-05 and
+                    # its second return came 2026-09-06, so an order-age window could
+                    # never see it. Asking by tracked id instead costs a request per 50
+                    # tracked orders and grows for ever; this is one window query.
+                    tracked_order_ids = set(tracking_db.get_orders_to_check())
                     
-                    if not orders_to_check:
-                        logger.info(f"No orders to check for follow-up (orders must be within last {days_old} days)")
+                    if not tracked_order_ids:
+                        logger.info("No tracked orders to check for follow-up")
                         return {"orders": {"edges": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}}
                     
-                    # Ask Shopify for exactly the tracked orders, by id. A tag+date filter
-                    # would return whatever orders happen to be oldest in the window and
-                    # silently drop the rest once the window holds more than one page.
-                    order_numeric_ids = []
-                    for oid in orders_to_check:
-                        if "/" in oid:
-                            order_numeric_ids.append(oid.split("/")[-1])
-                        else:
-                            order_numeric_ids.append(oid)
-                    
+                    days_old = self.config.returns_followup_days_old if hasattr(self.config, 'returns_followup_days_old') else 30
+                    updated_since = (datetime.now() - timedelta(days=days_old)).strftime("%Y-%m-%d")
                     filter_queries = [
-                        "(" + " OR ".join(f"id:{oid}" for oid in order_numeric_ids[i:i + FOLLOWUP_ID_CHUNK]) + ") "
-                        "-tag:sap_return_failed"
-                        for i in range(0, len(order_numeric_ids), FOLLOWUP_ID_CHUNK)
+                        # -return_status:NO_RETURN, not return_status:RETURNED: an order
+                        # whose newest return is still open must not fall out of scope.
+                        f"updated_at:>={updated_since} -return_status:NO_RETURN -tag:sap_return_failed"
                     ]
-                    page_size = FOLLOWUP_ID_CHUNK
+                    page_size = FOLLOWUP_PAGE_SIZE
                     logger.info(
-                        f"Follow-up mode: Checking {len(orders_to_check)} orders for new returns "
-                        f"in {len(filter_queries)} request(s)"
+                        f"Follow-up mode: Checking orders updated since {updated_since} "
+                        f"against {len(tracked_order_ids)} tracked orders"
                     )
                 else:
+                    tracked_order_ids = None
                     # Regular mode: new orders without sap_return_synced
                     page_size = self.config.returns_batch_size
                     filter_queries = [
@@ -304,21 +302,42 @@ class ReturnsSyncV4:
                 all_edges = []
                 error_msg = None
                 for filter_query in filter_queries:
-                    result = await self.shopify_client.execute_query(
-                        store_key,
-                        query,
-                        {
-                            "first": page_size,
-                            "after": None,
-                            "query": filter_query
-                        }
-                    )
+                    after = None
+                    while True:
+                        result = await self.shopify_client.execute_query(
+                            store_key,
+                            query,
+                            {
+                                "first": page_size,
+                                "after": after,
+                                "query": filter_query
+                            }
+                        )
+                        
+                        if not (result and result.get("msg") == "success" and "data" in result):
+                            error_msg = result.get("error", "Unknown error") if result else "No response"
+                            break
+                        
+                        orders_page = result["data"].get("orders", {})
+                        all_edges.extend(orders_page.get("edges", []))
+                        page_info = orders_page.get("pageInfo") or {}
+                        # Regular mode deliberately takes one batch per run. Follow-up
+                        # must drain the window or it silently drops the tail.
+                        if check_mode != "followup" or not page_info.get("hasNextPage"):
+                            break
+                        after = page_info.get("endCursor")
                     
-                    if result and result.get("msg") == "success" and "data" in result:
-                        all_edges.extend(result["data"].get("orders", {}).get("edges", []))
-                    else:
-                        error_msg = result.get("error", "Unknown error") if result else "No response"
+                    if error_msg:
                         break
+                
+                if tracked_order_ids is not None:
+                    # Only orders we have a processing history for. An order carrying a
+                    # sap_return_synced tag but no tracking row would look entirely
+                    # unprocessed here and earn a duplicate credit note.
+                    all_edges = [
+                        e for e in all_edges
+                        if e.get("node", {}).get("id") in tracked_order_ids
+                    ]
                 
                 if error_msg is None:
                     logger.info(f"Retrieved {len(all_edges)} refunded orders from Shopify store {store_key}")
@@ -375,6 +394,9 @@ class ReturnsSyncV4:
                     processed += 1
                     if result.get("success"):
                         successful += 1
+                        # Nothing returnable left means no future return can arrive --
+                        # stop carrying this order through every follow-up window.
+                        tracking_db.mark_fully_returned_if_exhausted(order)
                     else:
                         errors += 1
                 except Exception as e:
@@ -602,16 +624,21 @@ class ReturnsSyncV4:
                 logger.warning(f"No returned items found in return {return_id}")
                 return {"success": False, "return_id": return_id, "error": "No returned items found"}
             
-            # Check if credit note already exists for this order (for refund case, not multiple returns)
-            existing_cn_entry = self._get_existing_credit_note_entry(order)
             processed_return_ids = tracking_db.get_processed_return_ids(order_id)
             has_existing_returns = len(processed_return_ids) > 0
             
-            # For refund case (not multiple returns), reuse existing credit note if it exists.
-            # A later return covers different items, so it needs its own credit note --
-            # this single flag has to gate both the reuse branch and the create branch,
-            # or one is skipped without the other running.
-            reuse_credit_note = bool(existing_cn_entry) and not has_existing_returns
+            # A credit note tagged on the order but recorded against no processed return
+            # is one this return already created on an earlier attempt that died before
+            # the gift card invoice -- resume it. Credit notes that tracking has already
+            # claimed belong to earlier returns and must not be touched, or a later
+            # return reconciles against the wrong document.
+            recorded_cn_entries = {
+                str(r.get("credit_note_entry"))
+                for r in (tracking_db.get_order_tracking(order_id) or {}).get("processed_returns", [])
+                if r.get("credit_note_entry")
+            }
+            existing_cn_entry = self._get_existing_credit_note_entry(order, recorded_cn_entries)
+            reuse_credit_note = bool(existing_cn_entry)
             if reuse_credit_note:
                 logger.info(f"Found existing Credit Note {existing_cn_entry} for order {order_name}, reusing it")
                 
@@ -620,11 +647,13 @@ class ReturnsSyncV4:
                     method='GET',
                     endpoint=f'CreditNotes({existing_cn_entry})',
                     params={
-                        "$select": "DocEntry,DocNum,DocTotal,CardCode,DocDate,TransNum,DocumentStatus,SalesPersonCode"
+                        "$select": "DocEntry,DocNum,DocTotal,CardCode,DocDate,TransNum,DocumentStatus,SalesPersonCode,DocumentLines"
                     }
                 )
                 
-                if cn_result.get("msg") == "success":
+                if cn_result.get("msg") == "success" and self._credit_note_matches_return(
+                    cn_result["data"], returned_items
+                ):
                     credit_note_data = cn_result["data"]
                     credit_note_doc_entry = int(existing_cn_entry)
                     credit_note_total = credit_note_data.get("DocTotal", 0)
@@ -637,6 +666,12 @@ class ReturnsSyncV4:
                         "doc_entry": credit_note_doc_entry,
                         "data": credit_note_data
                     }
+                elif cn_result.get("msg") == "success":
+                    logger.info(
+                        f"Credit Note {existing_cn_entry} does not match this return "
+                        f"(closed, or different items); creating a new one"
+                    )
+                    reuse_credit_note = False
                 else:
                     logger.warning(f"Failed to fetch existing credit note {existing_cn_entry}, will create new one")
                     reuse_credit_note = False  # Fall through to create new credit note
@@ -802,49 +837,19 @@ class ReturnsSyncV4:
                 processed_gift_card_ids = tracking_db.get_processed_gift_card_ids(order_id)
                 logger.info(f"Found {len(processed_gift_card_ids)} already processed gift card(s) for order {order_name}")
             
-            # Check for existing gift card invoice
-            existing_invoice_entry = self._get_existing_gift_card_invoice_entry(order)
+            # Resume the gift card invoice this return already created, if a previous
+            # attempt died after creating it. Invoices belonging to earlier returns are
+            # skipped -- they are already reconciled against their own credit note.
+            resumable_invoice = await self._find_resumable_gift_card_invoice(order, processed_gift_card_ids)
             
-            # The tag lookup returns the FIRST gift card invoice on the order, which belongs
-            # to an earlier return and is already reconciled against that return's credit
-            # note. A later return has to get its own invoice, or reconciliation fails with
-            # "Reconciliation amount must be less than the balance due" [3821-7].
-            if existing_invoice_entry and tracking_db and tracking_db.get_processed_return_ids(order_id):
-                logger.info(
-                    f"Ignoring gift card invoice {existing_invoice_entry} from an earlier return "
-                    f"on order {order_name}; this return needs its own"
-                )
-                existing_invoice_entry = None
-            
-            if existing_invoice_entry:
-                logger.info(f"Found existing Gift Card Invoice {existing_invoice_entry} for order {order_name}, reusing it")
-                # Fetch invoice details from SAP (including line items to get gift card ID)
-                invoice_result = await self.sap_client._make_request(
-                    method='GET',
-                    endpoint=f'Invoices({existing_invoice_entry})',
-                    params={"$select": "DocEntry,DocTotal,TransNum,CardCode,DocumentLines"}
-                )
-                
-                if invoice_result.get("msg") == "success":
-                    invoice_data = invoice_result["data"]
-                    invoice_doc_entry = int(existing_invoice_entry)
-                    invoice_trans_num = invoice_data.get("TransNum")
-                    
-                    # Try to get gift card ID from invoice line item
-                    gift_card_id = None
-                    document_lines = invoice_data.get("DocumentLines", [])
-                    for line in document_lines:
-                        u_gift_card = line.get("U_GiftCard")
-                        if u_gift_card:
-                            # Convert numeric ID back to GraphQL ID format
-                            gift_card_id = f"gid://shopify/GiftCard/{u_gift_card}"
-                            logger.info(f"Found gift card ID {gift_card_id} from existing invoice line item")
-                            break
-                    
-                    logger.info(f"✅ Reusing Gift Card Invoice {invoice_doc_entry}")
-                else:
-                    logger.error(f"Failed to fetch existing invoice {existing_invoice_entry}: {invoice_result.get('error')}")
-                    return {"success": False, "error": f"Failed to fetch existing invoice: {invoice_result.get('error')}"}
+            if resumable_invoice:
+                invoice_doc_entry = resumable_invoice["entry"]
+                invoice_data = resumable_invoice["data"]
+                invoice_trans_num = invoice_data.get("TransNum")
+                gift_card_id = resumable_invoice["gift_card_id"]
+                if gift_card_id:
+                    logger.info(f"Found gift card ID {gift_card_id} from existing invoice line item")
+                logger.info(f"✅ Reusing Gift Card Invoice {invoice_doc_entry}")
             else:
                 # No existing invoice, proceed with gift card and invoice creation
                 # Determine if order is online/web or POS
@@ -1005,25 +1010,104 @@ class ReturnsSyncV4:
                 
         return doc_entries
 
-    def _get_existing_credit_note_entry(self, order: Dict[str, Any]) -> Optional[str]:
-        """Check if credit note already exists for this order"""
-        tags = order.get("tags", [])
-        for tag in tags:
+    def _get_existing_credit_note_entry(
+        self, order: Dict[str, Any], exclude_entries: set = None
+    ) -> Optional[str]:
+        """The order's credit note that no processed return has claimed yet, if any.
+
+        An order accumulates one sap_return_cn_<entry> tag per return, so returning
+        the first tag blindly hands a later return the *earlier* return's credit
+        note. Anything already recorded in tracking is excluded.
+        """
+        exclude_entries = exclude_entries or set()
+        for tag in order.get("tags", []):
             if tag.startswith("sap_return_cn_"):
-                return tag.replace("sap_return_cn_", "")
+                entry = tag.replace("sap_return_cn_", "")
+                if entry not in exclude_entries:
+                    return entry
         return None
 
-    def _get_existing_gift_card_invoice_entry(self, order: Dict[str, Any]) -> Optional[str]:
-        """Check if gift card invoice already exists for this order"""
-        tags = order.get("tags", [])
-        for tag in tags:
+    @staticmethod
+    def _credit_note_matches_return(credit_note_data: Dict[str, Any], returned_items: List[Dict[str, Any]]) -> bool:
+        """Is this credit note the one this return would have created?
+
+        Reuse is only safe for a credit note that is still open and covers exactly
+        these items -- otherwise a leftover document from an unrelated failure gets
+        reconciled against the wrong return.
+        """
+        if credit_note_data.get("DocumentStatus") != "bost_Open":
+            return False
+        on_doc = {}
+        for line in credit_note_data.get("DocumentLines", []):
+            on_doc[line.get("ItemCode")] = on_doc.get(line.get("ItemCode"), 0) + float(line.get("Quantity") or 0)
+        wanted = {}
+        for item in returned_items:
+            wanted[item.get("ItemCode")] = wanted.get(item.get("ItemCode"), 0) + float(item.get("Quantity") or 0)
+        return on_doc == wanted
+
+    def _get_existing_gift_card_invoice_entries(self, order: Dict[str, Any]) -> List[str]:
+        """Every gift card invoice tagged on the order, oldest tag first."""
+        entries = []
+        for tag in order.get("tags", []):
             if tag.startswith("sap_giftcard_invoice_") and not tag.endswith("_synced"):
                 invoice_entry = tag.replace("sap_giftcard_invoice_", "")
                 # Validate that it's a numeric invoice entry (not a word like "failed")
                 if invoice_entry.isdigit():
-                    return invoice_entry
+                    entries.append(invoice_entry)
                 else:
                     logger.warning(f"Invalid gift card invoice tag found: {tag}, skipping")
+        return entries
+
+    async def _find_resumable_gift_card_invoice(
+        self, order: Dict[str, Any], processed_gift_card_ids: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """The order's gift card invoice that belongs to the return being processed.
+
+        An order collects one invoice per return. The invoice for a return already
+        recorded in tracking is reconciled against that return's credit note, so
+        reusing it fails with "Reconciliation amount must be less than the balance
+        due" [3821-7]. An invoice whose gift card no processed return claims is one
+        this return created on an earlier attempt that died before reconciling --
+        resume that rather than billing the customer a second invoice.
+        """
+        processed = set(processed_gift_card_ids)
+        for entry in self._get_existing_gift_card_invoice_entries(order):
+            result = await self.sap_client._make_request(
+                method='GET',
+                endpoint=f'Invoices({entry})',
+                params={"$select": "DocEntry,DocTotal,TransNum,CardCode,DocumentLines"}
+            )
+            if result.get("msg") != "success":
+                logger.warning(f"Could not read gift card invoice {entry}: {result.get('error')}")
+                continue
+            
+            data = result["data"]
+            gift_card_id = None
+            for line in data.get("DocumentLines", []):
+                u_gift_card = line.get("U_GiftCard")
+                if u_gift_card:
+                    gift_card_id = f"gid://shopify/GiftCard/{u_gift_card}"
+                    break
+            
+            if gift_card_id and gift_card_id in processed:
+                logger.info(
+                    f"Gift card invoice {entry} belongs to an earlier return on this order; "
+                    f"this return needs its own"
+                )
+                continue
+            
+            if not gift_card_id and processed:
+                # No U_GiftCard to identify it by, and this order has earlier returns
+                # that own an invoice each. Claiming it on a guess would reconcile this
+                # return against someone else's document; create a fresh one instead.
+                logger.warning(
+                    f"Gift card invoice {entry} carries no gift card reference and this "
+                    f"order has earlier returns; not resuming it"
+                )
+                continue
+            
+            return {"entry": int(entry), "data": data, "gift_card_id": gift_card_id}
+        
         return None
 
     async def _get_original_invoice(self, invoice_entry: str) -> Dict[str, Any]:
@@ -2225,8 +2309,8 @@ class ReturnsSyncV4:
         try:
             order_date = order_created_at.split("T")[0] if "T" in order_created_at else order_created_at
             query = """
-            query getGiftCards($query: String!) {
-                giftCards(first: 150, query: $query) {
+            query getGiftCards($query: String!, $after: String) {
+                giftCards(first: 250, query: $query, after: $after) {
                     edges {
                         node {
                             id   
@@ -2247,43 +2331,62 @@ class ReturnsSyncV4:
                             }
                         }
                     }
+                    pageInfo {
+                        hasNextPage
+                        endCursor
+                    }
                 }
             }
             """
             query_string = f"created_at:>={order_date}T00:00:00Z"
             
             max_retries = 3
-            retry_delay = 2
             
-            for attempt in range(max_retries):
-                try:
-                    result = await self.shopify_client.execute_query("local", query, {"query": query_string})
-                    
-                    if result["msg"] == "success":
-                        break
-                    else:
-                        logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
+            # Every gift card issued since the order, drained page by page. A single
+            # unpaginated page missed the store credit for order #9092's second return:
+            # the card sat 214 rows into a window the code only read 150 rows of, so a
+            # return raised months after the sale could never find its own gift card.
+            gift_cards_edges = []
+            after = None
+            while True:
+                retry_delay = 2
+                for attempt in range(max_retries):
+                    try:
+                        result = await self.shopify_client.execute_query(
+                            "local", query, {"query": query_string, "after": after}
+                        )
+                        
+                        if result["msg"] == "success":
+                            break
+                        else:
+                            logger.warning(f"GraphQL attempt {attempt + 1}/{max_retries} failed: {result.get('error', 'Unknown error')}")
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(retry_delay)
+                                retry_delay *= 2
+                    except Exception as e:
+                        logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
                         if attempt < max_retries - 1:
                             await asyncio.sleep(retry_delay)
                             retry_delay *= 2
-                except Exception as e:
-                    logger.error(f"GraphQL attempt {attempt + 1}/{max_retries} exception: {str(e)}")
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(retry_delay)
-                        retry_delay *= 2
-                    else:
-                        result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
-            
-            if result["msg"] == "failure":
-                logger.error(f"Failed to query gift cards: {result.get('error')}")
-                return []
-            
-            if not result.get("data") or not result["data"].get("giftCards"):
-                logger.warning(f"No gift cards data found in result")
-                return []
+                        else:
+                            result = {"msg": "failure", "error": f"All {max_retries} attempts failed: {str(e)}"}
+                
+                if result["msg"] == "failure":
+                    logger.error(f"Failed to query gift cards: {result.get('error')}")
+                    return []
+                
+                if not result.get("data") or not result["data"].get("giftCards"):
+                    logger.warning(f"No gift cards data found in result")
+                    return []
+                
+                page = result["data"]["giftCards"]
+                gift_cards_edges.extend(page.get("edges", []))
+                page_info = page.get("pageInfo") or {}
+                if not page_info.get("hasNextPage"):
+                    break
+                after = page_info.get("endCursor")
             
             gift_cards = []
-            gift_cards_edges = result["data"]["giftCards"].get("edges", [])
             for edge in gift_cards_edges:
                 try:
                     gift_card = edge.get("node", {})
