@@ -22,6 +22,7 @@ from app.sync.price_changes import price_changes_sync
 from app.sync.variant_operations import variant_operations_sync
 from app.utils.logging import logger
 from app.core.config import config_settings
+from app.utils.single_instance import claim_single_instance
 
 class ShopifySAPSync:
     """
@@ -29,6 +30,7 @@ class ShopifySAPSync:
     """
     
     def __init__(self):
+        claim_single_instance()
         self.new_items_sync = MultiStoreNewItemsSync()
 
         self.sales_orders_sync = OrdersSalesSync()

@@ -1,10 +1,10 @@
 fastapi>=0.104.0
 uvicorn>=0.24.0
-pydantic==2.3.0
-pydantic-settings==2.0.3
+pydantic>=2.9          # 2.3.0 has no cp313 wheel and its Rust core fails to build on 3.13
+pydantic-settings>=2.5
 python-dotenv==1.0.0
 requests==2.31.0
-aiohttp==3.8.5
+aiohttp>=3.10          # <3.9 has no Python 3.12+ support
 pytz>=2023.3
 tenacity>=8.2.3  # For retry logic
 python-json-logger>=2.0.7  # For structured logging
@@ -15,13 +15,8 @@ asyncio-mqtt==0.11.1
 websockets==11.0.3
 aiofiles==23.1.0
 typing-extensions>=4.8.0  # fastapi>=0.104 requires this; the old ==4.7.1 pin made the file unresolvable
-urllib3==2.0.4
-certifi==2023.7.22
-charset-normalizer==3.2.0
-idna==3.4
-multidict==6.0.4
-yarl==1.9.2
-attrs==23.1.0
-frozenlist==1.4.0
-aiosignal==1.3.1
 pyinstaller>=6.0  # continuous_sync.spec uses the PyInstaller 6 API (no a.zipfiles)
+
+# urllib3, certifi, charset-normalizer, idna, multidict, yarl, attrs, frozenlist and
+# aiosignal were pinned here as well. They are transitive dependencies of aiohttp and
+# requests, and the old pins had no cp313 wheels - they now resolve from their parents.

@@ -61,3 +61,5 @@ Pipfile.lock
 
 # Pyre type checker
 .pyre/ 
+# local virtualenv
+.venv/
