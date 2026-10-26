@@ -96,6 +96,52 @@ async def prefetch_prices(order_node: Dict[str, Any], store_key: str) -> None:
     )
 
 
+def collapse_groups(order_node: Dict[str, Any]) -> None:
+    """Fold each product-options build (Heirlooms) into its parent line, as a combo SKU.
+
+    The options app sells a build as a priced parent line - a Shopify-only SKU that is not
+    in SAP - plus one zero-priced line per chosen component, all sharing a lineItemGroup.
+    The parent's SKU becomes the components' SAP codes and the component lines are dropped,
+    so the parent's price is split across the components like any combo SKU, on the
+    invoice and the credit note alike. Components with their own price stay as normal
+    lines. Mutates order_node; running it twice is a no-op.
+    """
+    edges = order_node.get("lineItems", {}).get("edges", [])
+    parents: Dict[str, Dict[str, Any]] = {}
+    children: Dict[str, List[Dict[str, Any]]] = {}
+    for edge in edges:
+        item = edge.get("node", {})
+        group = item.get("lineItemGroup") or {}
+        if not group.get("id") or not group.get("variantSku"):
+            continue
+        if item.get("sku") == group["variantSku"]:
+            parents[group["id"]] = item
+        elif Decimal(item["originalUnitPriceSet"]["shopMoney"]["amount"]) == 0:
+            children.setdefault(group["id"], []).append(item)
+
+    folded_ids = set()
+    for group_id, parent in parents.items():
+        codes = []
+        for child in children.get(group_id, []):
+            per_build, remainder = divmod(child["quantity"], parent["quantity"])
+            if remainder or not child.get("sku"):
+                raise ValueError(
+                    f"Build '{parent.get('name')}' component '{child.get('name')}' has SKU "
+                    f"'{child.get('sku')}' and qty {child['quantity']} for {parent['quantity']} build(s) - cannot split"
+                )
+            codes += [child["sku"]] * per_build
+            folded_ids.add(child["id"])
+        if not codes:
+            continue
+        # Written to each component's SAP line, so the line shows which build it came from.
+        parent["bundle_parent"] = f"{parent.get('name')} ({parent['sku']})"[:100]
+        logger.info(f"Build {parent['bundle_parent']} x{parent['quantity']} -> components {codes}")
+        parent["sku"] = ",".join(codes)
+
+    if folded_ids:
+        order_node["lineItems"]["edges"] = [e for e in edges if e.get("node", {}).get("id") not in folded_ids]
+
+
 def split_line(sku: Any, unit_price: Decimal, store_key: str) -> List[Tuple[str, Decimal, Decimal]]:
     """Split one line into [(item_code, unit_price, share)] — one tuple per component.
 
@@ -171,6 +217,33 @@ def demo():
         pass
     else:
         raise AssertionError("expected ValueError for unpriced component")
+
+    # Build: priced parent + zero-priced components in one group fold into a combo SKU.
+    def line(line_id, sku, price, qty=1, group="g1"):
+        return {"node": {"id": line_id, "name": sku, "sku": sku, "quantity": qty,
+                         "originalUnitPriceSet": {"shopMoney": {"amount": price}},
+                         "lineItemGroup": {"id": group, "variantSku": "BUILD"} if group else None}}
+    order = {"lineItems": {"edges": [
+        line("p", "BUILD", "18800.0", 2), line("c1", "MOD-0000007", "0.0", 2),
+        line("c2", "FG-0000909", "0.0", 4), line("c3", "FG-0000909", "500.0", 2),
+        line("x", "FG-0000001", "3000.0", group=None)]}}
+    collapse_groups(order)
+    nodes = {e["node"]["id"]: e["node"] for e in order["lineItems"]["edges"]}
+    assert list(nodes) == ["p", "c3", "x"], nodes  # priced add-on and loose item untouched
+    assert nodes["p"]["sku"] == "MOD-0000007,FG-0000909,FG-0000909", nodes["p"]
+    assert nodes["p"]["bundle_parent"] == "BUILD (BUILD)"
+    collapse_groups(order)  # idempotent
+    assert nodes["p"]["sku"] == "MOD-0000007,FG-0000909,FG-0000909" and len(order["lineItems"]["edges"]) == 3
+    split = split_line(nodes["p"]["sku"], Decimal("18800"), "local")
+    assert sum(p for _, p, _ in split) == Decimal("18800"), split
+
+    # A component quantity that is not a whole multiple of the builds fails loudly.
+    try:
+        collapse_groups({"lineItems": {"edges": [line("p", "BUILD", "100", 2), line("c", "FG-0000909", "0", 3)]}})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for uneven component quantity")
 
     print("bundle_sku demo OK")
 

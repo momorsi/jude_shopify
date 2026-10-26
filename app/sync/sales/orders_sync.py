@@ -205,6 +205,10 @@ class OrdersSalesSync:
                             quantity
                             currentQuantity
                             sku
+                            lineItemGroup {
+                                id
+                                variantSku
+                            }
                             originalUnitPriceSet {
                                 shopMoney {
                                     amount
@@ -777,6 +781,8 @@ class OrdersSalesSync:
                     # price list. DiscountPercent is a ratio so it carries over unchanged.
                     for component_code, component_price, share in bundle_sku.split_line(item_code, original_price, store_key):
                         component_line = dict(line_item, ItemCode=component_code, UnitPrice=float(component_price))
+                        if item.get("bundle_parent"):
+                            component_line["FreeText"] = item["bundle_parent"]
                         if "U_ItemDiscountAmount" in component_line:
                             component_line["U_ItemDiscountAmount"] = float(Decimal(str(component_line["U_ItemDiscountAmount"])) * share)
                         line_items.append(component_line)
@@ -2921,6 +2927,7 @@ class OrdersSalesSync:
                     # Continue with invoice creation even if gift card creation fails
             
             # Load SAP prices for any combo-variant SKUs before mapping (mapping is sync)
+            bundle_sku.collapse_groups(shopify_order.get("node", shopify_order))
             await bundle_sku.prefetch_prices(shopify_order.get("node", shopify_order), store_key)
 
             # Map order to SAP format (pass created gift cards for line item mapping)

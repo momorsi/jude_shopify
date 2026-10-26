@@ -241,6 +241,10 @@ class ReturnsSyncV4:
                                             currentQuantity
                                             sku
                                             isGiftCard
+                                            lineItemGroup {
+                                                id
+                                                variantSku
+                                            }
                                             originalUnitPriceSet {
                                                 shopMoney {
                                                     amount
@@ -618,6 +622,7 @@ class ReturnsSyncV4:
                 return {"success": False, "return_id": return_id, "error": "No CardCode found in invoice"}
             
             # Extract returned items from return details
+            bundle_sku.collapse_groups(order)
             await bundle_sku.prefetch_prices(order, store_key)
             returned_items = self._extract_items_from_return_details(return_details, order, invoice_result, store_key)
             if not returned_items:
@@ -1470,6 +1475,8 @@ class ReturnsSyncV4:
                     "UnitPrice": float(original_price),
                     "_line_item_id": line_item_id
                 }
+                if order_line_item.get("bundle_parent"):
+                    returned_item["FreeText"] = order_line_item["bundle_parent"]
 
                 # Calculate discount if applicable
                 if original_price > 0 and sale_price >= 0 and original_price != sale_price:
