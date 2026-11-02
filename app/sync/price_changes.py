@@ -4,13 +4,43 @@ Syncs price changes from SAP to Shopify including product and variant price upda
 """
 
 import asyncio
-from typing import Dict, Any, List, Optional
+from decimal import Decimal
+from typing import Dict, Any, List, Optional, Tuple
 from app.services.sap.client import sap_client
 from app.services.shopify.multi_store_client import multi_store_shopify_client
 from app.core.config import config_settings
 from app.utils.logging import logger, log_sync_event
 from app.services.sap.api_logger import sl_add_log
 from datetime import datetime
+
+# Combo products: 27 option combinations, of which only 5 are real variants with a SKU. The
+# rest are no-SKU placeholders kept for the client's Shopify setup. SAP's view never reaches
+# them, so their prices go stale and the storefront shows the lowest one against the real
+# compare-at as a false discount. shortcut: fixed list, add new combo products here.
+PLACEHOLDER_PRODUCT_HANDLES = [
+    "loop-pendant", "loop-pendant-silver-pearl-white", "n-loop-pendant-rh-blue",
+    "n-loop-pendant-gold-brown", "n-drape-pendant-rh-white", "n-drape-pendant-rh-caramel",
+    "n-drape-pendant-gold-palm", "n-drape-pendant-gold-brown",
+    "n-cascade-tassle-pendant-gold-caramel", "n-cascade-tassle-pendant-rh-blue",
+]
+PLACEHOLDER_REAL_KINDS = {"Pendant Only", "Pendant & Chain", "Pendant & Cord"}
+PLACEHOLDER_PRODUCT_QUERY = """
+query($q: String) {
+  products(first: 1, query: $q) { edges { node { id handle
+    variants(first: 100) { edges { node { id title sku price } } } } } }
+}
+"""
+
+
+def placeholder_target_price(placeholder_title: str, real_variants: List[Dict[str, Any]]) -> Decimal:
+    """Price of the real variant with the same type and length, else the cheapest of that type."""
+    kind, length, _ = placeholder_title.split(" / ")
+    same_kind = [v for v in real_variants if v["title"].split(" / ")[0] == kind]
+    if not same_kind:
+        raise ValueError(f"no real variant for {placeholder_title!r}")
+    same_length = [v for v in same_kind if v["title"].split(" / ")[1] == length]
+    return min(Decimal(v["price"]) for v in same_length or same_kind)
+
 
 class PriceChangesSync:
     def __init__(self):
@@ -269,6 +299,46 @@ class PriceChangesSync:
             logger.error(f"Error processing price change for {sap_item.get('ItemCode', 'unknown')}: {str(e)}")
             return {"msg": "failure", "error": str(e)}
 
+    async def sync_placeholder_prices(self, store_key: str) -> Tuple[int, int]:
+        """
+        Copy real variant prices onto the combo products' placeholders. Price only: nothing
+        else on the variant changes. Returns (written, errors).
+        """
+        written = errors = 0
+        for handle in PLACEHOLDER_PRODUCT_HANDLES:
+            try:
+                result = await multi_store_shopify_client.execute_query(
+                    store_key, PLACEHOLDER_PRODUCT_QUERY, {"q": f"handle:{handle}"}
+                )
+                edges = ((result.get("data") or {}).get("products") or {}).get("edges") or []
+                if not edges or edges[0]["node"]["handle"] != handle:
+                    raise ValueError(f"product not found: {result.get('error')}")
+                product = edges[0]["node"]
+                variants = [edge["node"] for edge in product["variants"]["edges"]]
+                real = [v for v in variants if v["sku"]]
+                # Refuse to price anything that is not the known 5 real + 22 placeholder shape.
+                if len(variants) != 27 or len(real) != 5 or {v["title"].split(" / ")[0] for v in real} != PLACEHOLDER_REAL_KINDS:
+                    raise ValueError(f"unexpected shape: {len(variants)} variants, {len(real)} real")
+
+                for variant in variants:
+                    if variant["sku"]:
+                        continue
+                    target = placeholder_target_price(variant["title"], real)
+                    if Decimal(variant["price"]) == target:
+                        continue
+                    update = await self.update_variant_price(store_key, variant["id"], str(target), None, product["id"])
+                    if update["msg"] == "success":
+                        written += 1
+                    else:
+                        errors += 1
+                    await asyncio.sleep(0.2)
+            except Exception as e:
+                errors += 1
+                logger.error(f"❌ Placeholder price sync failed for {handle} in store {store_key}: {str(e)}")
+
+        logger.info(f"Placeholder prices for store {store_key}: {written} updated, {errors} errors")
+        return written, errors
+
     async def sync_price_changes(self) -> Dict[str, Any]:
         """
         Main sync function for price changes
@@ -298,9 +368,8 @@ class PriceChangesSync:
                 items = changes_result["data"]["items"]
                 if not items:
                     logger.info(f"No price changes found for store {store_key}")
-                    continue
-                
-                logger.info(f"Processing {len(items)} price changes for store {store_key}")
+                else:
+                    logger.info(f"Processing {len(items)} price changes for store {store_key}")
                 
                 for sap_item in items:
                     try:
@@ -324,6 +393,12 @@ class PriceChangesSync:
                         errors += 1
                         logger.error(f"❌ Exception processing price change for {sap_item.get('ItemCode', 'unknown')}: {str(e)}")
                         await asyncio.sleep(0.5)
+
+                # Every run, not only when the view has rows: it also repairs a failed write.
+                written, failed = await self.sync_placeholder_prices(store_key)
+                processed += written + failed
+                success += written
+                errors += failed
 
             # Log sync event
             log_sync_event(
