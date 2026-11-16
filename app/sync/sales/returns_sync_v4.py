@@ -21,9 +21,10 @@ from app.sync.sales import bundle_sku
 logger = logging.getLogger(__name__)
 
 # Follow-up pages through every order touched inside its window. Shopify caps a
-# page at 250 rows, but the per-order payload below costs ~12 points, so 100 rows
-# blows the 1000-point single-query limit. 50 leaves headroom.
-FOLLOWUP_PAGE_SIZE = 50
+# page at 250 rows, but the order query below hits the 1000-point single-query limit
+# well before that: Shopify prices 40 and 50 rows at 1010 and rejects every page.
+# 25 measured OK on both stores (2026-11-16).
+FOLLOWUP_PAGE_SIZE = 25
 
 class ReturnsSyncV4:
     def __init__(self):

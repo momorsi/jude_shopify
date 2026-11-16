@@ -95,7 +95,7 @@ async def main():
         "follow-up must not cost a request per page of tracked orders"
     # The per-order payload costs ~12 points; 100 rows exceeds Shopify's 1000-point
     # single-query limit, which is a runtime failure, not a slow query.
-    assert FOLLOWUP_PAGE_SIZE <= 50, "page size too large for the query cost limit"
+    assert FOLLOWUP_PAGE_SIZE <= 25, "40+ rows cost 1010 > 1000 on Shopify"
     cutoff = (datetime.now() - timedelta(days=FakeConfig.returns_followup_days_old)).strftime("%Y-%m-%d")
     for variables in sync.shopify_client.calls:
         fq = variables["query"]
