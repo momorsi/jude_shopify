@@ -258,6 +258,13 @@ class ReturnsSyncV4:
                                                     currencyCode
                                                 }
                                             }
+                                            discountAllocations {
+                                                discountApplication {
+                                                    ... on ManualDiscountApplication {
+                                                        manualTitle: title
+                                                    }
+                                                }
+                                            }
                                             variant {
                                                 id
                                                 sku

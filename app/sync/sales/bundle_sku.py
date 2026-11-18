@@ -12,6 +12,7 @@ list 7 for international / USD, per configurations.json). The last component abs
 the rounding remainder so the split always adds back up to what the customer paid.
 """
 
+import re
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -96,11 +97,26 @@ async def prefetch_prices(order_node: Dict[str, Any], store_key: str) -> None:
     )
 
 
+def _simple_bundles_parent(item: Dict[str, Any]) -> str:
+    """Line id of the bundle this line is a fully discounted Simple Bundles component of, or ""."""
+    if Decimal(item["discountedUnitPriceSet"]["shopMoney"]["amount"]) != 0:
+        return ""
+    for allocation in item.get("discountAllocations") or []:
+        # The app labels each component's discount "Simple Bundles: <bundle> | ID: <parent line id>".
+        title = (allocation.get("discountApplication") or {}).get("manualTitle") or ""
+        match = re.match(r"Simple Bundles:.*\bID: (\d+)$", title)
+        if match:
+            return f"gid://shopify/LineItem/{match.group(1)}"
+    return ""
+
+
 def collapse_groups(order_node: Dict[str, Any]) -> None:
-    """Fold each product-options build (Heirlooms) into its parent line, as a combo SKU.
+    """Fold each build (Heirlooms on the web, Simple Bundles on POS) into its parent line, as a combo SKU.
 
     The options app sells a build as a priced parent line - a Shopify-only SKU that is not
     in SAP - plus one zero-priced line per chosen component, all sharing a lineItemGroup.
+    Simple Bundles & Kits instead edits the order to add each component at full price with
+    a 100% discount that names the parent line.
     The parent's SKU becomes the components' SAP codes and the component lines are dropped,
     so the parent's price is split across the components like any combo SKU, on the
     invoice and the credit note alike. Components with their own price stay as normal
@@ -109,10 +125,15 @@ def collapse_groups(order_node: Dict[str, Any]) -> None:
     edges = order_node.get("lineItems", {}).get("edges", [])
     parents: Dict[str, Dict[str, Any]] = {}
     children: Dict[str, List[Dict[str, Any]]] = {}
+    by_id = {edge.get("node", {}).get("id"): edge.get("node", {}) for edge in edges}
     for edge in edges:
         item = edge.get("node", {})
         group = item.get("lineItemGroup") or {}
         if not group.get("id") or not group.get("variantSku"):
+            parent_id = _simple_bundles_parent(item)
+            if parent_id in by_id:
+                parents[parent_id] = by_id[parent_id]
+                children.setdefault(parent_id, []).append(item)
             continue
         if item.get("sku") == group["variantSku"]:
             parents[group["id"]] = item
@@ -140,6 +161,13 @@ def collapse_groups(order_node: Dict[str, Any]) -> None:
 
     if folded_ids:
         order_node["lineItems"]["edges"] = [e for e in edges if e.get("node", {}).get("id") not in folded_ids]
+        # The components' 100% discounts went with them - don't report them on the invoice.
+        applications = order_node.get("discountApplications")
+        if applications:
+            applications["edges"] = [
+                e for e in applications["edges"]
+                if not (e["node"].get("manualTitle") or "").startswith("Simple Bundles:")
+            ]
 
 
 def split_line(sku: Any, unit_price: Decimal, store_key: str) -> List[Tuple[str, Decimal, Decimal]]:
@@ -219,9 +247,11 @@ def demo():
         raise AssertionError("expected ValueError for unpriced component")
 
     # Build: priced parent + zero-priced components in one group fold into a combo SKU.
-    def line(line_id, sku, price, qty=1, group="g1"):
+    def line(line_id, sku, price, qty=1, group="g1", discounted=None, discount=None):
         return {"node": {"id": line_id, "name": sku, "sku": sku, "quantity": qty,
                          "originalUnitPriceSet": {"shopMoney": {"amount": price}},
+                         "discountedUnitPriceSet": {"shopMoney": {"amount": price if discounted is None else discounted}},
+                         "discountAllocations": [{"discountApplication": {"manualTitle": discount}}] if discount else [],
                          "lineItemGroup": {"id": group, "variantSku": "BUILD"} if group else None}}
     order = {"lineItems": {"edges": [
         line("p", "BUILD", "18800.0", 2), line("c1", "MOD-0000007", "0.0", 2),
@@ -244,6 +274,22 @@ def demo():
         pass
     else:
         raise AssertionError("expected ValueError for uneven component quantity")
+
+    # Simple Bundles (POS): components at full price, 100% off, discount names the parent line.
+    sb = "Simple Bundles: Essential Necklace Curation | ID: 111"
+    order = {"discountApplications": {"edges": [{"node": {"manualTitle": sb}}, {"node": {"manualTitle": "Staff"}}]},
+             "lineItems": {"edges": [
+        line("gid://shopify/LineItem/111", "Esscollpen", "15600.0", group=None),
+        line("c1", "FG-0000909", "7500.0", group=None, discounted="0.0", discount=sb),
+        line("c2", "MOD-0000007", "10700.0", group=None, discounted="0.0", discount=sb),
+        line("x", "FG-0000001", "3000.0", group=None, discounted="0.0", discount="Staff")]}}  # other 100% discount: untouched
+    collapse_groups(order)
+    nodes = {e["node"]["id"]: e["node"] for e in order["lineItems"]["edges"]}
+    assert list(nodes) == ["gid://shopify/LineItem/111", "x"], nodes
+    assert nodes["gid://shopify/LineItem/111"]["sku"] == "FG-0000909,MOD-0000007"
+    assert [e["node"]["manualTitle"] for e in order["discountApplications"]["edges"]] == ["Staff"]
+    collapse_groups(order)  # idempotent
+    assert nodes["gid://shopify/LineItem/111"]["sku"] == "FG-0000909,MOD-0000007" and len(order["lineItems"]["edges"]) == 2
 
     print("bundle_sku demo OK")
 

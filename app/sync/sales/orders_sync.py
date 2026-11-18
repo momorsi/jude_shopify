@@ -131,6 +131,9 @@ class OrdersSalesSync:
                             ... on AutomaticDiscountApplication {
                                 title
                             }
+                            ... on ManualDiscountApplication {
+                                manualTitle: title
+                            }
                             }
                         }
                         }
@@ -233,6 +236,9 @@ class OrdersSalesSync:
                                     }
                                     ... on DiscountCodeApplication {
                                         code
+                                    }
+                                    ... on ManualDiscountApplication {
+                                        manualTitle: title
                                     }
                                 }
                             }
